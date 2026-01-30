@@ -1,7 +1,28 @@
 /**
  * Haptic feedback utility for mobile devices
- * Works best on Android Chrome
+ * Uses native iOS haptics via NativeBridge when available,
+ * falls back to navigator.vibrate() for web/Android
  */
+
+import { isNativeApp } from './isNativeApp';
+
+type HapticType = 'light' | 'medium' | 'heavy' | 'success' | 'error' | 'navigation';
+
+/**
+ * Triggers haptic feedback using native bridge or web vibration API
+ */
+function triggerHaptic(type: HapticType, fallbackPattern: number | number[]): void {
+  // Try native bridge first (iOS app)
+  if (isNativeApp() && window.NativeBridge?.triggerHaptic) {
+    window.NativeBridge.triggerHaptic(type);
+    return;
+  }
+
+  // Fallback to web vibration API (Android Chrome)
+  if ('vibrate' in navigator) {
+    navigator.vibrate(fallbackPattern);
+  }
+}
 
 export const HapticFeedback = {
   /**
@@ -9,9 +30,7 @@ export const HapticFeedback = {
    * Use for: button presses, taps, mode switching
    */
   light: () => {
-    if ('vibrate' in navigator) {
-      navigator.vibrate(5);
-    }
+    triggerHaptic('light', 5);
   },
 
   /**
@@ -19,9 +38,15 @@ export const HapticFeedback = {
    * Use for: confirmations, successful actions
    */
   medium: () => {
-    if ('vibrate' in navigator) {
-      navigator.vibrate(10);
-    }
+    triggerHaptic('medium', 10);
+  },
+
+  /**
+   * Heavy feedback
+   * Use for: emphasis, important actions
+   */
+  heavy: () => {
+    triggerHaptic('heavy', 20);
   },
 
   /**
@@ -29,9 +54,7 @@ export const HapticFeedback = {
    * Use for: successful pairing, completing actions
    */
   success: () => {
-    if ('vibrate' in navigator) {
-      navigator.vibrate([15, 15, 15]);
-    }
+    triggerHaptic('success', [15, 15, 15]);
   },
 
   /**
@@ -39,9 +62,7 @@ export const HapticFeedback = {
    * Use for: errors, invalid actions
    */
   error: () => {
-    if ('vibrate' in navigator) {
-      navigator.vibrate([25, 15, 25]);
-    }
+    triggerHaptic('error', [25, 15, 25]);
   },
 
   /**
@@ -49,9 +70,7 @@ export const HapticFeedback = {
    * Use for: swipes, directional navigation
    */
   navigation: () => {
-    if ('vibrate' in navigator) {
-      navigator.vibrate(15);
-    }
+    triggerHaptic('navigation', 15);
   },
 
   /**

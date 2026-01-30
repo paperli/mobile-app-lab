@@ -1,5 +1,5 @@
 import { useRef, useCallback, useEffect } from 'react';
-import { NavigationDirection } from '@mobile-lab/shared';
+import { NavigationDirection } from '@mobile-app-lab/shared';
 import { HapticFeedback } from '../utils/haptics';
 
 interface SwipeConfig {

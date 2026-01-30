@@ -5,7 +5,7 @@ import {
   CONFIG,
   ConnectionStatus,
   NavigationEvent,
-} from '@mobile-lab/shared';
+} from '@mobile-app-lab/shared';
 
 export function useSocket() {
   const [socket, setSocket] = useState<Socket | null>(null);

@@ -5,7 +5,7 @@ import {
   CONFIG,
   ConnectionStatus,
   NavigationInputPayload,
-} from '@mobile-lab/shared';
+} from '@mobile-app-lab/shared';
 
 export function useSocket(onNavigationInput: (payload: NavigationInputPayload) => void) {
   const [socket, setSocket] = useState<Socket | null>(null);

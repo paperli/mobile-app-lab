@@ -1,10 +1,10 @@
-# CLAUDE.md - Mobile Lab Project Guide
+# CLAUDE.md - Mobile App Lab Project Guide
 
 This document provides comprehensive context for Claude Code (or any AI assistant) working on this project.
 
 ## Project Overview
 
-**Mobile Lab** is a real-time testbed for mobile-to-TV game connection patterns. It allows a mobile phone to act as a controller for a TV interface using WebSocket communication.
+**Mobile App Lab** is a real-time testbed for mobile-to-TV game connection patterns. It allows a mobile phone to act as a controller for a TV interface using WebSocket communication. The project includes both a web-based mobile controller and a native iOS shell app.
 
 ### Key Use Cases
 - Test mobile controller UX patterns (D-pad, joystick, trackpad)
@@ -32,7 +32,17 @@ This document provides comprehensive context for Claude Code (or any AI assistan
 ## Project Structure
 
 ```
-mobile-lab/
+mobile-app-lab/
+├── ios/                 # Native iOS app (SwiftUI)
+│   ├── MobileAppLab.xcodeproj/
+│   └── MobileAppLab/
+│       ├── App/                 # App entry point
+│       ├── Views/               # SwiftUI views (Pairing, QR Scanner, Controller)
+│       ├── WebView/             # WKWebView wrapper + JS bridge
+│       ├── Services/            # Haptics, deep link handling
+│       ├── Config/              # App configuration
+│       └── Resources/           # Assets, Info.plist
+│
 ├── packages/
 │   ├── shared/          # Shared TypeScript types & constants
 │   │   └── src/
@@ -76,8 +86,11 @@ mobile-lab/
 │           │   ├── useSocket.ts           # WebSocket connection
 │           │   ├── useSwipeGestures.ts    # Touch gesture detection
 │           │   └── useVoiceInput.ts       # Microphone access
-│           └── utils/
-│               └── haptics.ts             # Haptic feedback patterns
+│           ├── utils/
+│           │   ├── haptics.ts             # Haptic feedback (native bridge + web)
+│           │   └── isNativeApp.ts         # Native app detection
+│           └── types/
+│               └── native-bridge.d.ts     # TypeScript declarations for iOS bridge
 │
 ├── setup-https.sh       # HTTPS certificate setup (auto-updates .env files)
 ├── render.yaml          # Render.com deployment config
@@ -164,6 +177,16 @@ Both mobile and TV apps auto-detect protocol (http/https) from the page URL, ens
 ### Controller Layouts
 Default is **Square** layout. Other layouts (D-Pad, Joystick, Trackpad, Gamepad, Hybrid) are available but hidden by default. To enable the selector, modify `ControllerSelector.tsx`.
 
+### iOS Native App
+The iOS app (`ios/`) is a SwiftUI shell that hosts the mobile web controller in a WKWebView. Key features:
+- **Native Haptics**: Uses Core Haptics and UIFeedbackGenerator via JavaScript bridge
+- **QR Scanner**: Native AVFoundation camera for scanning TV QR codes
+- **Deep Linking**: Custom URL scheme `mobileapplab://pair?code=XXXXXX`
+- **Bundle ID**: `studio.paperworks.mobileapplab`
+- **Minimum iOS**: 15.0
+
+The web app detects the native bridge via `window.NativeBridge` and uses native haptics when available.
+
 ## Environment Variables
 
 ### packages/server/.env
@@ -204,6 +227,17 @@ npm run typecheck        # Type check all packages
 ### Deploying to Render.com
 The `render.yaml` file configures automatic deployment. See `DEPLOYMENT.md` for details.
 
+### Running the iOS App
+```bash
+# Open in Xcode
+open ios/MobileAppLab.xcodeproj
+
+# Or from command line
+xcodebuild -project ios/MobileAppLab.xcodeproj -scheme MobileAppLab -destination 'platform=iOS Simulator,name=iPhone 15'
+```
+
+The iOS app will connect to the web server running on your development machine. Update `AppConfig.swift` with your IP if needed.
+
 ## Troubleshooting
 
 ### "Port 5174 is in use"
@@ -241,6 +275,8 @@ Update `ALLOWED_ORIGINS` in `packages/server/.env` to include your IP address. T
 | +8 | Focus frame animations and audio feedback |
 | +9 | Dynamic mobile URL detection |
 | +10 | Automated setup script with .env updates |
+| +11 | Renamed to Mobile App Lab |
+| +12 | iOS native shell app with haptics and QR scanner |
 
 ## Code Style
 
@@ -267,3 +303,8 @@ Update `ALLOWED_ORIGINS` in `packages/server/.env` to include your IP address. T
 | `packages/tv/src/components/FocusFrame.tsx` | Focus frame styling (margin: 0.5vw) |
 | `packages/mobile/src/components/SquareController.tsx` | Main controller component |
 | `packages/server/src/index.ts` | Server entry, HTTPS/CORS setup |
+| `packages/mobile/src/utils/haptics.ts` | Haptic feedback (uses native bridge when available) |
+| `packages/mobile/src/utils/isNativeApp.ts` | Detects if running in iOS shell app |
+| `ios/MobileAppLab/Config/AppConfig.swift` | iOS app URL configuration |
+| `ios/MobileAppLab/WebView/NativeBridgeHandler.swift` | JavaScript bridge for native features |
+| `ios/MobileAppLab/Services/HapticService.swift` | iOS Core Haptics implementation |

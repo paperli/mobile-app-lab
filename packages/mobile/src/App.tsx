@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ControllerMode } from '@mobile-lab/shared';
+import { ControllerMode } from '@mobile-app-lab/shared';
 import { useSocket } from './hooks/useSocket';
 import { PairingScreen } from './components/PairingScreen';
 import { DPadController } from './components/DPadController';

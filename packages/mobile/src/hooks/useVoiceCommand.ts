@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import Fuse from 'fuse.js';
 import { useSpeechRecognition } from './useSpeechRecognition';
-import { PLACEHOLDER_GAMES } from '@mobile-lab/shared';
+import { PLACEHOLDER_GAMES } from '@mobile-app-lab/shared';
 
 interface VoiceCommand {
   command: string;

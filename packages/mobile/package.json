@@ -1,5 +1,5 @@
 {
-  "name": "@mobile-lab/mobile",
+  "name": "@mobile-app-lab/mobile",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mobile-lab/shared": "*",
+    "@mobile-app-lab/shared": "*",
     "fuse.js": "^7.1.0",
     "lucide-react": "^0.562.0",
     "react": "^18.2.0",

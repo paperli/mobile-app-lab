@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavigationDirection, NavigationAction } from '@mobile-lab/shared';
+import { NavigationDirection, NavigationAction } from '@mobile-app-lab/shared';
 import { HapticFeedback } from '../utils/haptics';
 
 interface DPadControllerProps {

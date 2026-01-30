@@ -5,7 +5,7 @@ import {
   RoomCreatePayload,
   RoomJoinPayload,
   NavigationInputPayload,
-} from '@mobile-lab/shared';
+} from '@mobile-app-lab/shared';
 
 export function setupSocketHandlers(io: Server, roomManager: RoomManager) {
   io.on('connection', (socket: Socket) => {

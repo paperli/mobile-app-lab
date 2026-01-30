@@ -1,5 +1,5 @@
 {
-  "name": "@mobile-lab/server",
+  "name": "@mobile-app-lab/server",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mobile-lab/shared": "*",
+    "@mobile-app-lab/shared": "*",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/node": "^20.10.6",

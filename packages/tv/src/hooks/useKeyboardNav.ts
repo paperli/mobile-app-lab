@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useRef } from 'react';
-import { NavigationDirection, NavigationAction } from '@mobile-lab/shared';
+import { NavigationDirection, NavigationAction } from '@mobile-app-lab/shared';
 import { soundManager } from '../utils/sounds';
 
 interface UseKeyboardNavProps {

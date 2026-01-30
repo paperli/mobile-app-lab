@@ -9,7 +9,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { RoomManager } from './room-manager.js';
 import { setupSocketHandlers } from './socket-handler.js';
-import { CONFIG } from '@mobile-lab/shared';
+import { CONFIG } from '@mobile-app-lab/shared';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

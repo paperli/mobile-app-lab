@@ -1,4 +1,4 @@
-import { RoomInfo, DeviceType } from '@mobile-lab/shared';
+import { RoomInfo, DeviceType } from '@mobile-app-lab/shared';
 
 interface Room {
   code: string;

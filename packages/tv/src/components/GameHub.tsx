@@ -1,4 +1,4 @@
-import { PLACEHOLDER_GAMES, GameData, NavigationDirection, NavigationAction } from '@mobile-lab/shared';
+import { PLACEHOLDER_GAMES, GameData, NavigationDirection, NavigationAction } from '@mobile-app-lab/shared';
 import { QRCodeSVG } from 'qrcode.react';
 import { GameTile } from './GameTile';
 import { GamePreview } from './GamePreview';

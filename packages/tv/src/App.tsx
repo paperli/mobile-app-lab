@@ -4,7 +4,7 @@ import {
   NavigationDirection,
   NavigationAction,
   PLACEHOLDER_GAMES,
-} from '@mobile-lab/shared';
+} from '@mobile-app-lab/shared';
 import { GameHub } from './components/GameHub';
 import { useSocket } from './hooks/useSocket';
 import { soundManager } from './utils/sounds';

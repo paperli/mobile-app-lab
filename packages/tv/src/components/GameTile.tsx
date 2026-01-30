@@ -1,4 +1,4 @@
-import { GameData } from '@mobile-lab/shared';
+import { GameData } from '@mobile-app-lab/shared';
 
 interface GameTileProps {
   game: GameData;

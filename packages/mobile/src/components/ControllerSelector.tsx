@@ -1,4 +1,4 @@
-import { ControllerMode } from '@mobile-lab/shared';
+import { ControllerMode } from '@mobile-app-lab/shared';
 import { HapticFeedback } from '../utils/haptics';
 
 interface ControllerSelectorProps {

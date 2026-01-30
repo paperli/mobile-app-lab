@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Undo2 } from 'lucide-react';
-import { NavigationDirection, NavigationAction } from '@mobile-lab/shared';
+import { NavigationDirection, NavigationAction } from '@mobile-app-lab/shared';
 import { useSwipeGestures } from '../hooks/useSwipeGestures';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import { HapticFeedback } from '../utils/haptics';
