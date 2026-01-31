@@ -9,6 +9,7 @@ struct QRScannerView: View {
     @StateObject private var scanner = QRScannerController()
     @State private var hasPermission = false
     @State private var showPermissionDenied = false
+    @State private var hasCalledBack = false
 
     var body: some View {
         NavigationView {
@@ -57,17 +58,23 @@ struct QRScannerView: View {
             }
             .modifier(HiddenNavigationBarModifier())
             .onAppear {
+                setupScannerCallback()
                 checkPermissionAndStart()
             }
             .onDisappear {
                 scanner.stop()
+                scanner.onCodeScanned = nil
             }
-            .onChange(of: scanner.scannedCode) { code in
-                if let code = code {
-                    HapticService.shared.trigger(.success)
-                    onCodeScanned(code)
-                }
-            }
+        }
+    }
+
+    private func setupScannerCallback() {
+        scanner.onCodeScanned = { [self] code in
+            // Prevent multiple callbacks
+            guard !hasCalledBack else { return }
+            hasCalledBack = true
+            HapticService.shared.trigger(.success)
+            onCodeScanned(code)
         }
     }
 
@@ -103,9 +110,19 @@ class QRScannerController: NSObject, ObservableObject, AVCaptureMetadataOutputOb
     let session = AVCaptureSession()
     @Published var scannedCode: String?
 
+    /// Callback when a code is successfully scanned
+    var onCodeScanned: ((String) -> Void)?
+
     private var isConfigured = false
+    private var hasScanned = false
 
     func start() {
+        // Reset state when starting a new scan session
+        hasScanned = false
+        DispatchQueue.main.async { [weak self] in
+            self?.scannedCode = nil
+        }
+
         guard !isConfigured else {
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 self?.session.startRunning()
@@ -122,6 +139,12 @@ class QRScannerController: NSObject, ObservableObject, AVCaptureMetadataOutputOb
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             self?.session.stopRunning()
         }
+    }
+
+    /// Reset state to allow scanning again
+    func reset() {
+        hasScanned = false
+        scannedCode = nil
     }
 
     private func configureSession() {
@@ -149,7 +172,8 @@ class QRScannerController: NSObject, ObservableObject, AVCaptureMetadataOutputOb
     }
 
     func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
-        guard scannedCode == nil,
+        // Prevent multiple scans
+        guard !hasScanned,
               let object = metadataObjects.first as? AVMetadataMachineReadableCodeObject,
               let stringValue = object.stringValue else {
             return
@@ -158,8 +182,14 @@ class QRScannerController: NSObject, ObservableObject, AVCaptureMetadataOutputOb
         // Parse the code from the URL
         if let url = URL(string: stringValue),
            let code = AppConfig.parseDeepLink(url) {
+            hasScanned = true
             scannedCode = code
             stop()
+
+            // Call the callback on main thread
+            DispatchQueue.main.async { [weak self] in
+                self?.onCodeScanned?(code)
+            }
         }
     }
 }
