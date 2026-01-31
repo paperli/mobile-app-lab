@@ -31,8 +31,15 @@ enum AppConfig {
         if let envURL = ProcessInfo.processInfo.environment["MOBILE_WEB_URL"] {
             return envURL
         }
-        // Default to localhost for simulator
+
+        #if targetEnvironment(simulator)
+        // Simulator can use localhost
         return "https://localhost:5174"
+        #else
+        // Physical device needs the Mac's network IP
+        // Update this IP when your network changes (run ./setup-https.sh)
+        return "https://192.168.50.72:5174"
+        #endif
     }
 
     // MARK: - URL Construction

@@ -260,6 +260,46 @@ The TV page was refreshed and created a new room. Get the new 6-digit code from 
 ### CORS errors
 Update `ALLOWED_ORIGINS` in `packages/server/.env` to include your IP address. The setup script does this automatically.
 
+### iOS App Connection Issues
+
+The iOS shell app requires specific configuration to connect to the development server. Here's a checklist:
+
+**1. Network IP Configuration (not localhost)**
+- Physical iOS devices cannot use `localhost` - it refers to the iPhone itself
+- `AppConfig.swift` must use the Mac's network IP for physical devices
+- The code uses `#if targetEnvironment(simulator)` to handle this automatically
+- When your IP changes, update the IP in `AppConfig.swift`
+
+**2. Server ALLOWED_ORIGINS**
+- `packages/server/.env` must include the network IP in `ALLOWED_ORIGINS`
+- Example: `ALLOWED_ORIGINS=https://localhost:5173,https://localhost:5174,...,https://192.168.50.72:5173,https://192.168.50.72:5174`
+
+**3. Mobile Web App Server URL**
+- `packages/mobile/.env` should NOT set `VITE_SERVER_URL` (leave it commented out)
+- The web app auto-detects the server URL from `window.location.hostname`
+- This allows it to work for both localhost (browser) and network IP (iOS device)
+
+**4. WebView Duplicate Load Prevention**
+- `WebViewContainer.swift` uses `loadURLIfNeeded()` to prevent multiple rapid `load()` calls
+- SwiftUI's `updateUIView` can be called multiple times during state changes
+- Without this protection, requests get cancelled with error -999 (NSURLErrorCancelled)
+
+**5. App Transport Security (ATS)**
+- `Info.plist` includes `NSAllowsArbitraryLoads` and `NSAllowsLocalNetworking` for development
+- The WebView's SSL challenge handler accepts self-signed certs in DEBUG builds
+
+**Quick Fix Checklist for iOS Connection:**
+```bash
+# 1. Get your current IP
+ipconfig getifaddr en0
+
+# 2. Update AppConfig.swift with your IP (for physical device section)
+# 3. Update packages/server/.env ALLOWED_ORIGINS with your IP
+# 4. Ensure packages/mobile/.env has VITE_SERVER_URL commented out
+# 5. Restart servers: npm run dev
+# 6. Rebuild iOS app in Xcode (Cmd+B, Cmd+R)
+```
+
 ## Project History (Key Commits)
 
 | Date | Feature |
