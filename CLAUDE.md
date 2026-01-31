@@ -300,6 +300,71 @@ ipconfig getifaddr en0
 # 6. Rebuild iOS app in Xcode (Cmd+B, Cmd+R)
 ```
 
+### SwiftUI State Management Patterns
+
+These patterns were discovered while fixing QR scanner issues:
+
+**1. Use `fullScreenCover(item:)` instead of `fullScreenCover(isPresented:)`**
+- When presenting a modal that needs data (like a room code), use the item-based API
+- With `isPresented` + separate state variables, race conditions can cause empty data
+- With `item`, the data is captured atomically when the cover is presented
+```swift
+// BAD: Two separate states can get out of sync
+@State private var showController = false
+@State private var roomCode = ""
+.fullScreenCover(isPresented: $showController) {
+    ControllerView(roomCode: roomCode)  // roomCode might be empty!
+}
+
+// GOOD: Single state, data is guaranteed
+@State private var activeRoom: RoomItem?
+.fullScreenCover(item: $activeRoom) { room in
+    ControllerView(roomCode: room.code)  // code is always valid
+}
+```
+
+**2. Use sheet's `onDismiss` for state transitions**
+- Don't call callbacks while a sheet is still dismissing
+- Store pending data, dismiss the sheet, then process in `onDismiss`
+```swift
+@State private var pendingCode: String?
+.sheet(isPresented: $showScanner, onDismiss: {
+    if let code = pendingCode {
+        pendingCode = nil
+        onCodeEntered(code)  // Called after sheet is fully dismissed
+    }
+}) {
+    ScannerView { code in
+        pendingCode = code
+        showScanner = false  // Just dismiss, don't process yet
+    }
+}
+```
+
+**3. UIViewRepresentable layout with preview layers**
+- `AVCaptureVideoPreviewLayer` needs proper frame updates
+- Use a custom UIView subclass that overrides `layoutSubviews()`
+- Don't rely on `updateUIView` for frame updates
+```swift
+class CameraPreviewUIView: UIView {
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        previewLayer.frame = bounds  // Always updates correctly
+    }
+}
+```
+
+**4. Callback patterns over `onChange` for time-sensitive operations**
+- SwiftUI's `onChange` may not fire immediately or reliably for fast operations
+- For QR scanning, use direct callbacks instead of observing `@Published` values
+```swift
+// Set up callback before operation starts
+scanner.onCodeScanned = { code in
+    handleCode(code)
+}
+scanner.start()
+```
+
 ## Project History (Key Commits)
 
 | Date | Feature |
@@ -317,6 +382,8 @@ ipconfig getifaddr en0
 | +10 | Automated setup script with .env updates |
 | +11 | Renamed to Mobile App Lab |
 | +12 | iOS native shell app with haptics and QR scanner |
+| +13 | Fix iOS WebView connection issues (network IP, CORS, ATS) |
+| +14 | Fix QR scanner camera preview and first-scan reliability |
 
 ## Code Style
 
