@@ -7,6 +7,7 @@ struct PairingView: View {
 
     @State private var showScanner = false
     @State private var showCodeEntry = false
+    @State private var pendingCode: String?
 
     var body: some View {
         ZStack {
@@ -87,16 +88,28 @@ struct PairingView: View {
             }
             .padding()
         }
-        .sheet(isPresented: $showScanner) {
-            QRScannerView { code in
-                showScanner = false
+        .sheet(isPresented: $showScanner, onDismiss: {
+            // Process pending code after sheet is fully dismissed
+            if let code = pendingCode {
+                pendingCode = nil
                 onCodeEntered(code)
             }
+        }) {
+            QRScannerView { code in
+                // Store code and dismiss - onDismiss will process it
+                pendingCode = code
+                showScanner = false
+            }
         }
-        .sheet(isPresented: $showCodeEntry) {
-            CodeEntryView { code in
-                showCodeEntry = false
+        .sheet(isPresented: $showCodeEntry, onDismiss: {
+            if let code = pendingCode {
+                pendingCode = nil
                 onCodeEntered(code)
+            }
+        }) {
+            CodeEntryView { code in
+                pendingCode = code
+                showCodeEntry = false
             }
         }
     }
