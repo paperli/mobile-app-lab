@@ -169,25 +169,45 @@ class QRScannerController: NSObject, ObservableObject, AVCaptureMetadataOutputOb
 struct CameraPreviewView: UIViewRepresentable {
     let session: AVCaptureSession
 
-    func makeUIView(context: Context) -> UIView {
-        let view = UIView(frame: .zero)
-        let previewLayer = AVCaptureVideoPreviewLayer(session: session)
-        previewLayer.videoGravity = .resizeAspectFill
-        view.layer.addSublayer(previewLayer)
-        context.coordinator.previewLayer = previewLayer
+    func makeUIView(context: Context) -> CameraPreviewUIView {
+        let view = CameraPreviewUIView()
+        view.session = session
         return view
     }
 
-    func updateUIView(_ uiView: UIView, context: Context) {
-        context.coordinator.previewLayer?.frame = uiView.bounds
+    func updateUIView(_ uiView: CameraPreviewUIView, context: Context) {
+        // Session is already set, layout is handled by the UIView subclass
+    }
+}
+
+/// Custom UIView that properly handles AVCaptureVideoPreviewLayer layout
+class CameraPreviewUIView: UIView {
+    var session: AVCaptureSession? {
+        didSet {
+            guard let session = session else { return }
+            previewLayer.session = session
+        }
     }
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
+    private lazy var previewLayer: AVCaptureVideoPreviewLayer = {
+        let layer = AVCaptureVideoPreviewLayer()
+        layer.videoGravity = .resizeAspectFill
+        return layer
+    }()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        layer.addSublayer(previewLayer)
     }
 
-    class Coordinator {
-        var previewLayer: AVCaptureVideoPreviewLayer?
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // Update preview layer frame whenever the view's layout changes
+        previewLayer.frame = bounds
     }
 }
 
