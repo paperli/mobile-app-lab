@@ -3,6 +3,7 @@ import SwiftUI
 /// Full-screen modal that hosts the web controller
 struct ControllerModalView: View {
     let roomCode: String
+    let sourceURL: URL?
     let onDismiss: () -> Void
 
     @State private var isLoading = true
@@ -16,9 +17,10 @@ struct ControllerModalView: View {
             Color(hex: "1a1a2e")
                 .ignoresSafeArea()
 
-            // WebView
+            // WebView — use scanned URL directly when available, otherwise fall back to AppConfig
             WebViewContainer(
-                url: AppConfig.controllerURL(roomCode: roomCode),
+                url: sourceURL.map { AppConfig.controllerURL(from: $0, roomCode: roomCode) }
+                    ?? AppConfig.controllerURL(roomCode: roomCode),
                 isLoading: $isLoading,
                 loadError: $loadError,
                 webViewStore: webViewStore
@@ -185,6 +187,7 @@ struct SecondaryButtonStyle: ButtonStyle {
 #Preview {
     ControllerModalView(
         roomCode: "123456",
+        sourceURL: nil,
         onDismiss: {}
     )
 }

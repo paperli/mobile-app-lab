@@ -3,7 +3,7 @@ import AVFoundation
 
 /// Native QR code scanner using AVFoundation
 struct QRScannerView: View {
-    let onCodeScanned: (String) -> Void
+    let onCodeScanned: (String, URL) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @StateObject private var scanner = QRScannerController()
@@ -69,12 +69,12 @@ struct QRScannerView: View {
     }
 
     private func setupScannerCallback() {
-        scanner.onCodeScanned = { [self] code in
+        scanner.onCodeScanned = { [self] code, sourceURL in
             // Prevent multiple callbacks
             guard !hasCalledBack else { return }
             hasCalledBack = true
             HapticService.shared.trigger(.success)
-            onCodeScanned(code)
+            onCodeScanned(code, sourceURL)
         }
     }
 
@@ -110,8 +110,8 @@ class QRScannerController: NSObject, ObservableObject, AVCaptureMetadataOutputOb
     let session = AVCaptureSession()
     @Published var scannedCode: String?
 
-    /// Callback when a code is successfully scanned
-    var onCodeScanned: ((String) -> Void)?
+    /// Callback when a code is successfully scanned (code, sourceURL)
+    var onCodeScanned: ((String, URL) -> Void)?
 
     private var isConfigured = false
     private var hasScanned = false
@@ -186,9 +186,9 @@ class QRScannerController: NSObject, ObservableObject, AVCaptureMetadataOutputOb
             scannedCode = code
             stop()
 
-            // Call the callback on main thread
+            // Call the callback on main thread with both code and source URL
             DispatchQueue.main.async { [weak self] in
-                self?.onCodeScanned?(code)
+                self?.onCodeScanned?(code, url)
             }
         }
     }
@@ -362,7 +362,7 @@ struct HiddenNavigationBarModifier: ViewModifier {
 }
 
 #Preview {
-    QRScannerView { code in
-        print("Scanned: \(code)")
+    QRScannerView { code, url in
+        print("Scanned: \(code) from \(url)")
     }
 }
