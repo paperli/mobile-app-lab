@@ -4,6 +4,8 @@ class SoundManager {
   private audioCache: Map<string, HTMLAudioElement> = new Map();
   private volume: number = 0.3; // Master volume (0.0 to 1.0)
   private audioUnlocked: boolean = false;
+  private lastPlayTime: Map<string, number> = new Map();
+  private readonly debounceMs: number = 80; // Minimum ms between same sound
 
   // Audio file paths (relative to public folder)
   private readonly soundPaths = {
@@ -62,6 +64,12 @@ class SoundManager {
    * Creates a new audio instance each time to allow overlapping sounds
    */
   private playSound(key: keyof typeof this.soundPaths) {
+    // Debounce: skip if same sound played too recently
+    const now = Date.now();
+    const lastTime = this.lastPlayTime.get(key) || 0;
+    if (now - lastTime < this.debounceMs) return;
+    this.lastPlayTime.set(key, now);
+
     // Try to unlock audio on first play
     this.unlockAudio();
 
