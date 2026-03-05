@@ -29,8 +29,8 @@ export const CONFIG = {
 export const PLACEHOLDER_GAMES = [
   {
     id: 'game-1',
-    title: 'Racing Challenge',
-    description: 'Fast-paced racing game',
+    title: 'Song Quiz',
+    description: 'Guess the song from short clips',
     previewImage: '/placeholder-racing.jpg',
     backgroundColor: '#FF6B6B',
   },
