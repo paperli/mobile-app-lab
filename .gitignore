@@ -40,6 +40,18 @@ lerna-debug.log*
 *.sln
 *.sw?
 
+# Xcode
+ios/**/xcuserdata/
+ios/**/project.xcworkspace/xcshareddata/swiftpm/
+ios/**/project.xcworkspace/xcuserdata/
+ios/**/*.xccheckout
+ios/**/*.xcscmblueprint
+ios/**/DerivedData/
+ios/**/*.hmap
+ios/**/*.ipa
+ios/**/*.dSYM.zip
+ios/**/*.dSYM
+
 # Testing
 coverage/
 
