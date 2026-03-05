@@ -7,6 +7,8 @@ import {
   NavigationInputPayload,
 } from '@mobile-app-lab/shared';
 
+const ROOM_CODE_KEY = 'tv_room_code';
+
 export function useSocket(onNavigationInput: (payload: NavigationInputPayload) => void) {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>({
@@ -44,14 +46,37 @@ export function useSocket(onNavigationInput: (payload: NavigationInputPayload) =
       console.log('[TV] Connected to server');
       setConnectionStatus({ connected: true, deviceType: 'tv' });
 
-      // Request room creation
-      socketInstance.emit(SOCKET_EVENTS.ROOM_CREATE, { deviceType: 'tv' });
+      // Try to rejoin existing room from sessionStorage
+      const savedCode = sessionStorage.getItem(ROOM_CODE_KEY);
+      if (savedCode) {
+        console.log('[TV] Attempting to rejoin room:', savedCode);
+        socketInstance.emit(SOCKET_EVENTS.ROOM_REJOIN, { roomCode: savedCode });
+      } else {
+        // No saved room, create a new one
+        socketInstance.emit(SOCKET_EVENTS.ROOM_CREATE, { deviceType: 'tv' });
+      }
+    });
+
+    // Rejoin response
+    socketInstance.on(SOCKET_EVENTS.ROOM_REJOINED, (payload: { success: boolean; roomCode?: string }) => {
+      if (payload.success && payload.roomCode) {
+        console.log('[TV] Rejoined room:', payload.roomCode);
+        setRoomCode(payload.roomCode);
+        setConnectionStatus((prev) => ({ ...prev, roomCode: payload.roomCode }));
+      } else {
+        // Rejoin failed (room expired or gone), create a new room
+        console.log('[TV] Rejoin failed, creating new room');
+        sessionStorage.removeItem(ROOM_CODE_KEY);
+        socketInstance.emit(SOCKET_EVENTS.ROOM_CREATE, { deviceType: 'tv' });
+      }
     });
 
     socketInstance.on(SOCKET_EVENTS.ROOM_CREATED, (payload: { roomCode: string }) => {
       console.log('[TV] Room created:', payload.roomCode);
       setRoomCode(payload.roomCode);
       setConnectionStatus((prev) => ({ ...prev, roomCode: payload.roomCode }));
+      // Save to sessionStorage for persistence across refreshes
+      sessionStorage.setItem(ROOM_CODE_KEY, payload.roomCode);
     });
 
     socketInstance.on(SOCKET_EVENTS.ROOM_JOINED, (payload: { success: boolean }) => {
@@ -69,7 +94,7 @@ export function useSocket(onNavigationInput: (payload: NavigationInputPayload) =
     socketInstance.on(SOCKET_EVENTS.DISCONNECT, () => {
       console.log('[TV] Disconnected from server');
       setConnectionStatus({ connected: false, deviceType: 'tv' });
-      setRoomCode('');
+      // Don't clear roomCode or sessionStorage — we want to rejoin on reconnect
     });
 
     setSocket(socketInstance);

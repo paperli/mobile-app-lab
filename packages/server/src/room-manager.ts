@@ -6,7 +6,10 @@ interface Room {
   mobileSocketIds: string[];
   createdAt: number;
   maxMobiles: number;
+  tvDisconnectedAt: number | null; // When TV disconnected (for grace period)
 }
+
+const TV_RECONNECT_GRACE_MS = 30_000; // 30 seconds for TV to reconnect
 
 export class RoomManager {
   private rooms: Map<string, Room> = new Map();
@@ -32,6 +35,7 @@ export class RoomManager {
       mobileSocketIds: [],
       createdAt: Date.now(),
       maxMobiles: 4,
+      tvDisconnectedAt: null,
     };
 
     this.rooms.set(roomCode, room);
@@ -66,6 +70,36 @@ export class RoomManager {
     return true;
   }
 
+  // Rejoin an existing room as TV (after page refresh)
+  rejoinRoom(roomCode: string, tvSocketId: string): boolean {
+    const room = this.rooms.get(roomCode);
+
+    if (!room) {
+      console.log(`[RoomManager] Rejoin failed: room ${roomCode} not found`);
+      return false;
+    }
+
+    // Only allow rejoin if the room has no active TV (grace period)
+    if (room.tvSocketId !== null) {
+      console.log(`[RoomManager] Rejoin failed: room ${roomCode} already has a TV`);
+      return false;
+    }
+
+    // Check if grace period has expired
+    if (room.tvDisconnectedAt && Date.now() - room.tvDisconnectedAt > TV_RECONNECT_GRACE_MS) {
+      console.log(`[RoomManager] Rejoin failed: grace period expired for room ${roomCode}`);
+      this.rooms.delete(roomCode);
+      return false;
+    }
+
+    // Reclaim the room
+    room.tvSocketId = tvSocketId;
+    room.tvDisconnectedAt = null;
+    this.socketToRoom.set(tvSocketId, roomCode);
+    console.log(`[RoomManager] TV ${tvSocketId} rejoined room ${roomCode} (${room.mobileSocketIds.length} mobiles connected)`);
+    return true;
+  }
+
   // Get room by socket ID
   getRoomBySocket(socketId: string): Room | undefined {
     const roomCode = this.socketToRoom.get(socketId);
@@ -93,12 +127,22 @@ export class RoomManager {
 
     // Remove the socket from the room
     if (room.tvSocketId === socketId) {
-      console.log(`[RoomManager] TV disconnected from room ${roomCode}, removing room`);
-      // If TV disconnects, remove the entire room
-      this.rooms.delete(roomCode);
-      room.mobileSocketIds.forEach(mobileId => {
-        this.socketToRoom.delete(mobileId);
-      });
+      console.log(`[RoomManager] TV disconnected from room ${roomCode}, starting grace period`);
+      // Keep room alive for grace period so TV can rejoin after refresh
+      room.tvSocketId = null;
+      room.tvDisconnectedAt = Date.now();
+
+      // Schedule cleanup after grace period
+      setTimeout(() => {
+        const currentRoom = this.rooms.get(roomCode);
+        if (currentRoom && currentRoom.tvSocketId === null) {
+          console.log(`[RoomManager] Grace period expired for room ${roomCode}, removing room`);
+          this.rooms.delete(roomCode);
+          currentRoom.mobileSocketIds.forEach(mobileId => {
+            this.socketToRoom.delete(mobileId);
+          });
+        }
+      }, TV_RECONNECT_GRACE_MS);
     } else if (room.mobileSocketIds.includes(socketId)) {
       console.log(`[RoomManager] Mobile disconnected from room ${roomCode}`);
       room.mobileSocketIds = room.mobileSocketIds.filter(id => id !== socketId);

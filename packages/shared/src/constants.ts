@@ -11,6 +11,10 @@ export const SOCKET_EVENTS = {
   ROOM_JOINED: 'room:joined',
   ROOM_ERROR: 'room:error',
 
+  // Room rejoin (TV refresh persistence)
+  ROOM_REJOIN: 'room:rejoin',
+  ROOM_REJOINED: 'room:rejoined',
+
   // Navigation events
   NAVIGATION_INPUT: 'navigation:input',
   NAVIGATION_UPDATE: 'navigation:update',

@@ -26,6 +26,28 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager) {
       socket.join(roomCode);
     });
 
+    // Handle room rejoin (TV reconnecting after refresh)
+    socket.on(SOCKET_EVENTS.ROOM_REJOIN, (payload: { roomCode: string }) => {
+      const { roomCode } = payload;
+      console.log(`[Socket] Room rejoin request: ${roomCode} from ${socket.id}`);
+
+      const success = roomManager.rejoinRoom(roomCode, socket.id);
+
+      if (success) {
+        socket.join(roomCode);
+        socket.emit(SOCKET_EVENTS.ROOM_REJOINED, {
+          success: true,
+          roomCode,
+        });
+        console.log(`[Socket] TV ${socket.id} rejoined room ${roomCode}`);
+      } else {
+        socket.emit(SOCKET_EVENTS.ROOM_REJOINED, {
+          success: false,
+        });
+        console.log(`[Socket] TV ${socket.id} failed to rejoin room ${roomCode}`);
+      }
+    });
+
     // Handle room joining (Mobile)
     socket.on(SOCKET_EVENTS.ROOM_JOIN, (payload: RoomJoinPayload) => {
       const { roomCode, deviceType } = payload;
