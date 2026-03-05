@@ -6,6 +6,7 @@ struct WebViewContainer: UIViewRepresentable {
     let url: URL
     @Binding var isLoading: Bool
     @Binding var loadError: Error?
+    var webViewStore: WebViewStore?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -28,6 +29,7 @@ struct WebViewContainer: UIViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.scrollView.isScrollEnabled = false
         webView.scrollView.bounces = false
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
 
         // Allow inspection in Safari for debugging
         #if DEBUG
@@ -41,6 +43,11 @@ struct WebViewContainer: UIViewRepresentable {
 
         // Load the initial URL
         context.coordinator.loadURLIfNeeded(webView: webView, url: url)
+
+        // Store reference for external reload
+        DispatchQueue.main.async {
+            webViewStore?.webView = webView
+        }
 
         return webView
     }

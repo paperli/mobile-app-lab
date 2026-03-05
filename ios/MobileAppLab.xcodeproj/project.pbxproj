@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		20BA6AA92F5A0A8A00D6AF5A /* WebViewStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20BA6AA82F5A0A8A00D6AF5A /* WebViewStore.swift */; };
+		20BA6AAB2F5A0AAE00D6AF5A /* ShakeDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20BA6AAA2F5A0AAE00D6AF5A /* ShakeDetector.swift */; };
 		A1000001 /* MobileAppLabApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1100001 /* MobileAppLabApp.swift */; };
 		A1000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1100002 /* ContentView.swift */; };
 		A1000003 /* PairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1100003 /* PairingView.swift */; };
@@ -22,6 +24,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		20BA6AA82F5A0A8A00D6AF5A /* WebViewStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewStore.swift; sourceTree = "<group>"; };
+		20BA6AAA2F5A0AAE00D6AF5A /* ShakeDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShakeDetector.swift; sourceTree = "<group>"; };
 		A1100001 /* MobileAppLabApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileAppLabApp.swift; sourceTree = "<group>"; };
 		A1100002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A1100003 /* PairingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingView.swift; sourceTree = "<group>"; };
@@ -94,6 +98,7 @@
 				A1100004 /* CodeEntryView.swift */,
 				A1100005 /* ControllerModalView.swift */,
 				A1100006 /* QRScannerView.swift */,
+				20BA6AAA2F5A0AAE00D6AF5A /* ShakeDetector.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -101,6 +106,7 @@
 		A1400006 /* WebView */ = {
 			isa = PBXGroup;
 			children = (
+				20BA6AA82F5A0A8A00D6AF5A /* WebViewStore.swift */,
 				A1100007 /* WebViewContainer.swift */,
 				A1100008 /* NativeBridgeHandler.swift */,
 			);
@@ -161,7 +167,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1500;
-				LastUpgradeCheck = 1500;
+				LastUpgradeCheck = 2600;
 				TargetAttributes = {
 					A1500001 = {
 						CreatedOnToolsVersion = 15.0;
@@ -205,10 +211,12 @@
 				A1000001 /* MobileAppLabApp.swift in Sources */,
 				A1000002 /* ContentView.swift in Sources */,
 				A1000003 /* PairingView.swift in Sources */,
+				20BA6AA92F5A0A8A00D6AF5A /* WebViewStore.swift in Sources */,
 				A1000004 /* CodeEntryView.swift in Sources */,
 				A1000005 /* ControllerModalView.swift in Sources */,
 				A1000006 /* QRScannerView.swift in Sources */,
 				A1000007 /* WebViewContainer.swift in Sources */,
+				20BA6AAB2F5A0AAE00D6AF5A /* ShakeDetector.swift in Sources */,
 				A1000008 /* NativeBridgeHandler.swift in Sources */,
 				A1000009 /* HapticService.swift in Sources */,
 				A100000A /* DeepLinkHandler.swift in Sources */,
@@ -254,6 +262,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 6ABD535R9B;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -277,6 +286,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -317,6 +327,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 6ABD535R9B;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -333,6 +344,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -345,7 +357,6 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6ABD535R9B;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MobileAppLab/Resources/Info.plist;
@@ -380,7 +391,6 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6ABD535R9B;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MobileAppLab/Resources/Info.plist;

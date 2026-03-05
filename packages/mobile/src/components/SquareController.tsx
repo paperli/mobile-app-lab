@@ -97,13 +97,12 @@ export function SquareController({ onNavigate, onAction }: SquareControllerProps
   };
 
   return (
-    <>
+    <div className="relative flex flex-col items-center justify-center h-full px-2 pt-16" style={{ backgroundColor: '#00001f' }}>
       {/* Voice-activated wave effect */}
       <VoiceGlow volume={volume} isActive={isListening} />
 
-      <div className="flex flex-col items-center justify-center h-full py-8 px-2" style={{ backgroundColor: '#00001f' }}>
-        {/* Square Trackpad Area with Invisible Edge Zones */}
-        <div className="relative w-full max-w-md aspect-square mb-16">
+      {/* Square Trackpad Area with Invisible Edge Zones */}
+      <div className="relative w-full max-w-md aspect-square mb-16">
           <div
             className="relative w-full h-full overflow-hidden"
             style={{
@@ -216,7 +215,7 @@ export function SquareController({ onNavigate, onAction }: SquareControllerProps
         >
           <Undo2 size={48} strokeWidth={2.5} />
         </button>
-      </div>
-    </>
+
+    </div>
   );
 }

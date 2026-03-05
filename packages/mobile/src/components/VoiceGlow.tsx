@@ -88,12 +88,14 @@ export function VoiceGlow({
 
   return (
     <div
-      className="fixed pointer-events-none z-50"
+      className="pointer-events-none"
       style={{
-        bottom: 0, // Extend all the way to screen bottom
+        position: 'fixed',
+        bottom: 0,
         left: 0,
         right: 0,
-        height: '190px', // Taller to include home indicator area
+        height: '190px',
+        zIndex: 9999,
       }}
     >
       {/* Wave visualization at bottom */}

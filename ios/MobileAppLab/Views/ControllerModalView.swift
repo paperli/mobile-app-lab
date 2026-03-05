@@ -8,6 +8,7 @@ struct ControllerModalView: View {
     @State private var isLoading = true
     @State private var loadError: Error?
     @State private var showExitConfirmation = false
+    @StateObject private var webViewStore = WebViewStore()
 
     var body: some View {
         ZStack {
@@ -19,9 +20,19 @@ struct ControllerModalView: View {
             WebViewContainer(
                 url: AppConfig.controllerURL(roomCode: roomCode),
                 isLoading: $isLoading,
-                loadError: $loadError
+                loadError: $loadError,
+                webViewStore: webViewStore
             )
             .ignoresSafeArea()
+
+            // Shake-to-reload (debug only)
+            #if DEBUG
+            ShakeDetector {
+                HapticService.shared.trigger(.light)
+                webViewStore.reload()
+            }
+            .frame(width: 0, height: 0)
+            #endif
 
             // Loading overlay
             if isLoading {

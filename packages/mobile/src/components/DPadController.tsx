@@ -57,7 +57,7 @@ export function DPadController({ onNavigate, onAction }: DPadControllerProps) {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center h-full bg-gray-900 p-8">
+    <div className="flex flex-col items-center justify-end h-full bg-gray-900 p-8 pb-12">
       {/* D-Pad */}
       <div className="relative w-80 h-80 mb-12">
         {/* Up Button */}
