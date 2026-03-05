@@ -1,9 +1,8 @@
-import { PLACEHOLDER_GAMES, GameData, NavigationDirection, NavigationAction } from '@mobile-app-lab/shared';
+import { PLACEHOLDER_GAMES, GameData, NavigationDirection } from '@mobile-app-lab/shared';
 import { QRCodeSVG } from 'qrcode.react';
 import { GameTile } from './GameTile';
 import { GamePreview } from './GamePreview';
 import { FocusFrame } from './FocusFrame';
-import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import { getMobileUrl } from '../utils/getMobileUrl';
 
 interface GameHubProps {
@@ -11,21 +10,13 @@ interface GameHubProps {
   focusedIndex: number;
   bounceDirection: NavigationDirection | null;
   isPressing: boolean;
-  onNavigate: (direction: NavigationDirection) => void;
-  onAction: (action: NavigationAction) => void;
   onFocusChange: (index: number) => void;
 }
 
-export function GameHub({ roomCode, focusedIndex, bounceDirection, isPressing, onNavigate, onAction, onFocusChange }: GameHubProps) {
+export function GameHub({ roomCode, focusedIndex, bounceDirection, isPressing, onFocusChange }: GameHubProps) {
   const games = PLACEHOLDER_GAMES as unknown as GameData[];
   const mobileBaseUrl = getMobileUrl();
   const mobileUrl = `${mobileBaseUrl}?code=${roomCode}`;
-
-  // Setup keyboard navigation
-  useKeyboardNav({
-    onNavigate,
-    onAction,
-  });
 
   return (
     <div className="relative w-full h-full">
