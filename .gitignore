@@ -42,6 +42,7 @@ lerna-debug.log*
 
 # Xcode
 ios/**/xcuserdata/
+ios/**/project.xcworkspace/
 ios/**/project.xcworkspace/xcshareddata/swiftpm/
 ios/**/project.xcworkspace/xcuserdata/
 ios/**/*.xccheckout
