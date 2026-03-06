@@ -10,6 +10,7 @@ interface SwipeConfig {
 interface UseSwipeGesturesProps extends SwipeConfig {
   onSwipe: (direction: NavigationDirection) => void;
   onTap: () => void;
+  onTapAt?: (relX: number, relY: number) => void;
 }
 
 export function useSwipeGestures({
@@ -17,6 +18,7 @@ export function useSwipeGestures({
   onTap,
   minSwipeDistance = 50,
   minVelocity = 0.3,
+  onTapAt,
 }: UseSwipeGesturesProps) {
   const touchStart = useRef<{ x: number; y: number; time: number } | null>(null);
   const elementRef = useRef<HTMLDivElement>(null);
@@ -47,9 +49,15 @@ export function useSwipeGestures({
 
       // Check if it's a tap (small movement, quick time)
       if (distance < 10 && deltaTime < 200) {
-        // Haptic feedback for tap (OK action)
-        HapticFeedback.medium();
-        onTap();
+        if (onTapAt && elementRef.current) {
+          const rect = elementRef.current.getBoundingClientRect();
+          const relX = (touchStart.current.x - rect.left) / rect.width;
+          const relY = (touchStart.current.y - rect.top) / rect.height;
+          onTapAt(relX, relY);
+        } else {
+          HapticFeedback.medium();
+          onTap();
+        }
         touchStart.current = null;
         return;
       }
@@ -80,7 +88,7 @@ export function useSwipeGestures({
       // Haptic feedback for swipe navigation
       HapticFeedback.navigation();
     },
-    [onSwipe, onTap, minSwipeDistance, minVelocity]
+    [onSwipe, onTap, minSwipeDistance, minVelocity, onTapAt]
   );
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
