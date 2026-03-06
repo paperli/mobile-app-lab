@@ -59,7 +59,12 @@ export function GameMenuFocusFrame({ focusedIndex, bounceDirection, isPressing }
           top: `calc(${topOffset}vh - ${frameMargin}vw)`,
           left: '0',
           borderRadius: '24px',
-          border: '9px solid #FFE88B',
+          padding: '8px',
+          background: 'linear-gradient(180deg, #FFE88B 0%, #F6D300 94.88%)',
+          WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+          WebkitMaskComposite: 'xor',
+          mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+          maskComposite: 'exclude' as const,
           boxShadow: '0 0 40px rgba(255, 232, 139, 0.3)',
           transform: isAnimating
             ? `translateX(${translateX + bounceOffset.x}vw) translateY(${bounceOffset.y}vw)${isPressing ? ' scale(0.95)' : ''}`

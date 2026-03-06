@@ -8,11 +8,13 @@ import {
 import { GameHub } from './components/GameHub';
 import { LoadingScreen } from './components/song-quiz/LoadingScreen';
 import { GameMenu } from './components/song-quiz/GameMenu';
+import { PlaylistSelect } from './components/song-quiz/PlaylistSelect';
+import { GRID, findClosestCol } from './components/song-quiz/PlaylistFocusFrame';
 import { useSocket } from './hooks/useSocket';
 import { useKeyboardNav } from './hooks/useKeyboardNav';
 import { soundManager } from './utils/sounds';
 
-type AppScreen = 'hub' | 'loading' | 'game-menu';
+type AppScreen = 'hub' | 'loading' | 'game-menu' | 'playlist-select';
 
 // Configuration
 const ENABLE_LOOP_NAVIGATION = false;
@@ -32,6 +34,12 @@ function App() {
   const [menuFocusedIndex, setMenuFocusedIndex] = useState(0);
   const [menuBounceDirection, setMenuBounceDirection] = useState<NavigationDirection | null>(null);
   const [menuIsPressing, setMenuIsPressing] = useState(false);
+
+  // Playlist select state
+  const [playlistFocusRow, setPlaylistFocusRow] = useState(0);
+  const [playlistFocusCol, setPlaylistFocusCol] = useState(0);
+  const [playlistBounceDirection, setPlaylistBounceDirection] = useState<NavigationDirection | null>(null);
+  const [playlistIsPressing, setPlaylistIsPressing] = useState(false);
 
   const audioUnlockedRef = useRef(false);
   const games = PLACEHOLDER_GAMES;
@@ -113,8 +121,62 @@ function App() {
 
         return newIndex;
       });
+    } else if (currentScreen === 'playlist-select') {
+      // Grid navigation for playlist selection
+      // Sound effects are played inside updaters to match hub/game-menu pattern
+      switch (direction) {
+        case 'left':
+          setPlaylistFocusCol((current) => {
+            if (current === 0) {
+              setPlaylistBounceDirection(direction);
+              setTimeout(() => setPlaylistBounceDirection(null), 200);
+              soundManager.playBounceSound();
+              return current;
+            }
+            soundManager.playNavigationSound();
+            return current - 1;
+          });
+          break;
+        case 'right':
+          setPlaylistFocusCol((current) => {
+            const maxCol = (playlistFocusRow === 0 ? GRID.featured.count : GRID.recent.count) - 1;
+            if (current === maxCol) {
+              setPlaylistBounceDirection(direction);
+              setTimeout(() => setPlaylistBounceDirection(null), 200);
+              soundManager.playBounceSound();
+              return current;
+            }
+            soundManager.playNavigationSound();
+            return current + 1;
+          });
+          break;
+        case 'up':
+          if (playlistFocusRow === 0) {
+            setPlaylistBounceDirection(direction);
+            setTimeout(() => setPlaylistBounceDirection(null), 200);
+            soundManager.playBounceSound();
+          } else {
+            const closestCol = findClosestCol(playlistFocusRow, playlistFocusCol, 0);
+            setPlaylistFocusRow(0);
+            setPlaylistFocusCol(closestCol);
+            soundManager.playNavigationSound();
+          }
+          break;
+        case 'down':
+          if (playlistFocusRow === 1) {
+            setPlaylistBounceDirection(direction);
+            setTimeout(() => setPlaylistBounceDirection(null), 200);
+            soundManager.playBounceSound();
+          } else {
+            const closestCol = findClosestCol(playlistFocusRow, playlistFocusCol, 1);
+            setPlaylistFocusRow(1);
+            setPlaylistFocusCol(closestCol);
+            soundManager.playNavigationSound();
+          }
+          break;
+      }
     }
-  }, [currentScreen, games.length]);
+  }, [currentScreen, games.length, playlistFocusRow, playlistFocusCol]);
 
   const handleAction = useCallback((action: NavigationAction) => {
     if (currentScreen === 'hub') {
@@ -134,14 +196,30 @@ function App() {
         setMenuIsPressing(true);
         setTimeout(() => setMenuIsPressing(false), 150);
         soundManager.playSelectionSound();
-        // TODO: launch actual game mode
+
+        // Launch Single Player playlist selection
+        if (menuFocusedIndex === 0) {
+          setTimeout(() => setCurrentScreen('playlist-select'), 150);
+        }
       } else if (action === 'back') {
         setCurrentScreen('hub');
         setMenuFocusedIndex(0);
         setMenuBounceDirection(null);
       }
+    } else if (currentScreen === 'playlist-select') {
+      if (action === 'ok') {
+        setPlaylistIsPressing(true);
+        setTimeout(() => setPlaylistIsPressing(false), 150);
+        soundManager.playSelectionSound();
+        // TODO: start quiz with selected playlist
+      } else if (action === 'back') {
+        setCurrentScreen('game-menu');
+        setPlaylistFocusRow(0);
+        setPlaylistFocusCol(0);
+        setPlaylistBounceDirection(null);
+      }
     }
-  }, [currentScreen, focusedIndex, games]);
+  }, [currentScreen, focusedIndex, games, menuFocusedIndex]);
 
   // Handle navigation input from mobile
   const handleNavigationInput = useCallback(
@@ -187,6 +265,17 @@ function App() {
         focusedIndex={menuFocusedIndex}
         bounceDirection={menuBounceDirection}
         isPressing={menuIsPressing}
+      />
+    );
+  }
+
+  if (currentScreen === 'playlist-select') {
+    return (
+      <PlaylistSelect
+        focusRow={playlistFocusRow}
+        focusCol={playlistFocusCol}
+        bounceDirection={playlistBounceDirection}
+        isPressing={playlistIsPressing}
       />
     );
   }
