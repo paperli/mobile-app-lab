@@ -17,12 +17,26 @@ const OK_RADIUS = 0.2;
 
 function GameLoadingScreen() {
   const [dotCount, setDotCount] = useState(0);
+  const [bounced, setBounced] = useState(false);
+  const [showSpinner, setShowSpinner] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setDotCount((prev) => (prev + 1) % 4);
     }, 500);
     return () => clearInterval(interval);
+  }, []);
+
+  // Trigger bounce after mount so there's a false→true transition
+  useEffect(() => {
+    const timer = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setBounced(true));
+    });
+    const spinnerTimer = setTimeout(() => setShowSpinner(true), 400);
+    return () => {
+      cancelAnimationFrame(timer);
+      clearTimeout(spinnerTimer);
+    };
   }, []);
 
   return (
@@ -33,11 +47,24 @@ function GameLoadingScreen() {
       <img
         src={logoImage}
         alt="Song Quiz"
-        style={{ width: '308px', height: '223px', objectFit: 'contain' }}
+        style={{
+          width: '308px',
+          height: '223px',
+          objectFit: 'contain',
+          transform: bounced ? 'translateY(0)' : 'translateY(160px)',
+          transition: 'transform 800ms cubic-bezier(0.08, 1.8, 0.5, 0.85)',
+        }}
       />
 
       {/* Spinner + Loading text */}
-      <div className="flex flex-col items-center" style={{ marginTop: '54px' }}>
+      <div
+        className="flex flex-col items-center"
+        style={{
+          marginTop: '54px',
+          opacity: showSpinner ? 1 : 0,
+          transition: 'opacity 400ms ease',
+        }}
+      >
         <img
           src={spinnerImage}
           alt=""

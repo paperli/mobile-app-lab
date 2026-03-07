@@ -135,7 +135,7 @@ function App() {
     );
   }
 
-  // Game Modal Mode: d-pad underneath, game modal slides up when TV leaves hub
+  // Game Modal Mode: d-pad underneath, game modal reveals with expanding ellipse mask
   if (appMode === 'game') {
     const showGameModal = tvScreen !== 'hub';
     return (
@@ -145,12 +145,22 @@ function App() {
           <SquareController onNavigate={handleNavigate} onAction={handleAction} />
         </div>
 
-        {/* Game modal overlay - slides up */}
+        {/* Game modal overlay - ellipse reveal from bottom center */}
         <div
-          className="absolute inset-0 transition-transform duration-500 ease-out"
-          style={{ transform: showGameModal ? 'translateY(0)' : 'translateY(100%)', zIndex: 10000 }}
+          className="absolute inset-0"
+          style={{
+            zIndex: 10000,
+            clipPath: showGameModal
+              ? 'ellipse(200% 150% at 50% 100%)'
+              : 'ellipse(60% 0% at 50% 100%)',
+            transition: 'clip-path 600ms cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
         >
-          <GameModal tvScreen={tvScreen} onNavigate={handleNavigate} onAction={handleAction} />
+          <GameModal
+            tvScreen={tvScreen}
+            onNavigate={handleNavigate}
+            onAction={handleAction}
+          />
         </div>
       </div>
     );
