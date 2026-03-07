@@ -4,6 +4,7 @@ import {
   NavigationDirection,
   NavigationAction,
   PLACEHOLDER_GAMES,
+  SOCKET_EVENTS,
 } from '@mobile-app-lab/shared';
 import { GameHub } from './components/GameHub';
 import { LoadingScreen } from './components/song-quiz/LoadingScreen';
@@ -238,7 +239,14 @@ function App() {
     [handleNavigate, handleAction]
   );
 
-  const { roomCode, connectionStatus } = useSocket(handleNavigationInput);
+  const { socket, roomCode, connectionStatus } = useSocket(handleNavigationInput);
+
+  // Broadcast screen state to mobile devices
+  useEffect(() => {
+    if (socket) {
+      socket.emit(SOCKET_EVENTS.SCREEN_UPDATE, { screen: currentScreen });
+    }
+  }, [currentScreen, socket]);
 
   // Keyboard nav at app level (works on all screens)
   useKeyboardNav({ onNavigate: handleNavigate, onAction: handleAction });

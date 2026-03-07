@@ -5,6 +5,7 @@ import {
   RoomCreatePayload,
   RoomJoinPayload,
   NavigationInputPayload,
+  ScreenUpdatePayload,
 } from '@mobile-app-lab/shared';
 
 export function setupSocketHandlers(io: Server, roomManager: RoomManager) {
@@ -105,6 +106,18 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager) {
           `[Socket] Navigation forwarded: ${payload.type} ${payload.direction || payload.action || ''}`
         );
       }
+    });
+
+    // Handle screen updates from TV → forward to mobile devices in the room
+    socket.on(SOCKET_EVENTS.SCREEN_UPDATE, (payload: ScreenUpdatePayload) => {
+      const room = roomManager.getRoomBySocket(socket.id);
+      if (!room || room.tvSocketId !== socket.id) return;
+
+      // Broadcast to all mobile devices in the room
+      for (const mobileId of room.mobileSocketIds) {
+        io.to(mobileId).emit(SOCKET_EVENTS.SCREEN_UPDATE, payload);
+      }
+      console.log(`[Socket] Screen update forwarded: ${payload.screen}`);
     });
 
     // Handle disconnection

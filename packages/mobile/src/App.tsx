@@ -7,12 +7,16 @@ import { JoystickController } from './components/JoystickController';
 import { GamepadController } from './components/GamepadController';
 import { TrackpadController } from './components/TrackpadController';
 import { SquareController } from './components/SquareController';
+import { GameModal } from './components/GameModal';
+
+type AppMode = 'dpad' | 'game';
 
 function App() {
-  const { connectionStatus, isPaired, joinRoom, sendNavigationInput } = useSocket();
+  const { connectionStatus, isPaired, tvScreen, joinRoom, sendNavigationInput } = useSocket();
   const [controllerMode, setControllerMode] = useState<ControllerMode>('square-hybrid');
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string>();
+  const [appMode, setAppMode] = useState<AppMode | null>(null);
 
   // Load controller mode preference from localStorage
   useEffect(() => {
@@ -108,10 +112,53 @@ function App() {
     return <PairingScreen onPair={handlePair} isConnecting={isConnecting} error={error} />;
   }
 
-  // Show controller based on mode
+  // Show mode selection after pairing
+  if (appMode === null) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center gap-6 px-8" style={{ backgroundColor: '#00001f' }}>
+        <h1 className="text-white text-2xl font-bold mb-4">Select Mode</h1>
+        <button
+          onClick={() => setAppMode('dpad')}
+          className="w-full max-w-xs py-4 px-6 rounded-2xl text-white text-lg font-semibold"
+          style={{ background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 255, 255, 0.2)' }}
+        >
+          System Controller Mode
+        </button>
+        <button
+          onClick={() => setAppMode('game')}
+          className="w-full max-w-xs py-4 px-6 rounded-2xl text-white text-lg font-semibold"
+          style={{ background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 255, 255, 0.2)' }}
+        >
+          Game Modal Mode
+        </button>
+      </div>
+    );
+  }
+
+  // Game Modal Mode: d-pad underneath, game modal slides up when TV leaves hub
+  if (appMode === 'game') {
+    const showGameModal = tvScreen !== 'hub';
+    return (
+      <div className="relative w-full h-full overflow-hidden">
+        {/* Base d-pad (always rendered) */}
+        <div className="h-full">
+          <SquareController onNavigate={handleNavigate} onAction={handleAction} />
+        </div>
+
+        {/* Game modal overlay - slides up */}
+        <div
+          className="absolute inset-0 transition-transform duration-500 ease-out"
+          style={{ transform: showGameModal ? 'translateY(0)' : 'translateY(100%)', zIndex: 10000 }}
+        >
+          <GameModal tvScreen={tvScreen} onNavigate={handleNavigate} onAction={handleAction} />
+        </div>
+      </div>
+    );
+  }
+
+  // System Controller Mode: just the d-pad
   return (
     <div className="relative w-full h-full">
-      {/* <ControllerSelector mode={controllerMode} onModeChange={handleModeChange} roomCode={roomCode} /> */}
       <div className="h-full">
         {controllerMode === 'dpad' && (
           <DPadController onNavigate={handleNavigate} onAction={handleAction} />

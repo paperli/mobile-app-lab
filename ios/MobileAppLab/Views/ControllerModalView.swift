@@ -53,25 +53,21 @@ struct ControllerModalView: View {
                 )
             }
 
-            // Close button (top-right)
+            // Close button (top-left)
             VStack {
                 HStack {
-                    Spacer()
-
                     Button(action: {
                         HapticService.shared.trigger(.light)
                         showExitConfirmation = true
                     }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 32))
+                        Image(systemName: "xmark")
+                            .font(.system(size: 20, weight: .medium))
                             .foregroundColor(.white.opacity(0.7))
-                            .background(
-                                Circle()
-                                    .fill(Color.black.opacity(0.3))
-                            )
                     }
-                    .padding(.trailing, 16)
+                    .padding(.leading, 16)
                     .padding(.top, 16)
+
+                    Spacer()
                 }
 
                 Spacer()

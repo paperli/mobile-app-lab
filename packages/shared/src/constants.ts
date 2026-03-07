@@ -18,6 +18,9 @@ export const SOCKET_EVENTS = {
   // Navigation events
   NAVIGATION_INPUT: 'navigation:input',
   NAVIGATION_UPDATE: 'navigation:update',
+
+  // Screen state (TV → Mobile)
+  SCREEN_UPDATE: 'screen:update',
 } as const;
 
 // Configuration
