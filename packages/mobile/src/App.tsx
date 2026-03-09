@@ -9,7 +9,7 @@ import { TrackpadController } from './components/TrackpadController';
 import { SquareController } from './components/SquareController';
 import { GameModal } from './components/GameModal';
 
-type AppMode = 'dpad' | 'game';
+type AppMode = 'dpad' | 'game' | 'theme';
 
 function App() {
   const { connectionStatus, isPaired, tvScreen, joinRoom, sendNavigationInput } = useSocket();
@@ -131,21 +131,45 @@ function App() {
         >
           Game Modal Mode
         </button>
+        <button
+          onClick={() => setAppMode('theme')}
+          className="w-full max-w-xs py-4 px-6 rounded-2xl text-white text-lg font-semibold"
+          style={{ background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 255, 255, 0.2)' }}
+        >
+          Theme Switching Mode
+        </button>
       </div>
     );
   }
 
-  // Game Modal Mode: d-pad underneath, game modal reveals with expanding ellipse mask
+  // Game Modal Mode: d-pad underneath, game modal slides up
   if (appMode === 'game') {
     const showGameModal = tvScreen !== 'hub';
     return (
       <div className="relative w-full h-full overflow-hidden">
-        {/* Base d-pad (always rendered) */}
         <div className="h-full">
           <SquareController onNavigate={handleNavigate} onAction={handleAction} />
         </div>
 
-        {/* Game modal overlay - ellipse reveal from bottom center */}
+        <div
+          className="absolute inset-0 transition-transform duration-500 ease-out"
+          style={{ transform: showGameModal ? 'translateY(0)' : 'translateY(100%)', zIndex: 10000 }}
+        >
+          <GameModal tvScreen={tvScreen} onNavigate={handleNavigate} onAction={handleAction} />
+        </div>
+      </div>
+    );
+  }
+
+  // Theme Switching Mode: d-pad underneath, ellipse reveal transition
+  if (appMode === 'theme') {
+    const showGameModal = tvScreen !== 'hub';
+    return (
+      <div className="relative w-full h-full overflow-hidden">
+        <div className="h-full">
+          <SquareController onNavigate={handleNavigate} onAction={handleAction} />
+        </div>
+
         <div
           className="absolute inset-0"
           style={{
