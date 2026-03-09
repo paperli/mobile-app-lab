@@ -18,6 +18,16 @@ function App() {
   const [error, setError] = useState<string>();
   const [appMode, setAppMode] = useState<AppMode | null>(null);
 
+  // Expose mode to native bridge
+  useEffect(() => {
+    (window as any).__getAppMode = () => appMode;
+    (window as any).__setAppMode = (mode: AppMode | null) => setAppMode(mode);
+    return () => {
+      delete (window as any).__getAppMode;
+      delete (window as any).__setAppMode;
+    };
+  }, [appMode]);
+
   // Load controller mode preference from localStorage
   useEffect(() => {
     const savedMode = localStorage.getItem('controllerMode') as ControllerMode;

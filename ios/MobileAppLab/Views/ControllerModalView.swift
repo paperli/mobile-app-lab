@@ -73,6 +73,7 @@ struct ControllerModalView: View {
         }
         .fullScreenCover(isPresented: $showSettings) {
             SettingsView(
+                webViewStore: webViewStore,
                 onDismiss: { showSettings = false },
                 onDisconnect: {
                     showSettings = false
