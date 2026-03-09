@@ -21,6 +21,7 @@
 		A100000A /* DeepLinkHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A110000A /* DeepLinkHandler.swift */; };
 		A100000B /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A110000B /* AppConfig.swift */; };
 		A100000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A110000C /* Assets.xcassets */; };
+		A100000D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A110000E /* SettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -39,6 +40,7 @@
 		A110000B /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 		A110000C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A110000D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A110000E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A1200001 /* MobileAppLab.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MobileAppLab.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -98,6 +100,7 @@
 				A1100004 /* CodeEntryView.swift */,
 				A1100005 /* ControllerModalView.swift */,
 				A1100006 /* QRScannerView.swift */,
+				A110000E /* SettingsView.swift */,
 				20BA6AAA2F5A0AAE00D6AF5A /* ShakeDetector.swift */,
 			);
 			path = Views;
@@ -221,6 +224,7 @@
 				A1000009 /* HapticService.swift in Sources */,
 				A100000A /* DeepLinkHandler.swift in Sources */,
 				A100000B /* AppConfig.swift in Sources */,
+				A100000D /* SettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

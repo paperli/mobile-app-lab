@@ -8,7 +8,7 @@ struct ControllerModalView: View {
 
     @State private var isLoading = true
     @State private var loadError: Error?
-    @State private var showExitConfirmation = false
+    @State private var showSettings = false
     @StateObject private var webViewStore = WebViewStore()
 
     var body: some View {
@@ -53,33 +53,32 @@ struct ControllerModalView: View {
                 )
             }
 
-            // Close button (top-left)
+            // Settings button (top-center)
             VStack {
-                HStack {
-                    Button(action: {
-                        HapticService.shared.trigger(.light)
-                        showExitConfirmation = true
-                    }) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 20, weight: .medium))
-                            .foregroundColor(.white.opacity(0.7))
-                    }
-                    .padding(.leading, 16)
-                    .padding(.top, 16)
-
-                    Spacer()
+                Button(action: {
+                    HapticService.shared.trigger(.light)
+                    showSettings = true
+                }) {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.white.opacity(0.5))
+                        .frame(width: 40, height: 40)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(Circle())
                 }
+                .padding(.top, 12)
 
                 Spacer()
             }
         }
-        .alert("Disconnect?", isPresented: $showExitConfirmation) {
-            Button("Stay", role: .cancel) { }
-            Button("Disconnect", role: .destructive) {
-                onDismiss()
-            }
-        } message: {
-            Text("Are you sure you want to disconnect from the TV?")
+        .fullScreenCover(isPresented: $showSettings) {
+            SettingsView(
+                onDismiss: { showSettings = false },
+                onDisconnect: {
+                    showSettings = false
+                    onDismiss()
+                }
+            )
         }
         .statusBarHidden(true)
     }
