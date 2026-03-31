@@ -223,7 +223,7 @@ function App() {
           <TrackpadController onNavigate={handleNavigate} onAction={handleAction} />
         )}
         {controllerMode === 'square-hybrid' && (
-          <SquareController onNavigate={handleNavigate} onAction={handleAction} onVolumeChange={setVoiceVolume} />
+          <SquareController onNavigate={handleNavigate} onAction={handleAction} onVolumeChange={setVoiceVolume} tvScreen={tvScreen} />
         )}
       </div>
 
