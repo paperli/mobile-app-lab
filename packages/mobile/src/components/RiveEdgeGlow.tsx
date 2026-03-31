@@ -6,14 +6,33 @@ import {
   useViewModelInstanceNumber,
 } from '@rive-app/react-webgl2';
 import { useState, useEffect, useRef } from 'react';
+import { TVScreen } from '@mobile-app-lab/shared';
+
+/** Maps TVScreen to Rive viewState enum values */
+function tvScreenToViewState(tvScreen: TVScreen): string {
+  switch (tvScreen) {
+    case 'hub':
+      return 'initialize';
+    case 'loading':
+      return 'launching';
+    case 'game-menu':
+    case 'playlist-select':
+    case 'in-game':
+      return 'ready';
+    default:
+      return 'initialize';
+  }
+}
 
 interface RiveEdgeGlowProps {
+  tvScreen: TVScreen;
   /** Normalized volume 0-1 from useVoiceInput */
   volume: number;
 }
 
-export function RiveEdgeGlow({ volume }: RiveEdgeGlowProps) {
+export function RiveEdgeGlow({ tvScreen, volume }: RiveEdgeGlowProps) {
   const [buffer, setBuffer] = useState<ArrayBuffer | null>(null);
+  const viewState = tvScreenToViewState(tvScreen);
 
   useEffect(() => {
     fetch('/uikit.riv')
@@ -37,18 +56,9 @@ export function RiveEdgeGlow({ volume }: RiveEdgeGlowProps) {
 
   const edgeVM = useViewModel(edgeRive, { name: 'MainViewModal' });
   const edgeVMI = useViewModelInstance(edgeVM, { rive: edgeRive });
-  const edgeViewStateHook = useViewModelInstanceEnum('viewState', edgeVMI);
-  const edgeVolumeHook = useViewModelInstanceNumber('volume', edgeVMI);
-  const setEdgeViewState = edgeViewStateHook?.setValue;
-  const setEdgeVolume = edgeVolumeHook?.setValue;
+  const { setValue: setEdgeViewState } = useViewModelInstanceEnum('viewState', edgeVMI);
+  const { setValue: setEdgeVolume } = useViewModelInstanceNumber('volume', edgeVMI);
 
-  useEffect(() => {
-    console.log('[RiveEdgeGlow] edgeRive:', !!edgeRive, 'edgeVM:', !!edgeVM, 'edgeVMI:', !!edgeVMI);
-    console.log('[RiveEdgeGlow] viewState hook:', !!edgeViewStateHook?.value, 'value:', edgeViewStateHook?.value);
-    console.log('[RiveEdgeGlow] volume hook:', !!edgeVolumeHook?.value !== undefined, 'value:', edgeVolumeHook?.value);
-  }, [edgeRive, edgeVM, edgeVMI, edgeViewStateHook, edgeVolumeHook]);
-
-  // Keep a ref to setEdgeVolume so we can call it from rAF
   const setEdgeVolumeRef = useRef(setEdgeVolume);
   useEffect(() => { setEdgeVolumeRef.current = setEdgeVolume; }, [setEdgeVolume]);
 
@@ -69,36 +79,25 @@ export function RiveEdgeGlow({ volume }: RiveEdgeGlowProps) {
   const logoVMI = useViewModelInstance(logoVM, { rive: logoRive });
   const { setValue: setLogoViewState } = useViewModelInstanceEnum('viewState', logoVMI);
 
-  // Set viewState to 'ready' on both
+  // Set viewState on both when tvScreen changes
   useEffect(() => {
-    if (setEdgeViewState) setEdgeViewState('ready');
-  }, [setEdgeViewState]);
+    if (setEdgeViewState) setEdgeViewState(viewState);
+  }, [viewState, setEdgeViewState]);
 
   useEffect(() => {
-    if (setLogoViewState) setLogoViewState('ready');
-  }, [setLogoViewState]);
+    if (setLogoViewState) setLogoViewState(viewState);
+  }, [viewState, setLogoViewState]);
 
   // Map volume (0-1) to 0-100 and feed into edge_glowing
   const volumeRef = useRef(volume);
   volumeRef.current = volume;
 
   useEffect(() => {
-    if (!setEdgeVolume) {
-      console.log('[RiveEdgeGlow] setEdgeVolume not ready yet');
-      return;
-    }
-    console.log('[RiveEdgeGlow] Volume binding ready, starting rAF loop');
+    if (!setEdgeVolume) return;
     let running = true;
-    let logCounter = 0;
     const update = () => {
       if (!running) return;
-      const mapped = Math.round(volumeRef.current * 100);
-      setEdgeVolumeRef.current?.(mapped);
-      // Log every 60 frames (~1 second)
-      if (logCounter % 60 === 0) {
-        console.log(`[RiveEdgeGlow] raw=${volumeRef.current.toFixed(3)} mapped=${mapped}`);
-      }
-      logCounter++;
+      setEdgeVolumeRef.current?.(Math.round(volumeRef.current * 100));
       requestAnimationFrame(update);
     };
     update();

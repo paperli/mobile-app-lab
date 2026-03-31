@@ -38,7 +38,7 @@ enum AppConfig {
         #else
         // Physical device needs the Mac's network IP
         // Update this IP when your network changes (run ./setup-https.sh)
-        return "https://192.168.50.72:5174"
+        return "https://192.168.21.12:5174"
         #endif
     }
 

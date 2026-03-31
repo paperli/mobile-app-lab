@@ -19,7 +19,7 @@ type AppScreen = 'hub' | 'loading' | 'game-menu' | 'playlist-select';
 
 // Configuration
 const ENABLE_LOOP_NAVIGATION = false;
-const LOADING_DURATION_MS = 2000; // Adjustable loading time
+const LOADING_DURATION_MS = 5000; // Adjustable loading time
 const MENU_ITEM_COUNT = 2; // Single Player + Party Mode
 
 function App() {

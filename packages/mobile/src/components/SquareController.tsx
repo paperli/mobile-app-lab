@@ -87,7 +87,7 @@ export function SquareController({ onNavigate, onAction, onVolumeChange }: Squar
       <VoiceGlow volume={volume} isActive={isListening} />
 
       {/* Circular Pad Area */}
-      <div className="relative w-full max-w-md aspect-square mb-16">
+      <div className="relative" style={{ width: '332px', height: '332px', marginBottom: '64px' }}>
           <div
             ref={trackpadRef}
             className="relative w-full h-full"

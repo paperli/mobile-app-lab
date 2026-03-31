@@ -207,7 +207,7 @@ function App() {
     <div className="relative w-full h-full">
       {/* Rive edge glow — behind controller */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-        <RiveEdgeGlow volume={voiceVolume} />
+        <RiveEdgeGlow tvScreen={tvScreen} volume={voiceVolume} />
       </div>
       <div className="h-full" style={{ position: 'relative', zIndex: 1 }}>
         {controllerMode === 'dpad' && (
@@ -228,7 +228,7 @@ function App() {
       </div>
 
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-        <RiveEdgeGlow volume={voiceVolume} />
+        <RiveEdgeGlow tvScreen={tvScreen} volume={voiceVolume} />
       </div>
     </div>
   );
