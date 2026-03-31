@@ -17,7 +17,7 @@ function App() {
   const [controllerMode, setControllerMode] = useState<ControllerMode>('square-hybrid');
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string>();
-  const [appMode, setAppMode] = useState<AppMode | null>(null);
+  const [appMode, setAppMode] = useState<AppMode | null>('dpad');
   const [voiceVolume, setVoiceVolume] = useState(0);
 
   // Expose mode to native bridge
@@ -122,36 +122,6 @@ function App() {
   // Show pairing screen if not paired
   if (!isPaired) {
     return <PairingScreen onPair={handlePair} isConnecting={isConnecting} error={error} />;
-  }
-
-  // Show mode selection after pairing
-  if (appMode === null) {
-    return (
-      <div className="w-full h-full flex flex-col items-center justify-center gap-6 px-8" style={{ backgroundColor: '#00001f' }}>
-        <h1 className="text-white text-2xl font-bold mb-4">Select Mode</h1>
-        <button
-          onClick={() => setAppMode('dpad')}
-          className="w-full max-w-xs py-4 px-6 rounded-2xl text-white text-lg font-semibold"
-          style={{ background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 255, 255, 0.2)' }}
-        >
-          System Controller Mode
-        </button>
-        <button
-          onClick={() => setAppMode('game')}
-          className="w-full max-w-xs py-4 px-6 rounded-2xl text-white text-lg font-semibold"
-          style={{ background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 255, 255, 0.2)' }}
-        >
-          Game Modal Mode
-        </button>
-        <button
-          onClick={() => setAppMode('theme')}
-          className="w-full max-w-xs py-4 px-6 rounded-2xl text-white text-lg font-semibold"
-          style={{ background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 255, 255, 0.2)' }}
-        >
-          Theme Switching Mode
-        </button>
-      </div>
-    );
   }
 
   // Game Modal Mode: d-pad underneath, game modal slides up
