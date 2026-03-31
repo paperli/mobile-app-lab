@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Undo2 } from 'lucide-react';
 import { NavigationDirection, NavigationAction } from '@mobile-app-lab/shared';
 import { useSwipeGestures } from '../hooks/useSwipeGestures';
@@ -10,9 +10,10 @@ import padBackground from '../assets/pad_background_circular_3x.png';
 interface SquareControllerProps {
   onNavigate: (direction: NavigationDirection) => void;
   onAction: (action: NavigationAction) => void;
+  onVolumeChange?: (volume: number) => void;
 }
 
-export function SquareController({ onNavigate, onAction }: SquareControllerProps) {
+export function SquareController({ onNavigate, onAction, onVolumeChange }: SquareControllerProps) {
   const [lastSwipe, setLastSwipe] = useState<NavigationDirection | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
 
@@ -22,6 +23,11 @@ export function SquareController({ onNavigate, onAction }: SquareControllerProps
     smoothingFactor: 0.85,
     testMode: false  // Now using HTTPS, real microphone enabled
   });
+
+  // Report volume to parent
+  useEffect(() => {
+    if (onVolumeChange) onVolumeChange(volume);
+  }, [volume, onVolumeChange]);
 
   // OK button radius as fraction of pad size (160px / ~400px pad ≈ 0.4 diameter → 0.2 radius)
   const OK_RADIUS = 0.2;
@@ -76,7 +82,7 @@ export function SquareController({ onNavigate, onAction }: SquareControllerProps
   });
 
   return (
-    <div className="relative flex flex-col items-center justify-center h-full px-2 pt-16" style={{ backgroundColor: '#00001f' }}>
+    <div className="relative flex flex-col items-center justify-center h-full px-2 pt-16" style={{ backgroundColor: 'transparent' }}>
       {/* Voice-activated wave effect */}
       <VoiceGlow volume={volume} isActive={isListening} />
 

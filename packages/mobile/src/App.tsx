@@ -8,6 +8,7 @@ import { GamepadController } from './components/GamepadController';
 import { TrackpadController } from './components/TrackpadController';
 import { SquareController } from './components/SquareController';
 import { GameModal } from './components/GameModal';
+import { RiveEdgeGlow } from './components/RiveEdgeGlow';
 
 type AppMode = 'dpad' | 'game' | 'theme';
 
@@ -17,6 +18,7 @@ function App() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string>();
   const [appMode, setAppMode] = useState<AppMode | null>(null);
+  const [voiceVolume, setVoiceVolume] = useState(0);
 
   // Expose mode to native bridge
   useEffect(() => {
@@ -200,10 +202,14 @@ function App() {
     );
   }
 
-  // System Controller Mode: just the d-pad
+  // System Controller Mode: Rive behind controller
   return (
     <div className="relative w-full h-full">
-      <div className="h-full">
+      {/* Rive edge glow — behind controller */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+        <RiveEdgeGlow volume={voiceVolume} />
+      </div>
+      <div className="h-full" style={{ position: 'relative', zIndex: 1 }}>
         {controllerMode === 'dpad' && (
           <DPadController onNavigate={handleNavigate} onAction={handleAction} />
         )}
@@ -217,8 +223,12 @@ function App() {
           <TrackpadController onNavigate={handleNavigate} onAction={handleAction} />
         )}
         {controllerMode === 'square-hybrid' && (
-          <SquareController onNavigate={handleNavigate} onAction={handleAction} />
+          <SquareController onNavigate={handleNavigate} onAction={handleAction} onVolumeChange={setVoiceVolume} />
         )}
+      </div>
+
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+        <RiveEdgeGlow volume={voiceVolume} />
       </div>
     </div>
   );

@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@mobile-app-lab/shared": "*",
+    "@rive-app/react-canvas": "^4.27.3",
+    "@rive-app/react-webgl2": "^4.27.3",
     "fuse.js": "^7.1.0",
     "lucide-react": "^0.562.0",
     "react": "^18.2.0",

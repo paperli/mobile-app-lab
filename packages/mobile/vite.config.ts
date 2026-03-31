@@ -14,6 +14,7 @@ const httpsConfig = fs.existsSync(keyPath) && fs.existsSync(certPath)
 
 export default defineConfig({
   plugins: [react()],
+  assetsInclude: ['**/*.riv'],
   server: {
     port: 5174,
     host: true, // Expose to network
