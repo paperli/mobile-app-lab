@@ -9,16 +9,19 @@ import { TrackpadController } from './components/TrackpadController';
 import { SquareController } from './components/SquareController';
 import { GameModal } from './components/GameModal';
 import { RiveEdgeGlow } from './components/RiveEdgeGlow';
+import { TopBar } from './components/TopBar';
+import { SettingsPanel } from './components/SettingsPanel';
 
 type AppMode = 'dpad' | 'game' | 'theme';
 
 function App() {
-  const { connectionStatus, isPaired, tvScreen, joinRoom, sendNavigationInput } = useSocket();
+  const { connectionStatus, isPaired, tvScreen, joinRoom, sendNavigationInput, leaveRoom } = useSocket();
   const [controllerMode, setControllerMode] = useState<ControllerMode>('square-hybrid');
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string>();
   const [appMode, setAppMode] = useState<AppMode | null>('dpad');
   const [voiceVolume, setVoiceVolume] = useState(0);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Expose mode to native bridge
   useEffect(() => {
@@ -124,11 +127,25 @@ function App() {
     return <PairingScreen onPair={handlePair} isConnecting={isConnecting} error={error} />;
   }
 
+  const settingsPanel = showSettings ? (
+    <SettingsPanel
+      currentMode={appMode ?? 'dpad'}
+      onModeChange={(mode) => setAppMode(mode)}
+      onDisconnect={() => {
+        setShowSettings(false);
+        leaveRoom();
+        window.NativeBridge?.dismissController();
+      }}
+      onClose={() => setShowSettings(false)}
+    />
+  ) : null;
+
   // Game Modal Mode: d-pad underneath, game modal slides up
   if (appMode === 'game') {
     const showGameModal = tvScreen !== 'hub';
     return (
       <div className="relative w-full h-full overflow-hidden">
+        <TopBar onBack={() => handleAction('back')} onSettings={() => setShowSettings(true)} />
         <div className="h-full">
           <SquareController onNavigate={handleNavigate} onAction={handleAction} />
         </div>
@@ -139,6 +156,7 @@ function App() {
         >
           <GameModal tvScreen={tvScreen} onNavigate={handleNavigate} onAction={handleAction} />
         </div>
+        {settingsPanel}
       </div>
     );
   }
@@ -148,6 +166,7 @@ function App() {
     const showGameModal = tvScreen !== 'hub';
     return (
       <div className="relative w-full h-full overflow-hidden">
+        <TopBar onBack={() => handleAction('back')} onSettings={() => setShowSettings(true)} />
         <div className="h-full">
           <SquareController onNavigate={handleNavigate} onAction={handleAction} />
         </div>
@@ -168,6 +187,7 @@ function App() {
             onAction={handleAction}
           />
         </div>
+        {settingsPanel}
       </div>
     );
   }
@@ -175,6 +195,7 @@ function App() {
   // System Controller Mode: Rive behind controller
   return (
     <div className="relative w-full h-full">
+      <TopBar onBack={() => handleAction('back')} onSettings={() => setShowSettings(true)} />
       {/* Rive edge glow — behind controller */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
         <RiveEdgeGlow tvScreen={tvScreen} volume={voiceVolume} />
@@ -200,6 +221,7 @@ function App() {
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
         <RiveEdgeGlow tvScreen={tvScreen} volume={voiceVolume} />
       </div>
+      {settingsPanel}
     </div>
   );
 }

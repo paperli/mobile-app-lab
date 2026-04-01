@@ -19,6 +19,11 @@ class NativeBridgeHandler: NSObject, WKScriptMessageHandler {
             // This is handled synchronously via injected JS
             break
 
+        case "dismissController":
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .dismissController, object: nil)
+            }
+
         default:
             print("NativeBridge: Unknown method '\(method)'")
         }
@@ -37,6 +42,12 @@ class NativeBridgeHandler: NSObject, WKScriptMessageHandler {
             HapticService.shared.trigger(type)
         }
     }
+}
+
+// MARK: - Notification Names
+
+extension Notification.Name {
+    static let dismissController = Notification.Name("dismissController")
 }
 
 // MARK: - JavaScript Bridge Injection
@@ -60,6 +71,13 @@ extension NativeBridgeHandler {
                     window.webkit.messageHandlers.NativeBridge.postMessage({
                         method: 'triggerHaptic',
                         type: type
+                    });
+                },
+
+                // Dismisses the controller modal and returns to pairing
+                dismissController: function() {
+                    window.webkit.messageHandlers.NativeBridge.postMessage({
+                        method: 'dismissController'
                     });
                 }
             };

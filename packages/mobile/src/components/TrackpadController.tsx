@@ -143,24 +143,6 @@ export function TrackpadController({ onNavigate, onAction }: TrackpadControllerP
         </div>
       </div>
 
-      {/* Back Button */}
-      <button
-        onTouchStart={(e) => {
-          e.preventDefault();
-          HapticFeedback.light();
-          onAction('back');
-        }}
-        className="
-          w-64 h-20 bg-red-600 active:bg-red-500
-          border-4 border-red-500 active:border-red-400
-          rounded-2xl text-white text-2xl font-bold
-          transition-all duration-100 active:scale-95
-          shadow-lg active:shadow-xl
-          select-none touch-none
-        "
-      >
-        BACK
-      </button>
     </div>
   );
 }

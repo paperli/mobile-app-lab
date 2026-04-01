@@ -23,6 +23,11 @@ declare global {
         type: 'light' | 'medium' | 'heavy' | 'success' | 'error' | 'navigation'
       ) => void;
 
+      /**
+       * Dismisses the controller modal and returns to the native pairing screen
+       */
+      dismissController: () => void;
+
       // Future: Voice recognition methods
       // startVoiceRecognition: () => Promise<string>;
       // stopVoiceRecognition: () => void;

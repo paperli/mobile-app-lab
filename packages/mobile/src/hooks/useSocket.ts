@@ -98,6 +98,18 @@ export function useSocket() {
     [socket, isPaired, roomCode]
   );
 
+  const leaveRoom = useCallback(() => {
+    setIsPaired(false);
+    setRoomCode('');
+    setTvScreen('hub');
+  }, []);
+
+  const disconnect = useCallback(() => {
+    if (socket) {
+      socket.disconnect();
+    }
+  }, [socket]);
+
   return {
     socket,
     connectionStatus,
@@ -106,5 +118,7 @@ export function useSocket() {
     tvScreen,
     joinRoom,
     sendNavigationInput,
+    leaveRoom,
+    disconnect,
   };
 }

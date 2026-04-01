@@ -163,25 +163,6 @@ function GameDPad({ onNavigate, onAction }: Omit<GameModalProps, 'tvScreen'>) {
         </div>
       </div>
 
-      {/* Back button */}
-      <button
-        onTouchStart={(e) => {
-          e.preventDefault();
-          HapticFeedback.light();
-          onAction('back');
-        }}
-        className="w-[120px] h-[120px] text-white transition-all duration-100 active:scale-95 select-none touch-none flex items-center justify-center"
-        style={{
-          borderRadius: '50%',
-          border: '2px solid rgba(255, 255, 255, 0.12)',
-          background: 'rgba(255, 255, 255, 0.06)',
-        }}
-      >
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M9 14 4 9l5-5" />
-          <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" />
-        </svg>
-      </button>
     </div>
   );
 }

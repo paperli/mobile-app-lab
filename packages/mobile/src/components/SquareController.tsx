@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Undo2 } from 'lucide-react';
 import { NavigationDirection, NavigationAction, TVScreen } from '@mobile-app-lab/shared';
 import { useSwipeGestures } from '../hooks/useSwipeGestures';
 import { useVoiceInput } from '../hooks/useVoiceInput';
@@ -109,29 +108,6 @@ export function SquareController({ onNavigate, onAction, onVolumeChange, tvScree
             )}
           </div>
         </div>
-
-        {/* Circular Back Button - 120x120px */}
-        <button
-          onTouchStart={(e) => {
-            e.preventDefault();
-            HapticFeedback.light();
-            onAction('back');
-          }}
-          className="
-            w-[120px] h-[120px]
-            text-white
-            transition-all duration-100 active:scale-95
-            select-none touch-none
-            flex items-center justify-center
-          "
-          style={{
-            borderRadius: '50%',
-            border: '2px solid rgba(255, 255, 255, 0.12)',
-            background: 'rgba(255, 255, 255, 0.06)',
-          }}
-        >
-          <Undo2 size={48} strokeWidth={2.5} />
-        </button>
 
     </div>
   );
