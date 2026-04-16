@@ -8,7 +8,7 @@ import { GamepadController } from './components/GamepadController';
 import { TrackpadController } from './components/TrackpadController';
 import { SquareController } from './components/SquareController';
 import { GameModal } from './components/GameModal';
-import { RiveEdgeGlow } from './components/RiveEdgeGlow';
+import { RiveEdgeGlow, RiveGameLogo } from './components/RiveEdgeGlow';
 import { TopBar } from './components/TopBar';
 import { SettingsPanel } from './components/SettingsPanel';
 
@@ -195,6 +195,7 @@ function App() {
   // System Controller Mode: Rive behind controller
   return (
     <div className="relative w-full h-full">
+      <RiveGameLogo tvScreen={tvScreen} />
       <TopBar onBack={() => handleAction('back')} onSettings={() => setShowSettings(true)} />
       {/* Rive edge glow — behind controller */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>

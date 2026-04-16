@@ -24,15 +24,9 @@ function tvScreenToViewState(tvScreen: TVScreen): string {
   }
 }
 
-interface RiveEdgeGlowProps {
-  tvScreen: TVScreen;
-  /** Normalized volume 0-1 from useVoiceInput */
-  volume: number;
-}
-
-export function RiveEdgeGlow({ tvScreen, volume }: RiveEdgeGlowProps) {
+/** Shared hook to load the .riv buffer once */
+function useRiveBuffer() {
   const [buffer, setBuffer] = useState<ArrayBuffer | null>(null);
-  const viewState = tvScreenToViewState(tvScreen);
 
   useEffect(() => {
     fetch('/uikit.riv')
@@ -41,7 +35,19 @@ export function RiveEdgeGlow({ tvScreen, volume }: RiveEdgeGlowProps) {
       .catch((err) => console.error('[RiveEdgeGlow] Failed to load .riv:', err));
   }, []);
 
-  // Edge glowing
+  return buffer;
+}
+
+interface RiveEdgeGlowProps {
+  tvScreen: TVScreen;
+  /** Normalized volume 0-1 from useVoiceInput */
+  volume: number;
+}
+
+export function RiveEdgeGlow({ tvScreen, volume }: RiveEdgeGlowProps) {
+  const buffer = useRiveBuffer();
+  const viewState = tvScreenToViewState(tvScreen);
+
   const { RiveComponent: EdgeGlowing, rive: edgeRive } = useRive(
     buffer
       ? {
@@ -62,31 +68,9 @@ export function RiveEdgeGlow({ tvScreen, volume }: RiveEdgeGlowProps) {
   const setEdgeVolumeRef = useRef(setEdgeVolume);
   useEffect(() => { setEdgeVolumeRef.current = setEdgeVolume; }, [setEdgeVolume]);
 
-  // Game logo
-  const { RiveComponent: GameLogo, rive: logoRive } = useRive(
-    buffer
-      ? {
-          buffer,
-          artboard: 'game_logo_box',
-          stateMachines: 'MainStateMachine',
-          autoplay: true,
-          autoBind: false,
-        }
-      : null
-  );
-
-  const logoVM = useViewModel(logoRive, { name: 'MainViewModal' });
-  const logoVMI = useViewModelInstance(logoVM, { rive: logoRive });
-  const { setValue: setLogoViewState } = useViewModelInstanceEnum('viewState', logoVMI);
-
-  // Set viewState on both when tvScreen changes
   useEffect(() => {
     if (setEdgeViewState) setEdgeViewState(viewState);
   }, [viewState, setEdgeViewState]);
-
-  useEffect(() => {
-    if (setLogoViewState) setLogoViewState(viewState);
-  }, [viewState, setLogoViewState]);
 
   // Map volume (0-1) to 0-100 and feed into edge_glowing
   const volumeRef = useRef(volume);
@@ -111,10 +95,43 @@ export function RiveEdgeGlow({ tvScreen, volume }: RiveEdgeGlowProps) {
       <div style={{ position: 'absolute', inset: 0 }}>
         <EdgeGlowing style={{ width: '100%', height: '100%' }} />
       </div>
+    </div>
+  );
+}
 
-      <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: '180px', height: '300px', zIndex: 1 }}>
-        <GameLogo style={{ width: '100%', height: '100%' }} />
-      </div>
+interface RiveGameLogoProps {
+  tvScreen: TVScreen;
+}
+
+export function RiveGameLogo({ tvScreen }: RiveGameLogoProps) {
+  const buffer = useRiveBuffer();
+  const viewState = tvScreenToViewState(tvScreen);
+
+  const { RiveComponent: GameLogo, rive: logoRive } = useRive(
+    buffer
+      ? {
+          buffer,
+          artboard: 'game_logo_box',
+          stateMachines: 'MainStateMachine',
+          autoplay: true,
+          autoBind: false,
+        }
+      : null
+  );
+
+  const logoVM = useViewModel(logoRive, { name: 'MainViewModal' });
+  const logoVMI = useViewModelInstance(logoVM, { rive: logoRive });
+  const { setValue: setLogoViewState } = useViewModelInstanceEnum('viewState', logoVMI);
+
+  useEffect(() => {
+    if (setLogoViewState) setLogoViewState(viewState);
+  }, [viewState, setLogoViewState]);
+
+  if (!buffer) return null;
+
+  return (
+    <div style={{ position: 'absolute', top: '2px', left: '50%', transform: 'translateX(-50%)', width: '180px', height: '300px', zIndex: 9999, pointerEvents: 'none' }}>
+      <GameLogo style={{ width: '100%', height: '100%' }} />
     </div>
   );
 }
