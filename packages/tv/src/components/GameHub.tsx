@@ -2,7 +2,7 @@ import { PLACEHOLDER_GAMES, GameData, NavigationDirection } from '@mobile-app-la
 import { QRCodeSVG } from 'qrcode.react';
 import { GameTile } from './GameTile';
 import { GamePreview } from './GamePreview';
-import { FocusFrame } from './FocusFrame';
+import { FocusFrame } from '@weekend/ui';
 import { getMobileUrl } from '../utils/getMobileUrl';
 
 interface GameHubProps {
