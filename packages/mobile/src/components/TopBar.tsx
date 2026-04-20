@@ -1,6 +1,6 @@
 import { useState } from 'react';
+import { SystemButton } from '@weekend/ui';
 import { HapticFeedback } from '../utils/haptics';
-import { IconSystem } from './IconSystem';
 
 interface TopBarProps {
   onBack: () => void;
@@ -137,21 +137,10 @@ export function TopBar({ onBack, onSystem, onSettings }: TopBarProps) {
         </svg>
       </TopBarButton>
 
-      {/* System button — raw SVG image, no button chrome */}
-      <TopBarButton
-        style={{
-          width: '56px',
-          height: '56px',
-          borderRadius: 0,
-          border: 'none',
-          background: 'none',
-          boxShadow: 'none',
-          overflow: 'visible',
-        }}
-        onPress={() => onSystem?.()}
-      >
-        <IconSystem size={56} />
-      </TopBarButton>
+      {/* System button — from @weekend/ui, 56px to match existing visual weight */}
+      <div style={{ pointerEvents: 'auto' }}>
+        <SystemButton variant="hub" size={56} onPress={() => onSystem?.()} />
+      </div>
 
       {/* Settings button */}
       <TopBarButton onPress={() => onSettings?.()} fireOnRelease>

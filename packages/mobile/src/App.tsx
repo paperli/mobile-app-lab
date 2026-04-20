@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { ControllerMode } from '@mobile-app-lab/shared';
+import { ControllerMode, SOCKET_EVENTS } from '@mobile-app-lab/shared';
 import { useSocket } from './hooks/useSocket';
 import { PairingScreen } from './components/PairingScreen';
 import { DPadController } from './components/DPadController';
@@ -17,7 +17,7 @@ import { PreviewShell } from './preview/PreviewShell';
 type AppMode = 'dpad' | 'game' | 'theme';
 
 function MainMobileApp() {
-  const { connectionStatus, isPaired, tvScreen, joinRoom, sendNavigationInput, leaveRoom } = useSocket();
+  const { socket, connectionStatus, isPaired, tvScreen, joinRoom, sendNavigationInput, leaveRoom } = useSocket();
   const [controllerMode, setControllerMode] = useState<ControllerMode>('square-hybrid');
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string>();
@@ -111,6 +111,12 @@ function MainMobileApp() {
     [sendNavigationInput]
   );
 
+  const handleSystem = useCallback(() => {
+    if (socket) {
+      socket.emit(SOCKET_EVENTS.SYSTEM_MENU_OPEN);
+    }
+  }, [socket]);
+
   // Show connection loading
   if (!connectionStatus.connected) {
     return (
@@ -147,7 +153,7 @@ function MainMobileApp() {
     const showGameModal = tvScreen !== 'hub';
     return (
       <div className="relative w-full h-full overflow-hidden">
-        <TopBar onBack={() => handleAction('back')} onSettings={() => setShowSettings(true)} />
+        <TopBar onBack={() => handleAction('back')} onSystem={handleSystem} onSettings={() => setShowSettings(true)} />
         <div className="h-full">
           <SquareController onNavigate={handleNavigate} onAction={handleAction} />
         </div>
@@ -168,7 +174,7 @@ function MainMobileApp() {
     const showGameModal = tvScreen !== 'hub';
     return (
       <div className="relative w-full h-full overflow-hidden">
-        <TopBar onBack={() => handleAction('back')} onSettings={() => setShowSettings(true)} />
+        <TopBar onBack={() => handleAction('back')} onSystem={handleSystem} onSettings={() => setShowSettings(true)} />
         <div className="h-full">
           <SquareController onNavigate={handleNavigate} onAction={handleAction} />
         </div>
@@ -198,7 +204,7 @@ function MainMobileApp() {
   return (
     <div className="relative w-full h-full">
       <RiveGameLogo tvScreen={tvScreen} />
-      <TopBar onBack={() => handleAction('back')} onSettings={() => setShowSettings(true)} />
+      <TopBar onBack={() => handleAction('back')} onSystem={handleSystem} onSettings={() => setShowSettings(true)} />
       {/* Rive edge glow — behind controller */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
         <RiveEdgeGlow tvScreen={tvScreen} volume={voiceVolume} />
