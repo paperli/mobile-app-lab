@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Routes, Route } from 'react-router-dom';
 import { ControllerMode } from '@mobile-app-lab/shared';
 import { useSocket } from './hooks/useSocket';
 import { PairingScreen } from './components/PairingScreen';
@@ -11,10 +12,11 @@ import { GameModal } from './components/GameModal';
 import { RiveEdgeGlow, RiveGameLogo } from './components/RiveEdgeGlow';
 import { TopBar } from './components/TopBar';
 import { SettingsPanel } from './components/SettingsPanel';
+import { PreviewShell } from './preview/PreviewShell';
 
 type AppMode = 'dpad' | 'game' | 'theme';
 
-function App() {
+function MainMobileApp() {
   const { connectionStatus, isPaired, tvScreen, joinRoom, sendNavigationInput, leaveRoom } = useSocket();
   const [controllerMode, setControllerMode] = useState<ControllerMode>('square-hybrid');
   const [isConnecting, setIsConnecting] = useState(false);
@@ -224,6 +226,15 @@ function App() {
       </div>
       {settingsPanel}
     </div>
+  );
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<MainMobileApp />} />
+      {import.meta.env.DEV && <Route path="/ui-preview/*" element={<PreviewShell />} />}
+    </Routes>
   );
 }
 
