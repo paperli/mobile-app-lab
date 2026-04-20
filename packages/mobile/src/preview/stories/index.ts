@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react';
+import ButtonStory from './Button';
 
 export interface Story {
   slug: string;
@@ -6,4 +7,6 @@ export interface Story {
   Component: ComponentType;
 }
 
-export const stories: Story[] = [];
+export const stories: Story[] = [
+  { slug: 'button', label: 'Button', Component: ButtonStory },
+];
