@@ -38,7 +38,7 @@ enum AppConfig {
         #else
         // Physical device needs the Mac's network IP
         // Update this IP when your network changes (run ./setup-https.sh)
-        return "https://192.168.20.40:5174"
+        return "https://192.168.21.12:5174"
         #endif
     }
 
@@ -47,6 +47,17 @@ enum AppConfig {
     /// Constructs the controller URL with room code and native flag
     static func controllerURL(roomCode: String) -> URL {
         var components = URLComponents(url: mobileWebURL, resolvingAgainstBaseURL: false)!
+        components.queryItems = [
+            URLQueryItem(name: "code", value: roomCode),
+            URLQueryItem(name: "native", value: "1")
+        ]
+        return components.url!
+    }
+
+    /// Constructs the controller URL from a scanned QR code URL
+    /// Uses the scanned URL's scheme/host/port instead of the hardcoded IP
+    static func controllerURL(from sourceURL: URL, roomCode: String) -> URL {
+        var components = URLComponents(url: sourceURL, resolvingAgainstBaseURL: false)!
         components.queryItems = [
             URLQueryItem(name: "code", value: roomCode),
             URLQueryItem(name: "native", value: "1")

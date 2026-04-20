@@ -1,0 +1,73 @@
+:root {
+  /* Layer 1 — primitive palette (rgb channels for Tailwind <alpha-value>) */
+  --palette-yellow-300: 255 232 139;   /* #FFE88B */
+  --palette-yellow-500: 246 211 0;     /* #F6D300 */
+  --palette-cyan-400:   49 204 242;    /* #31CCF2 */
+  --palette-indigo-500: 94 131 253;    /* #5E83FD */
+  --palette-ink-950:    0 0 31;        /* #00001f mobile bg */
+  --palette-ink-900:    10 14 40;      /* TV bg */
+  --palette-white:      255 255 255;
+  --palette-grey-500:   128 128 140;
+  --palette-grey-700:   64 64 80;
+  --palette-red-500:    239 68 68;
+
+  /* Layer 2 — semantic tokens */
+  --color-bg:           var(--palette-ink-950);
+  --color-bg-elevated:  var(--palette-ink-900);
+  --color-fg:           var(--palette-white);
+  --color-fg-muted:     255 255 255 / 0.6;
+  --color-brand:        var(--palette-yellow-300);
+  --color-action:       var(--palette-yellow-300);
+  --color-focus:        var(--palette-yellow-300);
+  --color-modal-stroke: var(--palette-cyan-400);
+  --color-modal-wash:   var(--palette-cyan-400);
+  --color-modal-wash-2: var(--palette-indigo-500);
+
+  /* Per-game tint — scoped overrides replace these */
+  --modal-tint:   var(--color-modal-stroke);
+  --modal-wash:   var(--color-modal-wash);
+  --modal-wash-2: var(--color-modal-wash-2);
+
+  /* Type, spacing, radii, motion */
+  --font-sans:       'Weekend Repro', ui-sans-serif, system-ui, sans-serif;
+  --type-code:       96px;
+  --radius-pill:     9999px;
+  --radius-card:     16px;
+  --duration-fast:   150ms;
+  --duration-base:   220ms;
+  --ease-standard:   cubic-bezier(0.4, 0, 0.2, 1);
+  --shadow-cta-glow: 0 4px 20px 0 rgba(255, 228, 1, 0.35);
+}
+
+[data-theme='light'] {
+  --color-bg:          var(--palette-white);
+  --color-bg-elevated: 245 245 247;
+  --color-fg:          var(--palette-ink-950);
+  --color-fg-muted:    0 0 31 / 0.6;
+}
+
+/* Motion keyframes used by Dialog and others */
+@keyframes weekend-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes weekend-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@keyframes weekend-scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes weekend-scale-out {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.95); }
+}
+
+@keyframes weekend-slot-pulse {
+  0%, 100% { opacity: 0.6; }
+  50%      { opacity: 1; }
+}

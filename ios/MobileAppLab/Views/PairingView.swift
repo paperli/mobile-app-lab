@@ -2,12 +2,13 @@ import SwiftUI
 
 /// Initial screen with camera button and manual code entry
 struct PairingView: View {
-    let onCodeEntered: (String) -> Void
+    let onCodeEntered: (String, URL?) -> Void
     let onScanTapped: () -> Void
 
     @State private var showScanner = false
     @State private var showCodeEntry = false
     @State private var pendingCode: String?
+    @State private var pendingSourceURL: URL?
 
     var body: some View {
         ZStack {
@@ -91,20 +92,23 @@ struct PairingView: View {
         .sheet(isPresented: $showScanner, onDismiss: {
             // Process pending code after sheet is fully dismissed
             if let code = pendingCode {
+                let sourceURL = pendingSourceURL
                 pendingCode = nil
-                onCodeEntered(code)
+                pendingSourceURL = nil
+                onCodeEntered(code, sourceURL)
             }
         }) {
-            QRScannerView { code in
-                // Store code and dismiss - onDismiss will process it
+            QRScannerView { code, sourceURL in
+                // Store code and source URL, dismiss - onDismiss will process it
                 pendingCode = code
+                pendingSourceURL = sourceURL
                 showScanner = false
             }
         }
         .sheet(isPresented: $showCodeEntry, onDismiss: {
             if let code = pendingCode {
                 pendingCode = nil
-                onCodeEntered(code)
+                onCodeEntered(code, nil)
             }
         }) {
             CodeEntryView { code in
@@ -156,7 +160,7 @@ extension Color {
 
 #Preview {
     PairingView(
-        onCodeEntered: { _ in },
+        onCodeEntered: { _, _ in },
         onScanTapped: {}
     )
 }

@@ -13,6 +13,8 @@ export type {
   RoomJoinPayload,
   RoomJoinedPayload,
   NavigationInputPayload,
+  TVScreen,
+  ScreenUpdatePayload,
 } from './types.js';
 
 // Export all constants

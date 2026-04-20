@@ -5,6 +5,8 @@ import {
   CONFIG,
   ConnectionStatus,
   NavigationEvent,
+  TVScreen,
+  ScreenUpdatePayload,
 } from '@mobile-app-lab/shared';
 
 export function useSocket() {
@@ -15,6 +17,7 @@ export function useSocket() {
   });
   const [roomCode, setRoomCode] = useState<string>('');
   const [isPaired, setIsPaired] = useState(false);
+  const [tvScreen, setTvScreen] = useState<TVScreen>('hub');
 
   useEffect(() => {
     // Get server URL from environment variable or construct from hostname
@@ -46,6 +49,11 @@ export function useSocket() {
         console.error('[Mobile] Failed to join room:', payload.error);
         setConnectionStatus((prev) => ({ ...prev, error: payload.error }));
       }
+    });
+
+    socketInstance.on(SOCKET_EVENTS.SCREEN_UPDATE, (payload: ScreenUpdatePayload) => {
+      console.log('[Mobile] Screen update:', payload.screen);
+      setTvScreen(payload.screen);
     });
 
     socketInstance.on(SOCKET_EVENTS.DISCONNECT, () => {
@@ -90,12 +98,27 @@ export function useSocket() {
     [socket, isPaired, roomCode]
   );
 
+  const leaveRoom = useCallback(() => {
+    setIsPaired(false);
+    setRoomCode('');
+    setTvScreen('hub');
+  }, []);
+
+  const disconnect = useCallback(() => {
+    if (socket) {
+      socket.disconnect();
+    }
+  }, [socket]);
+
   return {
     socket,
     connectionStatus,
     roomCode,
     isPaired,
+    tvScreen,
     joinRoom,
     sendNavigationInput,
+    leaveRoom,
+    disconnect,
   };
 }

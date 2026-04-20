@@ -59,3 +59,24 @@ export interface RoomJoinedPayload {
 export interface NavigationInputPayload extends NavigationEvent {
   roomCode: string;
 }
+
+// Screen state broadcast from TV to mobile
+export type TVScreen = 'hub' | 'loading' | 'game-menu' | 'playlist-select' | 'in-game';
+
+export interface ScreenUpdatePayload {
+  screen: TVScreen;
+  gameId?: string;
+}
+
+export interface SystemMenuOpenPayload {
+  roomCode: string;
+}
+
+export interface SystemMenuClosePayload {
+  roomCode: string;
+}
+
+export interface SystemMenuActionPayload {
+  roomCode: string;
+  action: 'resume' | 'exit';
+}

@@ -1,5 +1,10 @@
 /// <reference types="vite/client" />
 
+declare module '*.riv' {
+  const src: string;
+  export default src;
+}
+
 interface SpeechRecognitionEvent extends Event {
   readonly resultIndex: number;
   readonly results: SpeechRecognitionResultList;

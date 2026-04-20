@@ -37,30 +37,48 @@ try {
   httpServer = createHttpServer(app);
 }
 
-// Get allowed origins from environment or use defaults
+// In development, allow any private network origin (so IP changes don't break things).
+// In production, use ALLOWED_ORIGINS from the environment.
+const isProduction = process.env.NODE_ENV === 'production';
+
 const getAllowedOrigins = () => {
   if (process.env.ALLOWED_ORIGINS) {
     return process.env.ALLOWED_ORIGINS.split(',');
   }
-  // Default local origins for development (supporting both HTTP and HTTPS)
-  return [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://localhost:5175',
-    'http://localhost:5176',
-    'https://localhost:5173',
-    'https://localhost:5174',
-    'https://localhost:5175',
-    'https://localhost:5176',
-    'https://192.168.50.72:5173',
-    'https://192.168.50.72:5174',
-  ];
+  return [];
+};
+
+const isPrivateNetworkOrigin = (origin: string): boolean => {
+  try {
+    const url = new URL(origin);
+    const host = url.hostname;
+    return (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host.startsWith('192.168.') ||
+      host.startsWith('10.') ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+    );
+  } catch {
+    return false;
+  }
 };
 
 // Configure CORS for Socket.io
 const io = new Server(httpServer, {
   cors: {
-    origin: getAllowedOrigins(),
+    origin: isProduction
+      ? getAllowedOrigins()
+      : (origin, callback) => {
+          // Allow requests with no origin (e.g. mobile apps, curl)
+          if (!origin || isPrivateNetworkOrigin(origin)) {
+            callback(null, true);
+          } else if (getAllowedOrigins().includes(origin)) {
+            callback(null, true);
+          } else {
+            callback(new Error(`CORS blocked: ${origin}`));
+          }
+        },
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -96,5 +114,9 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT) : CONFIG.SERVER_PORT;
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 Mobile Lab Server running on port ${PORT}`);
   console.log(`📡 Socket.io ready for connections`);
-  console.log(`🌐 Allowed origins: ${getAllowedOrigins().join(', ')}\n`);
+  if (isProduction) {
+    console.log(`🌐 Allowed origins: ${getAllowedOrigins().join(', ')}\n`);
+  } else {
+    console.log(`🌐 CORS: allowing all private network origins (dev mode)\n`);
+  }
 });

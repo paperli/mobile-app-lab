@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ControllerMode } from '@mobile-app-lab/shared';
+import { Routes, Route } from 'react-router-dom';
+import { ControllerMode, SOCKET_EVENTS } from '@mobile-app-lab/shared';
 import { useSocket } from './hooks/useSocket';
 import { PairingScreen } from './components/PairingScreen';
 import { DPadController } from './components/DPadController';
@@ -7,12 +8,32 @@ import { JoystickController } from './components/JoystickController';
 import { GamepadController } from './components/GamepadController';
 import { TrackpadController } from './components/TrackpadController';
 import { SquareController } from './components/SquareController';
+import { GameModal } from './components/GameModal';
+import { RiveEdgeGlow, RiveGameLogo } from './components/RiveEdgeGlow';
+import { TopBar } from './components/TopBar';
+import { SettingsPanel } from './components/SettingsPanel';
+import { PreviewShell } from './preview/PreviewShell';
 
-function App() {
-  const { connectionStatus, isPaired, joinRoom, sendNavigationInput } = useSocket();
+type AppMode = 'dpad' | 'game' | 'theme';
+
+function MainMobileApp() {
+  const { socket, connectionStatus, isPaired, tvScreen, joinRoom, sendNavigationInput, leaveRoom } = useSocket();
   const [controllerMode, setControllerMode] = useState<ControllerMode>('square-hybrid');
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string>();
+  const [appMode, setAppMode] = useState<AppMode | null>('dpad');
+  const [voiceVolume, setVoiceVolume] = useState(0);
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Expose mode to native bridge
+  useEffect(() => {
+    (window as any).__getAppMode = () => appMode;
+    (window as any).__setAppMode = (mode: AppMode | null) => setAppMode(mode);
+    return () => {
+      delete (window as any).__getAppMode;
+      delete (window as any).__setAppMode;
+    };
+  }, [appMode]);
 
   // Load controller mode preference from localStorage
   useEffect(() => {
@@ -90,6 +111,12 @@ function App() {
     [sendNavigationInput]
   );
 
+  const handleSystem = useCallback(() => {
+    if (socket) {
+      socket.emit(SOCKET_EVENTS.SYSTEM_MENU_OPEN);
+    }
+  }, [socket]);
+
   // Show connection loading
   if (!connectionStatus.connected) {
     return (
@@ -108,11 +135,81 @@ function App() {
     return <PairingScreen onPair={handlePair} isConnecting={isConnecting} error={error} />;
   }
 
-  // Show controller based on mode
+  const settingsPanel = showSettings ? (
+    <SettingsPanel
+      currentMode={appMode ?? 'dpad'}
+      onModeChange={(mode) => setAppMode(mode)}
+      onDisconnect={() => {
+        setShowSettings(false);
+        leaveRoom();
+        window.NativeBridge?.dismissController();
+      }}
+      onClose={() => setShowSettings(false)}
+    />
+  ) : null;
+
+  // Game Modal Mode: d-pad underneath, game modal slides up
+  if (appMode === 'game') {
+    const showGameModal = tvScreen !== 'hub';
+    return (
+      <div className="relative w-full h-full overflow-hidden">
+        <TopBar onBack={() => handleAction('back')} onSystem={handleSystem} onSettings={() => setShowSettings(true)} />
+        <div className="h-full">
+          <SquareController onNavigate={handleNavigate} onAction={handleAction} />
+        </div>
+
+        <div
+          className="absolute inset-0 transition-transform duration-500 ease-out"
+          style={{ transform: showGameModal ? 'translateY(0)' : 'translateY(100%)', zIndex: 10000 }}
+        >
+          <GameModal tvScreen={tvScreen} onNavigate={handleNavigate} onAction={handleAction} />
+        </div>
+        {settingsPanel}
+      </div>
+    );
+  }
+
+  // Theme Switching Mode: d-pad underneath, ellipse reveal transition
+  if (appMode === 'theme') {
+    const showGameModal = tvScreen !== 'hub';
+    return (
+      <div className="relative w-full h-full overflow-hidden">
+        <TopBar onBack={() => handleAction('back')} onSystem={handleSystem} onSettings={() => setShowSettings(true)} />
+        <div className="h-full">
+          <SquareController onNavigate={handleNavigate} onAction={handleAction} />
+        </div>
+
+        <div
+          className="absolute inset-0"
+          style={{
+            zIndex: 10000,
+            clipPath: showGameModal
+              ? 'ellipse(200% 150% at 50% 100%)'
+              : 'ellipse(60% 0% at 50% 100%)',
+            transition: 'clip-path 600ms cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
+        >
+          <GameModal
+            tvScreen={tvScreen}
+            onNavigate={handleNavigate}
+            onAction={handleAction}
+          />
+        </div>
+        {settingsPanel}
+      </div>
+    );
+  }
+
+  // System Controller Mode: Rive behind controller
   return (
     <div className="relative w-full h-full">
-      {/* <ControllerSelector mode={controllerMode} onModeChange={handleModeChange} roomCode={roomCode} /> */}
-      <div className="h-full">
+      <RiveGameLogo tvScreen={tvScreen} />
+      <TopBar onBack={() => handleAction('back')} onSystem={handleSystem} onSettings={() => setShowSettings(true)} />
+      {/* Rive edge glow — behind controller */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+        <RiveEdgeGlow tvScreen={tvScreen} volume={voiceVolume} />
+      </div>
+      <div className="h-full" style={{ position: 'relative', zIndex: 1 }}>
         {controllerMode === 'dpad' && (
           <DPadController onNavigate={handleNavigate} onAction={handleAction} />
         )}
@@ -126,10 +223,24 @@ function App() {
           <TrackpadController onNavigate={handleNavigate} onAction={handleAction} />
         )}
         {controllerMode === 'square-hybrid' && (
-          <SquareController onNavigate={handleNavigate} onAction={handleAction} />
+          <SquareController onNavigate={handleNavigate} onAction={handleAction} onVolumeChange={setVoiceVolume} tvScreen={tvScreen} />
         )}
       </div>
+
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+        <RiveEdgeGlow tvScreen={tvScreen} volume={voiceVolume} />
+      </div>
+      {settingsPanel}
     </div>
+  );
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<MainMobileApp />} />
+      {import.meta.env.DEV && <Route path="/ui-preview/*" element={<PreviewShell />} />}
+    </Routes>
   );
 }
 

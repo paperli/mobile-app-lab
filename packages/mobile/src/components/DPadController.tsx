@@ -121,17 +121,6 @@ export function DPadController({ onNavigate, onAction }: DPadControllerProps) {
         </button>
       </div>
 
-      {/* Back Button */}
-      <button
-        onTouchStart={(e) => {
-          e.preventDefault();
-          handleButtonPress(null, 'back');
-        }}
-        className={`${buttonClasses} w-64 h-20 bg-red-600 active:bg-red-500 border-red-500 active:border-red-400 text-2xl`}
-      >
-        <span className="relative z-10">BACK</span>
-        {renderRipple('back')}
-      </button>
     </div>
   );
 }
