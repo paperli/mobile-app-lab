@@ -7,6 +7,7 @@ import {
   PLACEHOLDER_GAMES,
   SOCKET_EVENTS,
 } from '@mobile-app-lab/shared';
+import { SystemMenuOverlay, type Slot } from '@weekend/ui';
 import { GameHub } from './components/GameHub';
 import { LoadingScreen } from './components/song-quiz/LoadingScreen';
 import { GameMenu } from './components/song-quiz/GameMenu';
@@ -16,6 +17,7 @@ import { useSocket } from './hooks/useSocket';
 import { useKeyboardNav } from './hooks/useKeyboardNav';
 import { soundManager } from './utils/sounds';
 import { PreviewShell } from './preview/PreviewShell';
+import { getMobileUrl } from './utils/getMobileUrl';
 
 type AppScreen = 'hub' | 'loading' | 'game-menu' | 'playlist-select';
 
@@ -243,6 +245,41 @@ function MainTvApp() {
 
   const { socket, roomCode, connectionStatus } = useSocket(handleNavigationInput);
 
+  // System menu state
+  const [systemMenuOpen, setSystemMenuOpen] = useState(false);
+
+  // Mock slots — real party/slot domain state lands in PU&P M2.
+  // TODO(PU&P M2): wire to actual party state instead of placeholders.
+  const mockSlots: Slot[] = [
+    { id: '1', state: 'waiting' },
+    { id: '2', state: 'waiting' },
+    { id: '3', state: 'waiting' },
+    { id: '4', state: 'waiting' },
+  ];
+
+  // Listen for system-menu events from server
+  useEffect(() => {
+    if (!socket) return;
+    const handleOpen = () => setSystemMenuOpen(true);
+    const handleAction = (payload: { action: 'resume' | 'exit' }) => {
+      if (payload.action === 'resume') setSystemMenuOpen(false);
+      // 'exit' handling deferred — for now, just close the overlay
+      if (payload.action === 'exit') setSystemMenuOpen(false);
+    };
+    socket.on(SOCKET_EVENTS.SYSTEM_MENU_OPEN, handleOpen);
+    socket.on(SOCKET_EVENTS.SYSTEM_MENU_ACTION, handleAction);
+    return () => {
+      socket.off(SOCKET_EVENTS.SYSTEM_MENU_OPEN, handleOpen);
+      socket.off(SOCKET_EVENTS.SYSTEM_MENU_ACTION, handleAction);
+    };
+  }, [socket]);
+
+  // Emit close back to mobile whenever user dismisses the overlay
+  const handleMenuOpenChange = useCallback((next: boolean) => {
+    setSystemMenuOpen(next);
+    if (!next && socket) socket.emit(SOCKET_EVENTS.SYSTEM_MENU_CLOSE);
+  }, [socket]);
+
   // Broadcast screen state to mobile devices
   useEffect(() => {
     if (socket) {
@@ -265,22 +302,19 @@ function MainTvApp() {
     );
   }
 
+  let screen;
   if (currentScreen === 'loading') {
-    return <LoadingScreen />;
-  }
-
-  if (currentScreen === 'game-menu') {
-    return (
+    screen = <LoadingScreen />;
+  } else if (currentScreen === 'game-menu') {
+    screen = (
       <GameMenu
         focusedIndex={menuFocusedIndex}
         bounceDirection={menuBounceDirection}
         isPressing={menuIsPressing}
       />
     );
-  }
-
-  if (currentScreen === 'playlist-select') {
-    return (
+  } else if (currentScreen === 'playlist-select') {
+    screen = (
       <PlaylistSelect
         focusRow={playlistFocusRow}
         focusCol={playlistFocusCol}
@@ -288,16 +322,31 @@ function MainTvApp() {
         isPressing={playlistIsPressing}
       />
     );
+  } else {
+    screen = (
+      <GameHub
+        roomCode={roomCode}
+        focusedIndex={focusedIndex}
+        bounceDirection={bounceDirection}
+        isPressing={isPressing}
+        onFocusChange={setFocusedIndex}
+      />
+    );
   }
 
   return (
-    <GameHub
-      roomCode={roomCode}
-      focusedIndex={focusedIndex}
-      bounceDirection={bounceDirection}
-      isPressing={isPressing}
-      onFocusChange={setFocusedIndex}
-    />
+    <>
+      {screen}
+      <SystemMenuOverlay
+        open={systemMenuOpen}
+        onOpenChange={handleMenuOpenChange}
+        mobileUrl={getMobileUrl()}
+        roomCode={roomCode}
+        slots={mockSlots}
+        onResume={() => handleMenuOpenChange(false)}
+        onExitGame={() => handleMenuOpenChange(false)}
+      />
+    </>
   );
 }
 
