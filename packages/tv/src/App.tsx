@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { Routes, Route } from 'react-router-dom';
 import {
   NavigationInputPayload,
   NavigationDirection,
@@ -14,6 +15,7 @@ import { GRID, findClosestCol } from './components/song-quiz/PlaylistFocusFrame'
 import { useSocket } from './hooks/useSocket';
 import { useKeyboardNav } from './hooks/useKeyboardNav';
 import { soundManager } from './utils/sounds';
+import { PreviewShell } from './preview/PreviewShell';
 
 type AppScreen = 'hub' | 'loading' | 'game-menu' | 'playlist-select';
 
@@ -22,7 +24,7 @@ const ENABLE_LOOP_NAVIGATION = false;
 const LOADING_DURATION_MS = 5000; // Adjustable loading time
 const MENU_ITEM_COUNT = 2; // Single Player + Party Mode
 
-function App() {
+function MainTvApp() {
   // Screen state
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('hub');
 
@@ -296,6 +298,15 @@ function App() {
       isPressing={isPressing}
       onFocusChange={setFocusedIndex}
     />
+  );
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<MainTvApp />} />
+      {import.meta.env.DEV && <Route path="/ui-preview/*" element={<PreviewShell />} />}
+    </Routes>
   );
 }
 
