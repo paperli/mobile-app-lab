@@ -1,3 +1,5 @@
+import '@weekend/ui/tokens/fonts.css';
+import '@weekend/ui/tokens/tokens.css';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
