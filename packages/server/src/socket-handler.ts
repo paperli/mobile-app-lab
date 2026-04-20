@@ -120,6 +120,34 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager) {
       console.log(`[Socket] Screen update forwarded: ${payload.screen}`);
     });
 
+    // Mobile → TV: request system menu open
+    socket.on(SOCKET_EVENTS.SYSTEM_MENU_OPEN, () => {
+      const room = roomManager.getRoomBySocket(socket.id);
+      if (!room || !room.mobileSocketIds.includes(socket.id)) return;
+      if (!room.tvSocketId) return;
+      io.to(room.tvSocketId).emit(SOCKET_EVENTS.SYSTEM_MENU_OPEN, { roomCode: room.code });
+      console.log(`[Socket] System menu open → TV ${room.tvSocketId}`);
+    });
+
+    // TV → Mobile: menu closed
+    socket.on(SOCKET_EVENTS.SYSTEM_MENU_CLOSE, () => {
+      const room = roomManager.getRoomBySocket(socket.id);
+      if (!room || room.tvSocketId !== socket.id) return;
+      for (const mobileId of room.mobileSocketIds) {
+        io.to(mobileId).emit(SOCKET_EVENTS.SYSTEM_MENU_CLOSE, { roomCode: room.code });
+      }
+      console.log(`[Socket] System menu close → mobiles in ${room.code}`);
+    });
+
+    // Mobile → TV: menu action (if phone ever triggers resume/exit remotely)
+    socket.on(SOCKET_EVENTS.SYSTEM_MENU_ACTION, (payload: { action: 'resume' | 'exit' }) => {
+      const room = roomManager.getRoomBySocket(socket.id);
+      if (!room || !room.mobileSocketIds.includes(socket.id)) return;
+      if (!room.tvSocketId) return;
+      io.to(room.tvSocketId).emit(SOCKET_EVENTS.SYSTEM_MENU_ACTION, { roomCode: room.code, action: payload.action });
+      console.log(`[Socket] System menu action ${payload.action} → TV ${room.tvSocketId}`);
+    });
+
     // Handle disconnection
     socket.on('disconnect', () => {
       console.log(`[Socket] Client disconnected: ${socket.id}`);

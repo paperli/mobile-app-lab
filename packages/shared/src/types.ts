@@ -67,3 +67,16 @@ export interface ScreenUpdatePayload {
   screen: TVScreen;
   gameId?: string;
 }
+
+export interface SystemMenuOpenPayload {
+  roomCode: string;
+}
+
+export interface SystemMenuClosePayload {
+  roomCode: string;
+}
+
+export interface SystemMenuActionPayload {
+  roomCode: string;
+  action: 'resume' | 'exit';
+}

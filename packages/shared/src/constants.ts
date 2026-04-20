@@ -21,6 +21,11 @@ export const SOCKET_EVENTS = {
 
   // Screen state (TV → Mobile)
   SCREEN_UPDATE: 'screen:update',
+
+  // System menu (Mobile triggers → TV displays; TV closes → Mobile clears)
+  SYSTEM_MENU_OPEN: 'system-menu:open',
+  SYSTEM_MENU_CLOSE: 'system-menu:close',
+  SYSTEM_MENU_ACTION: 'system-menu:action',
 } as const;
 
 // Configuration
