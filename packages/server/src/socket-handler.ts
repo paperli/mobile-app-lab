@@ -6,7 +6,18 @@ import {
   RoomJoinPayload,
   NavigationInputPayload,
   ScreenUpdatePayload,
+  RoomStatusPayload,
 } from '@mobile-app-lab/shared';
+
+function broadcastRoomStatus(io: Server, roomManager: RoomManager, roomCode: string) {
+  const room = roomManager.getRoom(roomCode);
+  if (!room || !room.tvSocketId) return;
+  const payload: RoomStatusPayload = {
+    roomCode,
+    mobileSocketIds: [...room.mobileSocketIds],
+  };
+  io.to(room.tvSocketId).emit(SOCKET_EVENTS.ROOM_STATUS, payload);
+}
 
 export function setupSocketHandlers(io: Server, roomManager: RoomManager) {
   io.on('connection', (socket: Socket) => {
@@ -40,6 +51,7 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager) {
           success: true,
           roomCode,
         });
+        broadcastRoomStatus(io, roomManager, roomCode);
         console.log(`[Socket] TV ${socket.id} rejoined room ${roomCode}`);
       } else {
         socket.emit(SOCKET_EVENTS.ROOM_REJOINED, {
@@ -74,6 +86,8 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager) {
             roomCode,
           });
         }
+
+        broadcastRoomStatus(io, roomManager, roomCode);
 
         console.log(`[Socket] ${socket.id} successfully joined room ${roomCode}`);
       } else {
@@ -123,7 +137,13 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager) {
     // Handle disconnection
     socket.on('disconnect', () => {
       console.log(`[Socket] Client disconnected: ${socket.id}`);
+      const priorRoom = roomManager.getRoomBySocket(socket.id);
+      const priorRoomCode = priorRoom?.code;
+      const wasMobile = priorRoom?.mobileSocketIds.includes(socket.id) ?? false;
       roomManager.removeSocket(socket.id);
+      if (priorRoomCode && wasMobile) {
+        broadcastRoomStatus(io, roomManager, priorRoomCode);
+      }
     });
   });
 }

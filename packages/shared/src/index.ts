@@ -15,7 +15,15 @@ export type {
   NavigationInputPayload,
   TVScreen,
   ScreenUpdatePayload,
+  ConnectionSlotStatus,
+  RoomStatusPayload,
 } from './types.js';
 
 // Export all constants
-export { SOCKET_EVENTS, CONFIG, PLACEHOLDER_GAMES } from './constants.js';
+export {
+  SOCKET_EVENTS,
+  CONFIG,
+  PLACEHOLDER_GAMES,
+  GAME_MAX_PLAYERS,
+  HUB_SLOT_COUNT,
+} from './constants.js';

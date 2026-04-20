@@ -34,7 +34,7 @@ export class RoomManager {
       tvSocketId,
       mobileSocketIds: [],
       createdAt: Date.now(),
-      maxMobiles: 4,
+      maxMobiles: 6,
       tvDisconnectedAt: null,
     };
 

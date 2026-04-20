@@ -13,10 +13,24 @@ interface GameHubProps {
   onFocusChange: (index: number) => void;
 }
 
+// Tile layout constants — shared with FocusFrame (keep in sync).
+const TILE_WIDTH = 20; // vw
+const TILE_GAP = 2; // vw
+const TILE_HEIGHT = (TILE_WIDTH * 9) / 16;
+const VISIBLE_COUNT = 4; // tiles visible before the row starts scrolling
+const VISIBLE_BLOCK_WIDTH = TILE_WIDTH * VISIBLE_COUNT + TILE_GAP * (VISIBLE_COUNT - 1);
+const FIRST_TILE_OFFSET = (100 - VISIBLE_BLOCK_WIDTH) / 2; // centers the visible block
+
 export function GameHub({ roomCode, focusedIndex, bounceDirection, isPressing, onFocusChange }: GameHubProps) {
   const games = PLACEHOLDER_GAMES as unknown as GameData[];
   const mobileBaseUrl = getMobileUrl();
   const mobileUrl = `${mobileBaseUrl}?code=${roomCode}`;
+
+  // Shift the row left when the focused tile would otherwise fall outside the visible block.
+  const rowOffset =
+    focusedIndex >= VISIBLE_COUNT
+      ? -(focusedIndex - (VISIBLE_COUNT - 1)) * (TILE_WIDTH + TILE_GAP)
+      : 0;
 
   return (
     <div className="relative w-full h-full">
@@ -48,24 +62,40 @@ export function GameHub({ roomCode, focusedIndex, bounceDirection, isPressing, o
       </div>
 
       {/* Game Tiles at Bottom */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent pt-[8vh] pb-[4vh]">
-        <div className="flex justify-center items-center gap-[2vw] px-[4vw]">
-          {games.map((game, index) => (
-            <GameTile
-              key={game.id}
-              game={game}
-              isPressing={isPressing && index === focusedIndex}
-              onClick={() => onFocusChange(index)}
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent pt-[8vh] pb-[4vh] overflow-hidden">
+        <div
+          style={{
+            position: 'relative',
+            height: `${TILE_HEIGHT}vw`,
+          }}
+        >
+          {/* Translated row — tiles and focus frame ride together so alignment is automatic */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: `${FIRST_TILE_OFFSET}vw`,
+              display: 'flex',
+              gap: `${TILE_GAP}vw`,
+              transform: `translateX(${rowOffset}vw)`,
+              transition: 'transform 300ms ease-out',
+            }}
+          >
+            {games.map((game, index) => (
+              <GameTile
+                key={game.id}
+                game={game}
+                isPressing={isPressing && index === focusedIndex}
+                onClick={() => onFocusChange(index)}
+              />
+            ))}
+            <FocusFrame
+              focusedIndex={focusedIndex}
+              bounceDirection={bounceDirection}
+              isPressing={isPressing}
             />
-          ))}
+          </div>
         </div>
-        {/* Focus Frame */}
-        <FocusFrame
-          focusedIndex={focusedIndex}
-          totalItems={games.length}
-          bounceDirection={bounceDirection}
-          isPressing={isPressing}
-        />
       </div>
     </div>
   );

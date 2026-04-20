@@ -145,7 +145,12 @@ function App() {
     const showGameModal = tvScreen !== 'hub';
     return (
       <div className="relative w-full h-full overflow-hidden">
-        <TopBar onBack={() => handleAction('back')} onSettings={() => setShowSettings(true)} />
+        <TopBar
+          onBack={() => handleAction('back')}
+          onSystem={() => handleAction('system')}
+          onSettings={() => setShowSettings(true)}
+          tvScreen={tvScreen}
+        />
         <div className="h-full">
           <SquareController onNavigate={handleNavigate} onAction={handleAction} />
         </div>
@@ -166,7 +171,12 @@ function App() {
     const showGameModal = tvScreen !== 'hub';
     return (
       <div className="relative w-full h-full overflow-hidden">
-        <TopBar onBack={() => handleAction('back')} onSettings={() => setShowSettings(true)} />
+        <TopBar
+          onBack={() => handleAction('back')}
+          onSystem={() => handleAction('system')}
+          onSettings={() => setShowSettings(true)}
+          tvScreen={tvScreen}
+        />
         <div className="h-full">
           <SquareController onNavigate={handleNavigate} onAction={handleAction} />
         </div>
@@ -196,7 +206,12 @@ function App() {
   return (
     <div className="relative w-full h-full">
       <RiveGameLogo tvScreen={tvScreen} />
-      <TopBar onBack={() => handleAction('back')} onSettings={() => setShowSettings(true)} />
+      <TopBar
+        onBack={() => handleAction('back')}
+        onSystem={() => handleAction('system')}
+        onSettings={() => setShowSettings(true)}
+        tvScreen={tvScreen}
+      />
       {/* Rive edge glow — behind controller */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
         <RiveEdgeGlow tvScreen={tvScreen} volume={voiceVolume} />

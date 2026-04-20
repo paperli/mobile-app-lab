@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import type { TVScreen } from '@mobile-app-lab/shared';
 import { HapticFeedback } from '../utils/haptics';
 import { IconSystem } from './IconSystem';
 
@@ -6,6 +7,9 @@ interface TopBarProps {
   onBack: () => void;
   onSystem?: () => void;
   onSettings?: () => void;
+  // Controls the System button icon — "W" on hub, game logo when in a game.
+  // Threaded through for future icon swap; the W is rendered regardless for now.
+  tvScreen?: TVScreen;
 }
 
 const buttonStyle: React.CSSProperties = {
@@ -39,6 +43,9 @@ function TopBarButton({
 }) {
   const [pressed, setPressed] = useState(false);
   const [ripple, setRipple] = useState(false);
+  // Suppresses the synthesized click that follows a touch sequence —
+  // without it the press fires twice on touch devices.
+  const touchHandledRef = useRef(false);
 
   const triggerRipple = () => {
     setRipple(true);
@@ -55,6 +62,7 @@ function TopBarButton({
       }}
       onTouchStart={(e) => {
         e.preventDefault();
+        touchHandledRef.current = true;
         setPressed(true);
         HapticFeedback.light();
         if (!fireOnRelease) {
@@ -72,6 +80,10 @@ function TopBarButton({
       }}
       onTouchCancel={() => setPressed(false)}
       onClick={() => {
+        if (touchHandledRef.current) {
+          touchHandledRef.current = false;
+          return;
+        }
         if (!fireOnRelease) {
           onPress();
           triggerRipple();
@@ -111,7 +123,7 @@ function TopBarButton({
   );
 }
 
-export function TopBar({ onBack, onSystem, onSettings }: TopBarProps) {
+export function TopBar({ onBack, onSystem, onSettings, tvScreen: _tvScreen }: TopBarProps) {
   return (
     <div
       style={{

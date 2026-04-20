@@ -2,57 +2,34 @@ import { useEffect, useState } from 'react';
 
 interface FocusFrameProps {
   focusedIndex: number;
-  totalItems: number;
   bounceDirection?: 'left' | 'right' | 'up' | 'down' | null;
   isPressing: boolean;
 }
 
-export function FocusFrame({ focusedIndex, totalItems, bounceDirection, isPressing }: FocusFrameProps) {
+// Keep these in sync with GameHub/GameTile.
+const TILE_WIDTH = 20; // vw
+const TILE_GAP = 2; // vw
+const TILE_HEIGHT = (TILE_WIDTH * 9) / 16; // 16:9 aspect
+const FRAME_MARGIN = 0.5; // vw margin on each side
+
+export function FocusFrame({ focusedIndex, bounceDirection, isPressing }: FocusFrameProps) {
   const [isAnimating, setIsAnimating] = useState(false);
 
-  // Calculate position to match the flexbox-centered tiles
-  // Each tile is 20vw wide + 2vw gap
-  const tileWidth = 20; // vw
-  const gap = 2; // vw
-  const containerPadding = 4; // vw (px-[4vw] on parent)
+  // Frame is positioned within the same row container as the tiles, so its
+  // translateX only needs to account for the focused tile's offset in the row.
+  const translateX = focusedIndex * (TILE_WIDTH + TILE_GAP);
 
-  // Focus frame is larger than tile to create margin
-  const frameMargin = 0.5; // vw margin on each side
-  const frameWidth = tileWidth + (frameMargin * 2); // 21vw total
-
-  // Calculate tile and frame heights
-  const tileHeight = tileWidth * (9 / 16); // 20vw * 9/16 = 11.25vw
-  const frameHeight = tileHeight + (frameMargin * 2); // 13.25vw total
-
-  // Total width of all tiles plus gaps
-  const totalContentWidth = (tileWidth + gap) * totalItems - gap; // 20*4 + 2*3 = 86vw
-
-  // Available width after padding
-  const availableWidth = 100 - (containerPadding * 2); // 100 - 8 = 92vw
-
-  // Flexbox centering offset
-  const centeringOffset = (availableWidth - totalContentWidth) / 2; // (92 - 86) / 2 = 3vw
-
-  // Position of first tile from left edge
-  const firstTileOffset = containerPadding + centeringOffset; // 4 + 3 = 7vw
-
-  // Calculate the translateX for current focused index
-  // Subtract frameMargin to center the larger frame over the tile
-  const translateX = firstTileOffset + (tileWidth + gap) * focusedIndex - frameMargin;
-
-  // Bounce offset based on direction
   const getBounceOffset = () => {
     if (!bounceDirection) return { x: 0, y: 0 };
-
     switch (bounceDirection) {
       case 'left':
-        return { x: -1.5, y: 0 }; // vw
+        return { x: -1.5, y: 0 };
       case 'right':
-        return { x: 1.5, y: 0 }; // vw
+        return { x: 1.5, y: 0 };
       case 'up':
-        return { x: 0, y: -1.5 }; // vw
+        return { x: 0, y: -1.5 };
       case 'down':
-        return { x: 0, y: 1.5 }; // vw
+        return { x: 0, y: 1.5 };
       default:
         return { x: 0, y: 0 };
     }
@@ -60,37 +37,29 @@ export function FocusFrame({ focusedIndex, totalItems, bounceDirection, isPressi
 
   const bounceOffset = getBounceOffset();
 
-  // Trigger animation when bounce direction changes
   useEffect(() => {
     if (bounceDirection) {
       setIsAnimating(true);
-      const timer = setTimeout(() => {
-        setIsAnimating(false);
-      }, 150); // Animation duration
+      const timer = setTimeout(() => setIsAnimating(false), 150);
       return () => clearTimeout(timer);
     }
   }, [bounceDirection]);
 
   return (
-    <div className="absolute inset-0 pointer-events-none">
-      <div
-        className={`
-          absolute
-          rounded-2xl
-          ring-8 ring-blue-500
-          shadow-2xl shadow-blue-500/50
-          ${isAnimating || isPressing ? 'transition-transform duration-150 ease-out' : 'transition-all duration-300 ease-out'}
-        `}
-        style={{
-          width: `${frameWidth}vw`,
-          height: `${frameHeight}vw`,
-          bottom: `calc(4vh - ${frameMargin}vw)`, // Equal margin on all sides
-          left: '0',
-          transform: isAnimating
-            ? `translateX(${translateX + bounceOffset.x}vw) translateY(${bounceOffset.y}vw)${isPressing ? ' scale(0.95)' : ''}`
-            : `translateX(${translateX}vw)${isPressing ? ' scale(0.95)' : ''}`,
-        }}
-      />
-    </div>
+    <div
+      className={`
+        absolute pointer-events-none rounded-2xl ring-8 ring-blue-500 shadow-2xl shadow-blue-500/50
+        ${isAnimating || isPressing ? 'transition-transform duration-150 ease-out' : 'transition-transform duration-300 ease-out'}
+      `}
+      style={{
+        width: `${TILE_WIDTH + FRAME_MARGIN * 2}vw`,
+        height: `${TILE_HEIGHT + FRAME_MARGIN * 2}vw`,
+        top: `-${FRAME_MARGIN}vw`,
+        left: `-${FRAME_MARGIN}vw`,
+        transform: isAnimating
+          ? `translateX(${translateX + bounceOffset.x}vw) translateY(${bounceOffset.y}vw)${isPressing ? ' scale(0.95)' : ''}`
+          : `translateX(${translateX}vw)${isPressing ? ' scale(0.95)' : ''}`,
+      }}
+    />
   );
 }

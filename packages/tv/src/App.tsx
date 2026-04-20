@@ -5,26 +5,53 @@ import {
   NavigationAction,
   PLACEHOLDER_GAMES,
   SOCKET_EVENTS,
+  TVScreen,
 } from '@mobile-app-lab/shared';
 import { GameHub } from './components/GameHub';
 import { LoadingScreen } from './components/song-quiz/LoadingScreen';
 import { GameMenu } from './components/song-quiz/GameMenu';
 import { PlaylistSelect } from './components/song-quiz/PlaylistSelect';
+import { InGameStub } from './components/song-quiz/InGameStub';
 import { GRID, findClosestCol } from './components/song-quiz/PlaylistFocusFrame';
 import { useSocket } from './hooks/useSocket';
 import { useKeyboardNav } from './hooks/useKeyboardNav';
 import { soundManager } from './utils/sounds';
+import { SystemMenu, getExitGameActions, type SystemMenuState } from './components/SystemMenu';
 
-type AppScreen = 'hub' | 'loading' | 'game-menu' | 'playlist-select';
+type AppScreen = 'hub' | 'loading' | 'game-menu' | 'playlist-select' | 'in-game';
 
 // Configuration
 const ENABLE_LOOP_NAVIGATION = false;
 const LOADING_DURATION_MS = 5000; // Adjustable loading time
 const MENU_ITEM_COUNT = 2; // Single Player + Party Mode
 
+// Map AppScreen → TVScreen (shared type) for SCREEN_UPDATE + System Menu context
+const APP_TO_TV_SCREEN: Record<AppScreen, TVScreen> = {
+  hub: 'hub',
+  loading: 'loading',
+  'game-menu': 'game-menu',
+  'playlist-select': 'playlist-select',
+  'in-game': 'in-game',
+};
+
+// Screens that are "boundaries": pressing back opens the System Menu
+// instead of navigating up one step.
+const BOUNDARY_SCREENS: ReadonlySet<AppScreen> = new Set(['hub', 'game-menu', 'in-game']);
+
+const INITIAL_MENU_STATE: SystemMenuState = {
+  open: false,
+  tab: 'resume',
+  layer: 'tabs',
+  contentIndex: 0,
+};
+
 function App() {
   // Screen state
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('hub');
+  const [activeGameId, setActiveGameId] = useState<string | undefined>(undefined);
+
+  // System Menu state
+  const [menuState, setMenuState] = useState<SystemMenuState>(INITIAL_MENU_STATE);
 
   // Hub state
   const [focusedIndex, setFocusedIndex] = useState(0);
@@ -53,174 +80,339 @@ function App() {
     }
   }, [currentScreen]);
 
-  const handleNavigate = useCallback((direction: NavigationDirection) => {
-    if (currentScreen === 'hub') {
-      setFocusedIndex((current) => {
-        let newIndex = current;
-        let shouldBounce = false;
+  const openMenu = useCallback(() => {
+    setMenuState({ open: true, tab: 'resume', layer: 'tabs', contentIndex: 0 });
+    soundManager.playSelectionSound();
+  }, []);
 
-        switch (direction) {
-          case 'left':
-            if (ENABLE_LOOP_NAVIGATION) {
-              newIndex = current === 0 ? games.length - 1 : current - 1;
-            } else {
+  const closeMenu = useCallback(() => {
+    setMenuState(INITIAL_MENU_STATE);
+  }, []);
+
+  // Selecting an item inside the Exit Game tab.
+  const handleExitGameAction = useCallback(
+    (action: ReturnType<typeof getExitGameActions>[number]) => {
+      switch (action.kind) {
+        case 'confirm-no':
+          closeMenu();
+          return;
+        case 'confirm-yes':
+          // "Leave app" — not prototyped; just close the menu.
+          closeMenu();
+          return;
+        case 'exit':
+          // Exit current game → back to hub
+          setCurrentScreen('hub');
+          setActiveGameId(undefined);
+          setMenuFocusedIndex(0);
+          setPlaylistFocusRow(0);
+          setPlaylistFocusCol(0);
+          closeMenu();
+          return;
+        case 'launch':
+          // Switch to a different game. Only Song Quiz is wired;
+          // everything else is a no-op stub per design.
+          if (action.gameId === 'game-1') {
+            setCurrentScreen('loading');
+            setActiveGameId('game-1');
+          }
+          closeMenu();
+          return;
+      }
+    },
+    [closeMenu]
+  );
+
+  // Navigation inside the System Menu (when open).
+  const handleMenuNavigate = useCallback(
+    (direction: NavigationDirection) => {
+      setMenuState((prev) => {
+        if (!prev.open) return prev;
+        const tabs: SystemMenuState['tab'][] = ['resume', 'controllers', 'exit'];
+        const tabIdx = tabs.indexOf(prev.tab);
+
+        if (prev.layer === 'tabs') {
+          if (direction === 'left' && tabIdx > 0) {
+            soundManager.playNavigationSound();
+            return { ...prev, tab: tabs[tabIdx - 1], contentIndex: 0 };
+          }
+          if (direction === 'right' && tabIdx < tabs.length - 1) {
+            soundManager.playNavigationSound();
+            return { ...prev, tab: tabs[tabIdx + 1], contentIndex: 0 };
+          }
+          if (direction === 'down') {
+            // Only tabs with interactive content accept focus-in
+            if (prev.tab === 'exit') {
+              soundManager.playNavigationSound();
+              return { ...prev, layer: 'content', contentIndex: 0 };
+            }
+          }
+          soundManager.playBounceSound();
+          return prev;
+        }
+
+        // layer === 'content'
+        if (prev.tab === 'exit') {
+          const actions = getExitGameActions(APP_TO_TV_SCREEN[currentScreen], activeGameId);
+          if (direction === 'left' && prev.contentIndex > 0) {
+            soundManager.playNavigationSound();
+            return { ...prev, contentIndex: prev.contentIndex - 1 };
+          }
+          if (direction === 'right' && prev.contentIndex < actions.length - 1) {
+            soundManager.playNavigationSound();
+            return { ...prev, contentIndex: prev.contentIndex + 1 };
+          }
+          if (direction === 'up') {
+            soundManager.playNavigationSound();
+            return { ...prev, layer: 'tabs' };
+          }
+        }
+        soundManager.playBounceSound();
+        return prev;
+      });
+    },
+    [currentScreen, activeGameId]
+  );
+
+  const handleMenuAction = useCallback(
+    (action: NavigationAction) => {
+      if (action === 'system') {
+        closeMenu();
+        return;
+      }
+      if (action === 'back') {
+        setMenuState((prev) => {
+          if (prev.layer === 'content') {
+            return { ...prev, layer: 'tabs' };
+          }
+          // layer === 'tabs' → close
+          return INITIAL_MENU_STATE;
+        });
+        return;
+      }
+      if (action === 'ok') {
+        if (menuState.layer === 'tabs') {
+          if (menuState.tab === 'resume') {
+            closeMenu();
+            return;
+          }
+          if (menuState.tab === 'exit') {
+            // Enter exit-game content; confirm-Yes/No on hub is implicit via content focus
+            setMenuState((prev) => ({ ...prev, layer: 'content', contentIndex: 0 }));
+            return;
+          }
+          // controllers tab: OK does nothing — display-only
+          soundManager.playBounceSound();
+          return;
+        }
+        // layer === 'content'
+        if (menuState.tab === 'exit') {
+          const actions = getExitGameActions(APP_TO_TV_SCREEN[currentScreen], activeGameId);
+          const selected = actions[menuState.contentIndex];
+          if (selected) {
+            soundManager.playSelectionSound();
+            handleExitGameAction(selected);
+          }
+        }
+      }
+    },
+    [menuState, currentScreen, activeGameId, closeMenu, handleExitGameAction]
+  );
+
+  const handleNavigate = useCallback(
+    (direction: NavigationDirection) => {
+      // System menu consumes all navigation when open.
+      if (menuState.open) {
+        handleMenuNavigate(direction);
+        return;
+      }
+
+      if (currentScreen === 'hub') {
+        setFocusedIndex((current) => {
+          let newIndex = current;
+          let shouldBounce = false;
+
+          switch (direction) {
+            case 'left':
+              if (ENABLE_LOOP_NAVIGATION) {
+                newIndex = current === 0 ? games.length - 1 : current - 1;
+              } else {
+                if (current === 0) shouldBounce = true;
+                else newIndex = current - 1;
+              }
+              break;
+            case 'right':
+              if (ENABLE_LOOP_NAVIGATION) {
+                newIndex = current === games.length - 1 ? 0 : current + 1;
+              } else {
+                if (current === games.length - 1) shouldBounce = true;
+                else newIndex = current + 1;
+              }
+              break;
+            case 'up':
+            case 'down':
+              shouldBounce = true;
+              break;
+          }
+
+          if (shouldBounce) {
+            setBounceDirection(direction);
+            setTimeout(() => setBounceDirection(null), 200);
+            soundManager.playBounceSound();
+          } else if (newIndex !== current) {
+            soundManager.playNavigationSound();
+          }
+
+          return newIndex;
+        });
+      } else if (currentScreen === 'game-menu') {
+        setMenuFocusedIndex((current) => {
+          let newIndex = current;
+          let shouldBounce = false;
+
+          switch (direction) {
+            case 'left':
               if (current === 0) shouldBounce = true;
               else newIndex = current - 1;
-            }
-            break;
-          case 'right':
-            if (ENABLE_LOOP_NAVIGATION) {
-              newIndex = current === games.length - 1 ? 0 : current + 1;
-            } else {
-              if (current === games.length - 1) shouldBounce = true;
+              break;
+            case 'right':
+              if (current === MENU_ITEM_COUNT - 1) shouldBounce = true;
               else newIndex = current + 1;
-            }
-            break;
-          case 'up':
-          case 'down':
-            shouldBounce = true;
-            break;
-        }
+              break;
+            case 'up':
+            case 'down':
+              shouldBounce = true;
+              break;
+          }
 
-        if (shouldBounce) {
-          setBounceDirection(direction);
-          setTimeout(() => setBounceDirection(null), 200);
-          soundManager.playBounceSound();
-        } else if (newIndex !== current) {
-          soundManager.playNavigationSound();
-        }
+          if (shouldBounce) {
+            setMenuBounceDirection(direction);
+            setTimeout(() => setMenuBounceDirection(null), 200);
+            soundManager.playBounceSound();
+          } else if (newIndex !== current) {
+            soundManager.playNavigationSound();
+          }
 
-        return newIndex;
-      });
-    } else if (currentScreen === 'game-menu') {
-      setMenuFocusedIndex((current) => {
-        let newIndex = current;
-        let shouldBounce = false;
-
+          return newIndex;
+        });
+      } else if (currentScreen === 'playlist-select') {
+        // Grid navigation for playlist selection
+        // Sound effects are played inside updaters to match hub/game-menu pattern
         switch (direction) {
           case 'left':
-            if (current === 0) shouldBounce = true;
-            else newIndex = current - 1;
+            setPlaylistFocusCol((current) => {
+              if (current === 0) {
+                setPlaylistBounceDirection(direction);
+                setTimeout(() => setPlaylistBounceDirection(null), 200);
+                soundManager.playBounceSound();
+                return current;
+              }
+              soundManager.playNavigationSound();
+              return current - 1;
+            });
             break;
           case 'right':
-            if (current === MENU_ITEM_COUNT - 1) shouldBounce = true;
-            else newIndex = current + 1;
+            setPlaylistFocusCol((current) => {
+              const maxCol = (playlistFocusRow === 0 ? GRID.featured.count : GRID.recent.count) - 1;
+              if (current === maxCol) {
+                setPlaylistBounceDirection(direction);
+                setTimeout(() => setPlaylistBounceDirection(null), 200);
+                soundManager.playBounceSound();
+                return current;
+              }
+              soundManager.playNavigationSound();
+              return current + 1;
+            });
             break;
           case 'up':
+            if (playlistFocusRow === 0) {
+              setPlaylistBounceDirection(direction);
+              setTimeout(() => setPlaylistBounceDirection(null), 200);
+              soundManager.playBounceSound();
+            } else {
+              const closestCol = findClosestCol(playlistFocusRow, playlistFocusCol, 0);
+              setPlaylistFocusRow(0);
+              setPlaylistFocusCol(closestCol);
+              soundManager.playNavigationSound();
+            }
+            break;
           case 'down':
-            shouldBounce = true;
+            if (playlistFocusRow === 1) {
+              setPlaylistBounceDirection(direction);
+              setTimeout(() => setPlaylistBounceDirection(null), 200);
+              soundManager.playBounceSound();
+            } else {
+              const closestCol = findClosestCol(playlistFocusRow, playlistFocusCol, 1);
+              setPlaylistFocusRow(1);
+              setPlaylistFocusCol(closestCol);
+              soundManager.playNavigationSound();
+            }
             break;
         }
+      }
+    },
+    [menuState.open, handleMenuNavigate, currentScreen, games.length, playlistFocusRow, playlistFocusCol]
+  );
 
-        if (shouldBounce) {
-          setMenuBounceDirection(direction);
-          setTimeout(() => setMenuBounceDirection(null), 200);
-          soundManager.playBounceSound();
-        } else if (newIndex !== current) {
-          soundManager.playNavigationSound();
-        }
+  const handleAction = useCallback(
+    (action: NavigationAction) => {
+      // System menu interception
+      if (menuState.open) {
+        handleMenuAction(action);
+        return;
+      }
+      if (action === 'system') {
+        openMenu();
+        return;
+      }
+      if (action === 'back' && BOUNDARY_SCREENS.has(currentScreen)) {
+        openMenu();
+        return;
+      }
 
-        return newIndex;
-      });
-    } else if (currentScreen === 'playlist-select') {
-      // Grid navigation for playlist selection
-      // Sound effects are played inside updaters to match hub/game-menu pattern
-      switch (direction) {
-        case 'left':
-          setPlaylistFocusCol((current) => {
-            if (current === 0) {
-              setPlaylistBounceDirection(direction);
-              setTimeout(() => setPlaylistBounceDirection(null), 200);
-              soundManager.playBounceSound();
-              return current;
-            }
-            soundManager.playNavigationSound();
-            return current - 1;
-          });
-          break;
-        case 'right':
-          setPlaylistFocusCol((current) => {
-            const maxCol = (playlistFocusRow === 0 ? GRID.featured.count : GRID.recent.count) - 1;
-            if (current === maxCol) {
-              setPlaylistBounceDirection(direction);
-              setTimeout(() => setPlaylistBounceDirection(null), 200);
-              soundManager.playBounceSound();
-              return current;
-            }
-            soundManager.playNavigationSound();
-            return current + 1;
-          });
-          break;
-        case 'up':
-          if (playlistFocusRow === 0) {
-            setPlaylistBounceDirection(direction);
-            setTimeout(() => setPlaylistBounceDirection(null), 200);
-            soundManager.playBounceSound();
-          } else {
-            const closestCol = findClosestCol(playlistFocusRow, playlistFocusCol, 0);
-            setPlaylistFocusRow(0);
-            setPlaylistFocusCol(closestCol);
-            soundManager.playNavigationSound();
+      if (currentScreen === 'hub') {
+        if (action === 'ok') {
+          const selectedGame = games[focusedIndex];
+          setIsPressing(true);
+          setTimeout(() => setIsPressing(false), 150);
+          soundManager.playSelectionSound();
+
+          // Launch Song Quiz
+          if (selectedGame.id === 'game-1') {
+            setActiveGameId('game-1');
+            setTimeout(() => setCurrentScreen('loading'), 150);
           }
-          break;
-        case 'down':
-          if (playlistFocusRow === 1) {
-            setPlaylistBounceDirection(direction);
-            setTimeout(() => setPlaylistBounceDirection(null), 200);
-            soundManager.playBounceSound();
-          } else {
-            const closestCol = findClosestCol(playlistFocusRow, playlistFocusCol, 1);
-            setPlaylistFocusRow(1);
-            setPlaylistFocusCol(closestCol);
-            soundManager.playNavigationSound();
+        }
+      } else if (currentScreen === 'game-menu') {
+        if (action === 'ok') {
+          setMenuIsPressing(true);
+          setTimeout(() => setMenuIsPressing(false), 150);
+          soundManager.playSelectionSound();
+
+          // Launch Single Player playlist selection
+          if (menuFocusedIndex === 0) {
+            setTimeout(() => setCurrentScreen('playlist-select'), 150);
           }
-          break;
-      }
-    }
-  }, [currentScreen, games.length, playlistFocusRow, playlistFocusCol]);
-
-  const handleAction = useCallback((action: NavigationAction) => {
-    if (currentScreen === 'hub') {
-      if (action === 'ok') {
-        const selectedGame = games[focusedIndex];
-        setIsPressing(true);
-        setTimeout(() => setIsPressing(false), 150);
-        soundManager.playSelectionSound();
-
-        // Launch Song Quiz
-        if (selectedGame.id === 'game-1') {
-          setTimeout(() => setCurrentScreen('loading'), 150);
+        }
+        // back on game-menu is a boundary → handled above (opens system menu)
+      } else if (currentScreen === 'playlist-select') {
+        if (action === 'ok') {
+          setPlaylistIsPressing(true);
+          setTimeout(() => setPlaylistIsPressing(false), 150);
+          soundManager.playSelectionSound();
+          // Transition into gameplay stub
+          setTimeout(() => setCurrentScreen('in-game'), 150);
+        } else if (action === 'back') {
+          setCurrentScreen('game-menu');
+          setPlaylistFocusRow(0);
+          setPlaylistFocusCol(0);
+          setPlaylistBounceDirection(null);
         }
       }
-    } else if (currentScreen === 'game-menu') {
-      if (action === 'ok') {
-        setMenuIsPressing(true);
-        setTimeout(() => setMenuIsPressing(false), 150);
-        soundManager.playSelectionSound();
-
-        // Launch Single Player playlist selection
-        if (menuFocusedIndex === 0) {
-          setTimeout(() => setCurrentScreen('playlist-select'), 150);
-        }
-      } else if (action === 'back') {
-        setCurrentScreen('hub');
-        setMenuFocusedIndex(0);
-        setMenuBounceDirection(null);
-      }
-    } else if (currentScreen === 'playlist-select') {
-      if (action === 'ok') {
-        setPlaylistIsPressing(true);
-        setTimeout(() => setPlaylistIsPressing(false), 150);
-        soundManager.playSelectionSound();
-        // TODO: start quiz with selected playlist
-      } else if (action === 'back') {
-        setCurrentScreen('game-menu');
-        setPlaylistFocusRow(0);
-        setPlaylistFocusCol(0);
-        setPlaylistBounceDirection(null);
-      }
-    }
-  }, [currentScreen, focusedIndex, games, menuFocusedIndex]);
+      // in-game: only back (boundary) and system are handled above
+    },
+    [menuState.open, handleMenuAction, currentScreen, focusedIndex, games, menuFocusedIndex, openMenu]
+  );
 
   // Handle navigation input from mobile
   const handleNavigationInput = useCallback(
@@ -239,14 +431,17 @@ function App() {
     [handleNavigate, handleAction]
   );
 
-  const { socket, roomCode, connectionStatus } = useSocket(handleNavigationInput);
+  const { socket, roomCode, connectionStatus, connectedMobileIds } = useSocket(handleNavigationInput);
 
   // Broadcast screen state to mobile devices
   useEffect(() => {
     if (socket) {
-      socket.emit(SOCKET_EVENTS.SCREEN_UPDATE, { screen: currentScreen });
+      socket.emit(SOCKET_EVENTS.SCREEN_UPDATE, {
+        screen: APP_TO_TV_SCREEN[currentScreen],
+        gameId: activeGameId,
+      });
     }
-  }, [currentScreen, socket]);
+  }, [currentScreen, activeGameId, socket]);
 
   // Keyboard nav at app level (works on all screens)
   useKeyboardNav({ onNavigate: handleNavigate, onAction: handleAction });
@@ -263,22 +458,19 @@ function App() {
     );
   }
 
+  let screenContent: JSX.Element;
   if (currentScreen === 'loading') {
-    return <LoadingScreen />;
-  }
-
-  if (currentScreen === 'game-menu') {
-    return (
+    screenContent = <LoadingScreen />;
+  } else if (currentScreen === 'game-menu') {
+    screenContent = (
       <GameMenu
         focusedIndex={menuFocusedIndex}
         bounceDirection={menuBounceDirection}
         isPressing={menuIsPressing}
       />
     );
-  }
-
-  if (currentScreen === 'playlist-select') {
-    return (
+  } else if (currentScreen === 'playlist-select') {
+    screenContent = (
       <PlaylistSelect
         focusRow={playlistFocusRow}
         focusCol={playlistFocusCol}
@@ -286,16 +478,31 @@ function App() {
         isPressing={playlistIsPressing}
       />
     );
+  } else if (currentScreen === 'in-game') {
+    screenContent = <InGameStub />;
+  } else {
+    screenContent = (
+      <GameHub
+        roomCode={roomCode}
+        focusedIndex={focusedIndex}
+        bounceDirection={bounceDirection}
+        isPressing={isPressing}
+        onFocusChange={setFocusedIndex}
+      />
+    );
   }
 
   return (
-    <GameHub
-      roomCode={roomCode}
-      focusedIndex={focusedIndex}
-      bounceDirection={bounceDirection}
-      isPressing={isPressing}
-      onFocusChange={setFocusedIndex}
-    />
+    <>
+      {screenContent}
+      <SystemMenu
+        state={menuState}
+        roomCode={roomCode}
+        screen={APP_TO_TV_SCREEN[currentScreen]}
+        gameId={activeGameId}
+        connectedMobileIds={connectedMobileIds}
+      />
+    </>
   );
 }
 

@@ -1,6 +1,6 @@
 // Navigation types
 export type NavigationDirection = 'up' | 'down' | 'left' | 'right';
-export type NavigationAction = 'ok' | 'back';
+export type NavigationAction = 'ok' | 'back' | 'system';
 export type DeviceType = 'tv' | 'mobile';
 export type ControllerMode = 'dpad' | 'trackpad' | 'gamepad' | 'hybrid' | 'square-hybrid';
 
@@ -66,4 +66,13 @@ export type TVScreen = 'hub' | 'loading' | 'game-menu' | 'playlist-select' | 'in
 export interface ScreenUpdatePayload {
   screen: TVScreen;
   gameId?: string;
+}
+
+// Connection slot status for the System Menu's Controllers tab
+export type ConnectionSlotStatus = 'waiting' | 'connecting' | 'connected';
+
+// Room roster broadcast (server → TV) when mobiles join/leave
+export interface RoomStatusPayload {
+  roomCode: string;
+  mobileSocketIds: string[];
 }

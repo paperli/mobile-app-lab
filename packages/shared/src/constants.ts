@@ -21,6 +21,9 @@ export const SOCKET_EVENTS = {
 
   // Screen state (TV → Mobile)
   SCREEN_UPDATE: 'screen:update',
+
+  // Room roster (server → TV) — connected mobile socket IDs
+  ROOM_STATUS: 'room:status',
 } as const;
 
 // Configuration
@@ -62,4 +65,21 @@ export const PLACEHOLDER_GAMES = [
     previewImage: '/placeholder-sports.jpg',
     backgroundColor: '#FFA07A',
   },
+  {
+    id: 'game-5',
+    title: "Wit's End",
+    description: 'Trivia showdown',
+    previewImage: '/placeholder-wits-end.jpg',
+    backgroundColor: '#8B5CF6',
+  },
 ] as const;
+
+// Max players / controller slot count per game (used by the System Menu's Controllers tab)
+export const GAME_MAX_PLAYERS: Record<string, number> = {
+  'game-1': 4, // Song Quiz (multiplayer)
+  'game-2': 1,
+  'game-3': 1,
+  'game-4': 1,
+  'game-5': 1,
+};
+export const HUB_SLOT_COUNT = 6;

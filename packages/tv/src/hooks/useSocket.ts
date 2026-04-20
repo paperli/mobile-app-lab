@@ -5,6 +5,7 @@ import {
   CONFIG,
   ConnectionStatus,
   NavigationInputPayload,
+  RoomStatusPayload,
 } from '@mobile-app-lab/shared';
 
 const ROOM_CODE_KEY = 'tv_room_code';
@@ -16,6 +17,7 @@ export function useSocket(onNavigationInput: (payload: NavigationInputPayload) =
     deviceType: 'tv',
   });
   const [roomCode, setRoomCode] = useState<string>('');
+  const [connectedMobileIds, setConnectedMobileIds] = useState<string[]>([]);
 
   // Use a ref to store the callback so it doesn't cause socket reconnections
   const onNavigationInputRef = useRef(onNavigationInput);
@@ -85,6 +87,10 @@ export function useSocket(onNavigationInput: (payload: NavigationInputPayload) =
       }
     });
 
+    socketInstance.on(SOCKET_EVENTS.ROOM_STATUS, (payload: RoomStatusPayload) => {
+      setConnectedMobileIds(payload.mobileSocketIds);
+    });
+
     socketInstance.on(SOCKET_EVENTS.NAVIGATION_INPUT, (payload: NavigationInputPayload) => {
       console.log('[TV] Navigation input received:', payload);
       // Use the ref to call the latest callback without causing reconnections
@@ -104,5 +110,5 @@ export function useSocket(onNavigationInput: (payload: NavigationInputPayload) =
     };
   }, []); // Empty dependency array - socket connects once and stays connected
 
-  return { socket, connectionStatus, roomCode };
+  return { socket, connectionStatus, roomCode, connectedMobileIds };
 }
