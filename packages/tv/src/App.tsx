@@ -16,7 +16,12 @@ import { GRID, findClosestCol } from './components/song-quiz/PlaylistFocusFrame'
 import { useSocket } from './hooks/useSocket';
 import { useKeyboardNav } from './hooks/useKeyboardNav';
 import { soundManager } from './utils/sounds';
-import { SystemMenu, getExitGameActions, type SystemMenuState } from './components/SystemMenu';
+import {
+  SystemMenu,
+  getExitGameActions,
+  type SystemMenuState,
+  type SystemMenuTab,
+} from './components/SystemMenu';
 
 type AppScreen = 'hub' | 'loading' | 'game-menu' | 'playlist-select' | 'in-game';
 
@@ -43,7 +48,10 @@ const INITIAL_MENU_STATE: SystemMenuState = {
   tab: 'resume',
   layer: 'tabs',
   contentIndex: 0,
+  bounce: null,
 };
+
+const BOUNCE_DURATION_MS = 200;
 
 function App() {
   // Screen state
@@ -52,6 +60,11 @@ function App() {
 
   // System Menu state
   const [menuState, setMenuState] = useState<SystemMenuState>(INITIAL_MENU_STATE);
+  const menuStateRef = useRef(menuState);
+  const bounceTimeoutRef = useRef<number | null>(null);
+  useEffect(() => {
+    menuStateRef.current = menuState;
+  }, [menuState]);
 
   // Hub state
   const [focusedIndex, setFocusedIndex] = useState(0);
@@ -80,14 +93,35 @@ function App() {
     }
   }, [currentScreen]);
 
-  const openMenu = useCallback(() => {
-    setMenuState({ open: true, tab: 'resume', layer: 'tabs', contentIndex: 0 });
+  const openMenu = useCallback((initialTab: SystemMenuTab = 'resume') => {
+    setMenuState({ ...INITIAL_MENU_STATE, open: true, tab: initialTab });
     soundManager.playSelectionSound();
   }, []);
 
   const closeMenu = useCallback(() => {
+    if (bounceTimeoutRef.current) {
+      window.clearTimeout(bounceTimeoutRef.current);
+      bounceTimeoutRef.current = null;
+    }
     setMenuState(INITIAL_MENU_STATE);
   }, []);
+
+  // Flash a bounce animation on the current layer's focused element when the
+  // user presses an invalid direction, then clear it after BOUNCE_DURATION_MS.
+  const triggerMenuBounce = useCallback(
+    (layer: SystemMenuState['layer'], direction: NavigationDirection) => {
+      soundManager.playBounceSound();
+      setMenuState((prev) => (prev.open ? { ...prev, bounce: { layer, direction } } : prev));
+      if (bounceTimeoutRef.current) {
+        window.clearTimeout(bounceTimeoutRef.current);
+      }
+      bounceTimeoutRef.current = window.setTimeout(() => {
+        setMenuState((prev) => (prev.bounce ? { ...prev, bounce: null } : prev));
+        bounceTimeoutRef.current = null;
+      }, BOUNCE_DURATION_MS);
+    },
+    []
+  );
 
   // Selecting an item inside the Exit Game tab.
   const handleExitGameAction = useCallback(
@@ -126,52 +160,59 @@ function App() {
   // Navigation inside the System Menu (when open).
   const handleMenuNavigate = useCallback(
     (direction: NavigationDirection) => {
-      setMenuState((prev) => {
-        if (!prev.open) return prev;
-        const tabs: SystemMenuState['tab'][] = ['resume', 'controllers', 'exit'];
-        const tabIdx = tabs.indexOf(prev.tab);
+      // Read current state once — we either transition to a new state (returned
+      // synchronously via setMenuState) or bounce, which is handled outside the
+      // updater so setTimeout scheduling is clean.
+      const prev = menuStateRef.current;
+      if (!prev.open) return;
+      const tabs: SystemMenuState['tab'][] = ['resume', 'controllers', 'exit'];
+      const tabIdx = tabs.indexOf(prev.tab);
 
-        if (prev.layer === 'tabs') {
-          if (direction === 'left' && tabIdx > 0) {
-            soundManager.playNavigationSound();
-            return { ...prev, tab: tabs[tabIdx - 1], contentIndex: 0 };
-          }
-          if (direction === 'right' && tabIdx < tabs.length - 1) {
-            soundManager.playNavigationSound();
-            return { ...prev, tab: tabs[tabIdx + 1], contentIndex: 0 };
-          }
-          if (direction === 'down') {
-            // Only tabs with interactive content accept focus-in
-            if (prev.tab === 'exit') {
-              soundManager.playNavigationSound();
-              return { ...prev, layer: 'content', contentIndex: 0 };
-            }
-          }
-          soundManager.playBounceSound();
-          return prev;
+      if (prev.layer === 'tabs') {
+        if (direction === 'left' && tabIdx > 0) {
+          soundManager.playNavigationSound();
+          setMenuState({ ...prev, tab: tabs[tabIdx - 1], contentIndex: 0, bounce: null });
+          return;
         }
+        if (direction === 'right' && tabIdx < tabs.length - 1) {
+          soundManager.playNavigationSound();
+          setMenuState({ ...prev, tab: tabs[tabIdx + 1], contentIndex: 0, bounce: null });
+          return;
+        }
+        if (direction === 'up' && prev.tab === 'exit') {
+          // Tabs sit at the bottom; pressing up moves focus into the L2
+          // content above. Only tabs with interactive content accept focus.
+          soundManager.playNavigationSound();
+          setMenuState({ ...prev, layer: 'content', contentIndex: 0, bounce: null });
+          return;
+        }
+        triggerMenuBounce('tabs', direction);
+        return;
+      }
 
-        // layer === 'content'
-        if (prev.tab === 'exit') {
-          const actions = getExitGameActions(APP_TO_TV_SCREEN[currentScreen], activeGameId);
-          if (direction === 'left' && prev.contentIndex > 0) {
-            soundManager.playNavigationSound();
-            return { ...prev, contentIndex: prev.contentIndex - 1 };
-          }
-          if (direction === 'right' && prev.contentIndex < actions.length - 1) {
-            soundManager.playNavigationSound();
-            return { ...prev, contentIndex: prev.contentIndex + 1 };
-          }
-          if (direction === 'up') {
-            soundManager.playNavigationSound();
-            return { ...prev, layer: 'tabs' };
-          }
+      // layer === 'content'
+      if (prev.tab === 'exit') {
+        const actions = getExitGameActions(APP_TO_TV_SCREEN[currentScreen], activeGameId);
+        if (direction === 'left' && prev.contentIndex > 0) {
+          soundManager.playNavigationSound();
+          setMenuState({ ...prev, contentIndex: prev.contentIndex - 1, bounce: null });
+          return;
         }
-        soundManager.playBounceSound();
-        return prev;
-      });
+        if (direction === 'right' && prev.contentIndex < actions.length - 1) {
+          soundManager.playNavigationSound();
+          setMenuState({ ...prev, contentIndex: prev.contentIndex + 1, bounce: null });
+          return;
+        }
+        if (direction === 'down') {
+          // Content is above the tab row; pressing down returns to tabs.
+          soundManager.playNavigationSound();
+          setMenuState({ ...prev, layer: 'tabs', bounce: null });
+          return;
+        }
+      }
+      triggerMenuBounce('content', direction);
     },
-    [currentScreen, activeGameId]
+    [currentScreen, activeGameId, triggerMenuBounce]
   );
 
   const handleMenuAction = useCallback(
@@ -362,11 +403,11 @@ function App() {
         return;
       }
       if (action === 'system') {
-        openMenu();
+        openMenu('resume');
         return;
       }
       if (action === 'back' && BOUNDARY_SCREENS.has(currentScreen)) {
-        openMenu();
+        openMenu('exit');
         return;
       }
 
