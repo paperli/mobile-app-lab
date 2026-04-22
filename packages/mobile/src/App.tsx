@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { ControllerMode, SOCKET_EVENTS } from '@mobile-app-lab/shared';
+import { ControllerMode } from '@mobile-app-lab/shared';
 import { useSocket } from './hooks/useSocket';
 import { PairingScreen } from './components/PairingScreen';
 import { DPadController } from './components/DPadController';
@@ -17,7 +17,7 @@ import { PreviewShell } from './preview/PreviewShell';
 type AppMode = 'dpad' | 'game' | 'theme';
 
 function MainMobileApp() {
-  const { socket, connectionStatus, isPaired, tvScreen, joinRoom, sendNavigationInput, leaveRoom } = useSocket();
+  const { connectionStatus, isPaired, tvScreen, joinRoom, sendNavigationInput, leaveRoom } = useSocket();
   const [controllerMode, setControllerMode] = useState<ControllerMode>('square-hybrid');
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string>();
@@ -112,10 +112,14 @@ function MainMobileApp() {
   );
 
   const handleSystem = useCallback(() => {
-    if (socket) {
-      socket.emit(SOCKET_EVENTS.SYSTEM_MENU_OPEN);
-    }
-  }, [socket]);
+    // Route through the normal navigation-action channel so TV can toggle the
+    // menu (open when closed, close when open) from a single input event.
+    sendNavigationInput({
+      type: 'action',
+      action: 'system',
+      timestamp: Date.now(),
+    });
+  }, [sendNavigationInput]);
 
   // Show connection loading
   if (!connectionStatus.connected) {

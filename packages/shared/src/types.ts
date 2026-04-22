@@ -1,6 +1,6 @@
 // Navigation types
 export type NavigationDirection = 'up' | 'down' | 'left' | 'right';
-export type NavigationAction = 'ok' | 'back';
+export type NavigationAction = 'ok' | 'back' | 'system';
 export type DeviceType = 'tv' | 'mobile';
 export type ControllerMode = 'dpad' | 'trackpad' | 'gamepad' | 'hybrid' | 'square-hybrid';
 

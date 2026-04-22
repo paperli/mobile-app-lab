@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { SystemButton } from '@weekend/ui';
 import { HapticFeedback } from '../utils/haptics';
 
@@ -39,6 +39,11 @@ function TopBarButton({
 }) {
   const [pressed, setPressed] = useState(false);
   const [ripple, setRipple] = useState(false);
+  // On touch devices, onTouchStart fires first and then the browser
+  // synthesizes a click event a moment later, which would invoke onPress
+  // a second time. Track the last touch timestamp and swallow synthetic
+  // clicks that land within a short window.
+  const lastTouchAtRef = useRef(0);
 
   const triggerRipple = () => {
     setRipple(true);
@@ -55,6 +60,7 @@ function TopBarButton({
       }}
       onTouchStart={(e) => {
         e.preventDefault();
+        lastTouchAtRef.current = Date.now();
         setPressed(true);
         HapticFeedback.light();
         if (!fireOnRelease) {
@@ -72,6 +78,8 @@ function TopBarButton({
       }}
       onTouchCancel={() => setPressed(false)}
       onClick={() => {
+        // Suppress the synthetic click that follows a real touch.
+        if (Date.now() - lastTouchAtRef.current < 500) return;
         if (!fireOnRelease) {
           onPress();
           triggerRipple();

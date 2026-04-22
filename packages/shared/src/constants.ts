@@ -67,4 +67,11 @@ export const PLACEHOLDER_GAMES = [
     previewImage: '/placeholder-sports.jpg',
     backgroundColor: '#FFA07A',
   },
+  {
+    id: 'game-5',
+    title: "Wit's End",
+    description: 'Trivia showdown',
+    previewImage: '/placeholder-wits-end.jpg',
+    backgroundColor: '#8B5CF6',
+  },
 ] as const;

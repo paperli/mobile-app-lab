@@ -11,7 +11,7 @@ export function GameTile({ game, isPressing, onClick }: GameTileProps) {
     <button
       onClick={onClick}
       className={`
-        relative w-[20vw] aspect-[16/9] rounded-2xl overflow-hidden opacity-80
+        relative w-[20vw] aspect-[16/9] rounded-[6px] overflow-hidden opacity-80
         ${isPressing ? 'transition-transform duration-150 ease-out' : 'transition-all duration-300 ease-out'}
       `}
       style={{

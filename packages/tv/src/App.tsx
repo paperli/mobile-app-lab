@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import {
   NavigationInputPayload,
@@ -7,7 +7,15 @@ import {
   PLACEHOLDER_GAMES,
   SOCKET_EVENTS,
 } from '@mobile-app-lab/shared';
-import { SystemMenuOverlay, type Slot } from '@weekend/ui';
+import {
+  SystemMenuOverlay,
+  WEEKEND_PLAYERS,
+  type Slot,
+  type ExitAction,
+  type ExitTabContent,
+  type SystemMenuOverlayHandle,
+  type SystemMenuTab,
+} from '@weekend/ui';
 import { GameHub } from './components/GameHub';
 import { LoadingScreen } from './components/song-quiz/LoadingScreen';
 import { GameMenu } from './components/song-quiz/GameMenu';
@@ -26,9 +34,24 @@ const ENABLE_LOOP_NAVIGATION = false;
 const LOADING_DURATION_MS = 5000; // Adjustable loading time
 const MENU_ITEM_COUNT = 2; // Single Player + Party Mode
 
+// Pressing back on these screens opens the system menu (exit confirmation)
+// instead of navigating up a step.
+const BOUNDARY_SCREENS: ReadonlySet<AppScreen> = new Set(['hub', 'game-menu']);
+
 function MainTvApp() {
   // Screen state
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('hub');
+
+  // System menu state
+  const [systemMenuOpen, setSystemMenuOpen] = useState(false);
+  const [systemMenuInitialTab, setSystemMenuInitialTab] = useState<SystemMenuTab>('resume');
+  const systemMenuRef = useRef<SystemMenuOverlayHandle>(null);
+  // Keep a stable ref of the open flag for keyboard/socket handlers that
+  // close over an outdated closure.
+  const systemMenuOpenRef = useRef(systemMenuOpen);
+  useEffect(() => {
+    systemMenuOpenRef.current = systemMenuOpen;
+  }, [systemMenuOpen]);
 
   // Hub state
   const [focusedIndex, setFocusedIndex] = useState(0);
@@ -58,6 +81,11 @@ function MainTvApp() {
   }, [currentScreen]);
 
   const handleNavigate = useCallback((direction: NavigationDirection) => {
+    // System menu swallows all directional input while open.
+    if (systemMenuOpenRef.current) {
+      systemMenuRef.current?.navigate(direction);
+      return;
+    }
     if (currentScreen === 'hub') {
       setFocusedIndex((current) => {
         let newIndex = current;
@@ -184,6 +212,31 @@ function MainTvApp() {
   }, [currentScreen, games.length, playlistFocusRow, playlistFocusCol]);
 
   const handleAction = useCallback((action: NavigationAction) => {
+    // System button toggles the menu. Open from closed starts on the Resume
+    // tab; pressing system again (open) closes.
+    if (action === 'system') {
+      soundManager.playSelectionSound();
+      if (systemMenuOpenRef.current) {
+        setSystemMenuOpen(false);
+      } else {
+        setSystemMenuInitialTab('resume');
+        setSystemMenuOpen(true);
+      }
+      return;
+    }
+    // When the menu is open, ok/back are consumed by the menu.
+    if (systemMenuOpenRef.current) {
+      if (action === 'ok' || action === 'back') {
+        systemMenuRef.current?.action(action);
+      }
+      return;
+    }
+    // Back on a boundary screen opens the exit tab directly.
+    if (action === 'back' && BOUNDARY_SCREENS.has(currentScreen)) {
+      setSystemMenuInitialTab('exit');
+      setSystemMenuOpen(true);
+      return;
+    }
     if (currentScreen === 'hub') {
       if (action === 'ok') {
         const selectedGame = games[focusedIndex];
@@ -206,11 +259,8 @@ function MainTvApp() {
         if (menuFocusedIndex === 0) {
           setTimeout(() => setCurrentScreen('playlist-select'), 150);
         }
-      } else if (action === 'back') {
-        setCurrentScreen('hub');
-        setMenuFocusedIndex(0);
-        setMenuBounceDirection(null);
       }
+      // back on game-menu is handled as a boundary above (opens exit menu)
     } else if (currentScreen === 'playlist-select') {
       if (action === 'ok') {
         setPlaylistIsPressing(true);
@@ -245,40 +295,67 @@ function MainTvApp() {
 
   const { socket, roomCode, connectionStatus } = useSocket(handleNavigationInput);
 
-  // System menu state
-  const [systemMenuOpen, setSystemMenuOpen] = useState(false);
-
   // Mock slots — real party/slot domain state lands in PU&P M2.
+  // Mixed states so the system-menu visual treatment can be seen end-to-end
+  // before real party/slot plumbing exists.
   // TODO(PU&P M2): wire to actual party state instead of placeholders.
   const mockSlots: Slot[] = [
-    { id: '1', state: 'waiting' },
-    { id: '2', state: 'waiting' },
-    { id: '3', state: 'waiting' },
+    { id: '1', state: 'connected',  name: WEEKEND_PLAYERS[0].name, colorHex: WEEKEND_PLAYERS[0].colorHex },
+    { id: '2', state: 'connected',  name: WEEKEND_PLAYERS[1].name, colorHex: WEEKEND_PLAYERS[1].colorHex },
+    { id: '3', state: 'connecting' },
     { id: '4', state: 'waiting' },
   ];
 
-  // Listen for system-menu events from server
-  useEffect(() => {
-    if (!socket) return;
-    const handleOpen = () => setSystemMenuOpen(true);
-    const handleAction = (payload: { action: 'resume' | 'exit' }) => {
-      if (payload.action === 'resume') setSystemMenuOpen(false);
-      // 'exit' handling deferred — for now, just close the overlay
-      if (payload.action === 'exit') setSystemMenuOpen(false);
-    };
-    socket.on(SOCKET_EVENTS.SYSTEM_MENU_OPEN, handleOpen);
-    socket.on(SOCKET_EVENTS.SYSTEM_MENU_ACTION, handleAction);
-    return () => {
-      socket.off(SOCKET_EVENTS.SYSTEM_MENU_OPEN, handleOpen);
-      socket.off(SOCKET_EVENTS.SYSTEM_MENU_ACTION, handleAction);
-    };
-  }, [socket]);
+  // Mobile now sends a unified 'system' NavigationAction (handled in
+  // handleAction above) instead of a dedicated SYSTEM_MENU_OPEN socket event,
+  // so no listener is needed here.
 
   // Emit close back to mobile whenever user dismisses the overlay
   const handleMenuOpenChange = useCallback((next: boolean) => {
     setSystemMenuOpen(next);
     if (!next && socket) socket.emit(SOCKET_EVENTS.SYSTEM_MENU_CLOSE);
   }, [socket]);
+
+  // Map current screen → Exit tab content. Hub gets a confirm dialog; all
+  // other screens get the tile variant with an Exit tile + launch shortcuts
+  // for the other hub games (Song Quiz goes under in-game → swap-mode tiles
+  // once real mode data is wired up for PU&P).
+  const exitTab: ExitTabContent = useMemo(() => {
+    if (currentScreen === 'hub') {
+      return {
+        variant: 'confirm',
+        title: 'Leave the app?',
+        description: "You'll exit Weekend and return to your TV's home screen.",
+      };
+    }
+    // Feature the newest titles (e.g. Wit's End) first. 3 hub-style tiles.
+    const launchGames = [...games].filter((g) => g.id !== 'game-1').reverse().slice(0, 3);
+    return {
+      variant: 'tiles',
+      prompt: 'Are you sure you want to exit?',
+      actions: [
+        { id: 'exit', label: 'Exit Game', kind: 'exit' },
+        ...launchGames.map((g) => ({
+          id: `launch-${g.id}`,
+          label: g.title,
+          title: g.title,
+          backgroundColor: g.backgroundColor,
+          kind: 'launch' as const,
+        })),
+      ],
+    };
+  }, [currentScreen, games]);
+
+  const handleExitAction = useCallback((action: ExitAction) => {
+    handleMenuOpenChange(false);
+    if (action.kind === 'exit') {
+      setCurrentScreen('hub');
+      return;
+    }
+    // Launch action — for now, jump to loading which leads into Song Quiz's
+    // flow. Proper multi-game launch lands with PU&P session plumbing.
+    setCurrentScreen('loading');
+  }, [handleMenuOpenChange]);
 
   // Broadcast screen state to mobile devices
   useEffect(() => {
@@ -338,13 +415,19 @@ function MainTvApp() {
     <>
       {screen}
       <SystemMenuOverlay
+        ref={systemMenuRef}
         open={systemMenuOpen}
         onOpenChange={handleMenuOpenChange}
         mobileUrl={getMobileUrl()}
         roomCode={roomCode}
         slots={mockSlots}
+        exitTab={exitTab}
+        initialTab={systemMenuInitialTab}
         onResume={() => handleMenuOpenChange(false)}
-        onExitGame={() => handleMenuOpenChange(false)}
+        onExitAction={handleExitAction}
+        onNavigate={() => soundManager.playNavigationSound()}
+        onBounce={() => soundManager.playBounceSound()}
+        onSelect={() => soundManager.playSelectionSound()}
       />
     </>
   );

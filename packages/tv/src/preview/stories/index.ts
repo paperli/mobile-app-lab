@@ -5,6 +5,7 @@ import TintingStory from './Tinting';
 import FocusFrameStory from './FocusFrame';
 import ControllersStory from './Controllers';
 import SystemMenuStory from './SystemMenu';
+import PlaygroundStory from './Playground';
 
 export interface Story {
   slug: string;
@@ -13,6 +14,7 @@ export interface Story {
 }
 
 export const stories: Story[] = [
+  { slug: 'playground',   label: 'Playground',     Component: PlaygroundStory },
   { slug: 'button',       label: 'Button',         Component: ButtonStory },
   { slug: 'dialog',       label: 'Dialog',         Component: DialogStory },
   { slug: 'tinting',      label: 'Tinting',        Component: TintingStory },

@@ -1,49 +1,163 @@
+/* Source Code Pro — loaded for the room-code display and other code-style UI */
+@import url('https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600;800&display=swap');
+
+/*
+ * Weekend Brand Guide 2026 — Color Tokens
+ *
+ * Layer 1: primitive palette (rgb channels for Tailwind <alpha-value>).
+ *   - Primary:  Canary (9-stop ramp)
+ *   - Accents:  Clementine / Raspberry / Orchid / Pink / Sky / Cobalt / Hunter / Limon
+ *               (3 stops each: 300 light tint, 500 base brand value, 700 dark shade)
+ *   - Neutrals: Warm White, Warmer White, Midnight Blue
+ *
+ * Layer 2: semantic tokens (--color-*) point at specific palette entries and
+ *   drive the Tailwind preset. Change brand values here, not in components.
+ *
+ * Ramp math: base at 500. Lighter stops (100-400) mix with pure white; darker
+ * stops (600-900) multiply the base toward black. Accents only expose 300/500/700.
+ */
 :root {
-  /* Layer 1 — primitive palette (rgb channels for Tailwind <alpha-value>) */
-  --palette-yellow-300: 255 232 139;   /* #FFE88B */
-  --palette-yellow-500: 246 211 0;     /* #F6D300 */
-  --palette-cyan-400:   49 204 242;    /* #31CCF2 */
-  --palette-indigo-500: 94 131 253;    /* #5E83FD */
-  --palette-ink-950:    0 0 31;        /* #00001f mobile bg */
-  --palette-ink-900:    10 14 40;      /* TV bg */
-  --palette-white:      255 255 255;
+  /* ──────────────────────────────────────────────────────────────────────
+   *  PRIMARY — Canary #FFDA0A
+   * ────────────────────────────────────────────────────────────────────── */
+  --palette-canary-100: 255 251 231;   /* #FFFBE7 */
+  --palette-canary-200: 255 248 207;   /* #FFF8CF */
+  --palette-canary-300: 255 240 158;   /* #FFF09E */
+  --palette-canary-400: 255 229 84;    /* #FFE554 */
+  --palette-canary-500: 255 218 10;    /* #FFDA0A  — brand primary */
+  --palette-canary-600: 217 185 8;     /* #D9B908 */
+  --palette-canary-700: 178 153 7;     /* #B29907 */
+  --palette-canary-800: 128 109 5;     /* #806D05 */
+  --palette-canary-900: 77 65 3;       /* #4D4103 */
+  --palette-canary:     var(--palette-canary-500);
+
+  /* ──────────────────────────────────────────────────────────────────────
+   *  ACCENTS  (300 light | 500 base | 700 dark)
+   * ────────────────────────────────────────────────────────────────────── */
+  --palette-clementine-300: 254 215 185;   /* #FED7B9 */
+  --palette-clementine-500: 251 121 40;    /* #FB7928 — base */
+  --palette-clementine-700: 201 97 32;     /* #C96120 */
+  --palette-clementine:     var(--palette-clementine-500);
+
+  --palette-raspberry-300: 253 195 205;    /* #FDC3CD */
+  --palette-raspberry-500: 247 33 73;      /* #F72149 — base */
+  --palette-raspberry-700: 198 26 58;      /* #C61A3A */
+  --palette-raspberry:     var(--palette-raspberry-500);
+
+  --palette-orchid-300: 235 197 222;       /* #EBC5DE */
+  --palette-orchid-500: 211 115 179;       /* #D373B3 — base */
+  --palette-orchid-700: 169 92 143;        /* #A95C8F */
+  --palette-orchid:     var(--palette-orchid-500);
+
+  --palette-pink-300: 247 220 247;         /* #F7DCF7 */
+  --palette-pink-500: 238 160 238;         /* #EEA0EE — base */
+  --palette-pink-700: 190 128 190;         /* #BE80BE */
+  --palette-pink:     var(--palette-pink-500);
+
+  --palette-sky-300: 222 242 247;          /* #DEF2F7 */
+  --palette-sky-500: 173 224 235;          /* #ADE0EB — base */
+  --palette-sky-700: 138 179 188;          /* #8AB3BC */
+  --palette-sky:     var(--palette-sky-500);
+
+  --palette-cobalt-300: 178 194 252;       /* #B2C2FC */
+  --palette-cobalt-500: 33 69 247;         /* #2145F7 — base */
+  --palette-cobalt-700: 26 55 198;         /* #1A37C6 */
+  --palette-cobalt:     var(--palette-cobalt-500);
+
+  --palette-hunter-300: 190 215 180;       /* #BED7B4 */
+  --palette-hunter-500: 88 143 61;         /* #588F3D — base */
+  --palette-hunter-700: 70 114 49;         /* #467231 */
+  --palette-hunter:     var(--palette-hunter-500);
+
+  --palette-limon-300: 229 243 174;        /* #E5F3AE */
+  --palette-limon-500: 188 225 7;          /* #BCE107 — base */
+  --palette-limon-700: 150 180 6;          /* #96B406 */
+  --palette-limon:     var(--palette-limon-500);
+
+  /* ──────────────────────────────────────────────────────────────────────
+   *  NEUTRALS
+   * ────────────────────────────────────────────────────────────────────── */
+  --palette-warm-white:     243 244 241;   /* #F3F4F1  — primary text */
+  --palette-warmer-white:   236 236 219;   /* #ECECDB */
+  --palette-midnight-blue:  10 3 34;       /* #0A0322  — primary dark surface */
+  /* Slightly lifted midnight for elevated surfaces (cards, dropdowns) */
+  --palette-midnight-blue-lifted: 24 14 56; /* #180E38 ≈ +5% toward white */
+
+  /* Pure neutrals (use sparingly — prefer warm-white / midnight-blue) */
+  --palette-white: 255 255 255;
+  --palette-black: 0 0 0;
+
+  /* ──────────────────────────────────────────────────────────────────────
+   *  DEPRECATED — aliases for pre-brand-guide code. Keep during migration.
+   * ────────────────────────────────────────────────────────────────────── */
+  --palette-yellow-300: var(--palette-canary-300);
+  --palette-yellow-500: var(--palette-canary-500);
+  --palette-ink-950:    var(--palette-midnight-blue);
+  --palette-ink-900:    var(--palette-midnight-blue-lifted);
+  --palette-cyan-400:   var(--palette-sky-500);
+  --palette-indigo-500: var(--palette-cobalt-500);
+  --palette-red-500:    var(--palette-raspberry-500);
   --palette-grey-500:   128 128 140;
   --palette-grey-700:   64 64 80;
-  --palette-red-500:    239 68 68;
 
-  /* Layer 2 — semantic tokens */
-  --color-bg:           var(--palette-ink-950);
-  --color-bg-elevated:  var(--palette-ink-900);
-  --color-fg:           var(--palette-white);
-  --color-fg-muted:     255 255 255 / 0.6;
-  --color-brand:        var(--palette-yellow-300);
-  --color-action:       var(--palette-yellow-300);
-  --color-focus:        var(--palette-yellow-300);
-  --color-modal-stroke: var(--palette-cyan-400);
-  --color-modal-wash:   var(--palette-cyan-400);
-  --color-modal-wash-2: var(--palette-indigo-500);
+  /* ──────────────────────────────────────────────────────────────────────
+   *  SEMANTIC TOKENS
+   * ────────────────────────────────────────────────────────────────────── */
+  --color-bg:           var(--palette-midnight-blue);
+  --color-bg-elevated:  var(--palette-midnight-blue-lifted);
+  --color-bg-midnight:  var(--palette-midnight-blue);
+  --color-fg:           var(--palette-warm-white);
+  --color-fg-muted:     243 244 241 / 0.6;       /* warm-white @ 60% */
+  --color-brand:        var(--palette-canary-500);
+  --color-action:       var(--palette-canary-500);
+  --color-focus:        var(--palette-canary-500);
+  --color-modal-stroke: var(--palette-sky-500);
+  --color-modal-wash:   var(--palette-sky-500);
+  --color-modal-wash-2: var(--palette-cobalt-500);
 
   /* Per-game tint — scoped overrides replace these */
   --modal-tint:   var(--color-modal-stroke);
   --modal-wash:   var(--color-modal-wash);
   --modal-wash-2: var(--color-modal-wash-2);
 
+  /* ──────────────────────────────────────────────────────────────────────
+   *  TYPE SCALE — size / line-height pairs (line-height tuned with DS best
+   *  practice; display leads ~1.1, body 1.5, small 1.33). Consumers can use
+   *  these raw vars for inline styles or prefer the matching Tailwind
+   *  utilities `text-display-1` … `text-caption` exposed in the preset.
+   * ────────────────────────────────────────────────────────────────────── */
+  --type-display-1-size: 96px;   --type-display-1-line: 104px;
+  --type-display-2-size: 80px;   --type-display-2-line: 88px;
+  --type-display-3-size: 64px;   --type-display-3-line: 72px;
+  --type-display-4-size: 56px;   --type-display-4-line: 64px;
+  --type-display-5-size: 48px;   --type-display-5-line: 56px;
+  --type-display-6-size: 40px;   --type-display-6-line: 48px;
+  --type-title-size:     40px;   --type-title-line:     48px;
+  --type-body-size:      32px;   --type-body-line:      48px;
+  --type-callout-size:   32px;   --type-callout-line:   40px;
+  --type-hint-size:      32px;   --type-hint-line:      44px;
+  --type-metadata-size:  24px;   --type-metadata-line:  32px;
+  --type-caption-size:   24px;   --type-caption-line:   32px;
+
   /* Type, spacing, radii, motion */
   --font-sans:       'Weekend Repro', ui-sans-serif, system-ui, sans-serif;
-  --type-code:       96px;
+  --font-code:       'Source Code Pro', ui-monospace, 'SF Mono', Menlo, monospace;
+  /* Deprecated: superseded by --type-display-1-size. Kept as alias. */
+  --type-code:       var(--type-display-1-size);
   --radius-pill:     9999px;
   --radius-card:     16px;
   --duration-fast:   150ms;
   --duration-base:   220ms;
   --ease-standard:   cubic-bezier(0.4, 0, 0.2, 1);
-  --shadow-cta-glow: 0 4px 20px 0 rgba(255, 228, 1, 0.35);
+  --shadow-cta-glow: 0 4px 20px 0 rgba(255, 218, 10, 0.35);
 }
 
 [data-theme='light'] {
-  --color-bg:          var(--palette-white);
-  --color-bg-elevated: 245 245 247;
-  --color-fg:          var(--palette-ink-950);
-  --color-fg-muted:    0 0 31 / 0.6;
+  --color-bg:          var(--palette-warm-white);
+  --color-bg-elevated: var(--palette-warmer-white);
+  --color-bg-midnight: var(--palette-warm-white);  /* light-mode override */
+  --color-fg:          var(--palette-midnight-blue);
+  --color-fg-muted:    10 3 34 / 0.6;              /* midnight @ 60% */
 }
 
 /* Motion keyframes used by Dialog and others */
@@ -70,4 +184,9 @@
 @keyframes weekend-slot-pulse {
   0%, 100% { opacity: 0.6; }
   50%      { opacity: 1; }
+}
+
+@keyframes weekend-slot-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }

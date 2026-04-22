@@ -8,7 +8,7 @@ export function PreviewShell() {
 
   return (
     <div className="w-full h-full bg-bg text-fg font-sans flex flex-col">
-      <div className="p-3 border-b border-fg/10 flex items-center gap-2">
+      <div className="p-3 border-b border-fg-10 flex items-center gap-2">
         <span className="text-sm text-fg-muted">UI Preview:</span>
         <select
           className="bg-bg-elevated text-fg px-2 py-1 rounded-card text-sm flex-1"
