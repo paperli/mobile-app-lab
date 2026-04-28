@@ -22,6 +22,11 @@ const buttonStyles = cva(
         // resting state for Yes/No-style modal actions.
         soft:
           'rounded-pill text-fg bg-fg-10 hover:bg-fg-15',
+        // Secondary — muted pill with 6% warm-white fill and 12% border.
+        // Use with size="secondary" for icon+label mobile actions (e.g.
+        // "Back" button below the d-pad).
+        secondary:
+          'rounded-pill border-2 border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.06)] text-fg hover:bg-[rgba(255,255,255,0.10)]',
       },
       size: {
         sm: 'h-9 px-4 text-sm',
@@ -30,6 +35,11 @@ const buttonStyles = cva(
         // TV sizes — 32px horizontal padding, labels at TV reading distance.
         xl: 'h-20 px-8 text-[32px]',       // 80px tall — system-menu Layer 1 tabs
         compact: 'h-[72px] px-8 text-2xl', // 72px tall — Layer 2 modal actions (Yes/No, Exit pill)
+        // Secondary — 60px pill with icon+label. Pairs with variant="secondary".
+        secondary: 'h-[60px] min-h-[60px] px-8 gap-3 text-[20px] leading-[19px] tracking-[-1px]',
+        // Circular — 120x120 icon-only button. Pairs with variant="secondary".
+        // Caller provides a 48x48 icon child.
+        circular: 'h-[120px] w-[120px] min-h-[120px] min-w-[120px] p-0 gap-0',
       },
     },
     defaultVariants: {

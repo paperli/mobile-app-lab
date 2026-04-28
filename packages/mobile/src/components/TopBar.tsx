@@ -3,7 +3,6 @@ import { SystemButton } from '@weekend/ui';
 import { HapticFeedback } from '../utils/haptics';
 
 interface TopBarProps {
-  onBack: () => void;
   onSystem?: () => void;
   onSettings?: () => void;
 }
@@ -119,7 +118,7 @@ function TopBarButton({
   );
 }
 
-export function TopBar({ onBack, onSystem, onSettings }: TopBarProps) {
+export function TopBar({ onSystem, onSettings }: TopBarProps) {
   return (
     <div
       style={{
@@ -137,11 +136,11 @@ export function TopBar({ onBack, onSystem, onSettings }: TopBarProps) {
         pointerEvents: 'none',
       }}
     >
-      {/* Back button */}
-      <TopBarButton onPress={onBack}>
+      {/* System menu (gear) — same style as the former back button */}
+      <TopBarButton onPress={() => onSystem?.()}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <path d="M7.5 11L3 6.5L7.5 2" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M3 6.5H14.5C18.09 6.5 21 9.41 21 13C21 16.59 18.09 19.5 14.5 19.5H10" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="12" cy="12" r="3" stroke="white" strokeWidth="2" />
         </svg>
       </TopBarButton>
 

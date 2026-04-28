@@ -82,12 +82,12 @@ export function SquareController({ onNavigate, onAction, onVolumeChange, tvScree
   });
 
   return (
-    <div className="relative flex flex-col items-center justify-center h-full px-2 pt-16" style={{ backgroundColor: 'transparent' }}>
+    <div className="relative flex flex-col items-center justify-center h-full px-2" style={{ backgroundColor: 'transparent' }}>
       {/* Voice-activated wave effect */}
       <VoiceGlow volume={volume} isActive={isListening} tvScreen={tvScreen} />
 
       {/* Circular Pad Area */}
-      <div className="relative" style={{ width: '332px', height: '332px', marginBottom: '64px' }}>
+      <div className="relative" style={{ width: '332px', height: '332px' }}>
           <div
             ref={trackpadRef}
             className="relative w-full h-full"
