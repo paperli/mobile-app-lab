@@ -6,7 +6,11 @@ import {
   NavigationAction,
   PLACEHOLDER_GAMES,
   SOCKET_EVENTS,
+  type VoiceTranscriptPayload,
+  type VoiceConfirmResponsePayload,
 } from '@mobile-app-lab/shared';
+import { matchVoice, type VoiceIntent } from './utils/voiceMatcher';
+import { VoiceDebugOverlay, type TVVoiceDebugEvent } from './components/VoiceDebugOverlay';
 import {
   SystemMenuOverlay,
   WEEKEND_PLAYERS,
@@ -295,6 +299,165 @@ function MainTvApp() {
 
   const { socket, roomCode, connectionStatus } = useSocket(handleNavigationInput);
 
+  // Voice integration ------------------------------------------------------
+  // Mobile streams transcripts → TV runs the matcher with a screen-aware
+  // candidate set → TV executes (high confidence) or asks mobile to TTS-confirm
+  // (medium confidence). Fuzzy candidates today are just the hub games; other
+  // screens fall through to verb-only matching.
+
+  const focusedIndexRef = useRef(focusedIndex);
+  useEffect(() => { focusedIndexRef.current = focusedIndex; }, [focusedIndex]);
+  const currentScreenRef = useRef<AppScreen>(currentScreen);
+  useEffect(() => { currentScreenRef.current = currentScreen; }, [currentScreen]);
+
+  const pendingVoiceIntentRef = useRef<{ id: string; intent: VoiceIntent } | null>(null);
+
+  // Defense-in-depth dedupe: SFSpeechRecognizer can fire interim+final for the
+  // same phrase, and StrictMode-era subscriptions can echo. We drop a transcript
+  // if the same text arrived in the last 1.5s.
+  const lastVoiceEmitRef = useRef<{ text: string; ts: number } | null>(null);
+
+  // Debug state — TODO remove once voice is stable.
+  const [voiceDebugEvents, setVoiceDebugEvents] = useState<TVVoiceDebugEvent[]>([]);
+  const [pendingPromptText, setPendingPromptText] = useState<string | null>(null);
+  const [pendingPromptConfirmed, setPendingPromptConfirmed] = useState<
+    'pending' | 'yes' | 'no' | 'timeout' | null
+  >(null);
+
+  const VOICE_EXECUTE_THRESHOLD = 0.65;
+
+  const executeVoiceIntent = useCallback((intent: VoiceIntent) => {
+    if (intent.kind === 'navigate') {
+      handleNavigate(intent.direction);
+      return;
+    }
+    if (intent.kind === 'action') {
+      handleAction(intent.action);
+      return;
+    }
+    // goto — focus the target tile, optionally chain into ok ("play X").
+    const idx = games.findIndex((g) => g.id === intent.targetId);
+    if (idx < 0) return;
+    setFocusedIndex(idx);
+    soundManager.playNavigationSound();
+    if (intent.autoLaunch) {
+      // Let the focus animation settle before firing ok so the user sees what
+      // they triggered.
+      setTimeout(() => {
+        const target = games[idx];
+        if (!target) return;
+        setIsPressing(true);
+        setTimeout(() => setIsPressing(false), 150);
+        soundManager.playSelectionSound();
+        if (target.id === 'game-1') {
+          setTimeout(() => setCurrentScreen('loading'), 150);
+        }
+      }, 250);
+    }
+  }, [games, handleNavigate, handleAction]);
+
+  useEffect(() => {
+    if (!socket || !roomCode) return;
+    let promptCounter = 0;
+
+    const buildContext = () => {
+      if (currentScreenRef.current === 'hub') {
+        return { candidates: games.map((g) => ({ id: g.id, label: g.title })) };
+      }
+      return { candidates: [] as { id: string; label: string }[] };
+    };
+
+    const promptFor = (intent: VoiceIntent): string => {
+      if (intent.kind === 'goto') return `Did you mean ${intent.targetLabel}?`;
+      if (intent.kind === 'navigate') return `Move ${intent.direction}?`;
+      return `Did you say ${intent.action}?`;
+    };
+
+    let debugCounter = 0;
+    const pushDebug = (e: Omit<TVVoiceDebugEvent, 'id' | 'ts'>) => {
+      setVoiceDebugEvents((prev) => [
+        { id: ++debugCounter, ts: Date.now(), ...e },
+        ...prev,
+      ].slice(0, 8));
+    };
+
+    const onTranscript = (payload: VoiceTranscriptPayload) => {
+      if (!payload.isFinal) return;
+
+      const now = Date.now();
+      const last = lastVoiceEmitRef.current;
+      if (last && last.text === payload.transcript && now - last.ts < 3000) {
+        console.log('[TV voice] dedupe drop', payload.transcript);
+        return;
+      }
+      lastVoiceEmitRef.current = { text: payload.transcript, ts: now };
+
+      const intent = matchVoice(payload.transcript, buildContext());
+      console.log('[TV voice]', payload.transcript, '→', intent);
+
+      if (!intent) {
+        pushDebug({
+          transcript: payload.transcript,
+          recognizerConfidence: payload.recognizerConfidence,
+          intent: null,
+          decision: 'ignore',
+        });
+        return;
+      }
+
+      if (intent.confidence >= VOICE_EXECUTE_THRESHOLD) {
+        pushDebug({
+          transcript: payload.transcript,
+          recognizerConfidence: payload.recognizerConfidence,
+          intent,
+          decision: 'execute',
+        });
+        executeVoiceIntent(intent);
+        return;
+      }
+
+      // Medium confidence — ask the user to confirm via mobile TTS.
+      const promptId = `tv-${Date.now()}-${++promptCounter}`;
+      pendingVoiceIntentRef.current = { id: promptId, intent };
+      const promptText = promptFor(intent);
+      setPendingPromptText(promptText);
+      setPendingPromptConfirmed('pending');
+      pushDebug({
+        transcript: payload.transcript,
+        recognizerConfidence: payload.recognizerConfidence,
+        intent,
+        decision: 'confirm',
+      });
+      socket.emit(SOCKET_EVENTS.VOICE_CONFIRM_PROMPT, {
+        roomCode,
+        prompt: promptText,
+        promptId,
+      });
+    };
+
+    const onConfirmResponse = (payload: VoiceConfirmResponsePayload) => {
+      const pending = pendingVoiceIntentRef.current;
+      if (!pending || pending.id !== payload.promptId) return;
+      pendingVoiceIntentRef.current = null;
+      const verdict =
+        payload.confirmed === true ? 'yes' : payload.confirmed === false ? 'no' : 'timeout';
+      setPendingPromptConfirmed(verdict);
+      // Clear the banner after a beat so the next prompt has a clean slate.
+      setTimeout(() => {
+        setPendingPromptText(null);
+        setPendingPromptConfirmed(null);
+      }, 1200);
+      if (payload.confirmed === true) executeVoiceIntent(pending.intent);
+    };
+
+    socket.on(SOCKET_EVENTS.VOICE_TRANSCRIPT, onTranscript);
+    socket.on(SOCKET_EVENTS.VOICE_CONFIRM_RESPONSE, onConfirmResponse);
+    return () => {
+      socket.off(SOCKET_EVENTS.VOICE_TRANSCRIPT, onTranscript);
+      socket.off(SOCKET_EVENTS.VOICE_CONFIRM_RESPONSE, onConfirmResponse);
+    };
+  }, [socket, roomCode, games, executeVoiceIntent]);
+
   // Mock slots — real party/slot domain state lands in PU&P M2.
   // Mixed states so the system-menu visual treatment can be seen end-to-end
   // before real party/slot plumbing exists.
@@ -414,6 +577,11 @@ function MainTvApp() {
   return (
     <>
       {screen}
+      <VoiceDebugOverlay
+        events={voiceDebugEvents}
+        pendingPromptText={pendingPromptText}
+        pendingPromptConfirmed={pendingPromptConfirmed}
+      />
       <SystemMenuOverlay
         ref={systemMenuRef}
         open={systemMenuOpen}

@@ -15,6 +15,14 @@ export type {
   NavigationInputPayload,
   TVScreen,
   ScreenUpdatePayload,
+  SystemMenuOpenPayload,
+  SystemMenuClosePayload,
+  SystemMenuActionPayload,
+  VoiceState,
+  VoiceTranscriptPayload,
+  VoiceConfirmPromptPayload,
+  VoiceConfirmResponsePayload,
+  VoiceStatePayload,
 } from './types.js';
 
 // Export all constants

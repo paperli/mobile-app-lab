@@ -3,39 +3,57 @@
  * The NativeBridge object is injected by the iOS app via WKWebView
  */
 
+export type NativeBridgeEvent =
+  | 'voiceTranscript'
+  | 'voiceState'
+  | 'voiceVolume'
+  | 'speakDone';
+
+export interface VoiceTranscriptEvent {
+  transcript: string;
+  confidence: number;
+  isFinal: boolean;
+}
+
+export interface VoiceStateEvent {
+  state: 'idle' | 'listening' | 'denied' | 'unavailable';
+}
+
+export interface VoiceVolumeEvent {
+  /** 0..1 RMS, throttled to ~30Hz on the native side. */
+  volume: number;
+}
+
+export interface SpeakDoneEvent {
+  utteranceId: string;
+}
+
 declare global {
   interface Window {
-    /**
-     * Native bridge object injected by iOS app
-     * Only available when running inside the iOS shell app
-     */
     NativeBridge?: {
-      /**
-       * Returns true if running inside the native iOS app
-       */
       isNativeApp: () => boolean;
 
-      /**
-       * Triggers native haptic feedback
-       * @param type - The type of haptic feedback to trigger
-       */
       triggerHaptic: (
         type: 'light' | 'medium' | 'heavy' | 'success' | 'error' | 'navigation'
       ) => void;
 
-      /**
-       * Dismisses the controller modal and returns to the native pairing screen
-       */
       dismissController: () => void;
 
-      // Future: Voice recognition methods
-      // startVoiceRecognition: () => Promise<string>;
-      // stopVoiceRecognition: () => void;
+      // --- Voice ---
+      startSpeechRecognition: () => void;
+      stopSpeechRecognition: () => void;
+      speak: (text: string, utteranceId: string) => void;
+      cancelSpeak: () => void;
+
+      addEventListener: {
+        (event: 'voiceTranscript', callback: (e: VoiceTranscriptEvent) => void): () => void;
+        (event: 'voiceState', callback: (e: VoiceStateEvent) => void): () => void;
+        (event: 'voiceVolume', callback: (e: VoiceVolumeEvent) => void): () => void;
+        (event: 'speakDone', callback: (e: SpeakDoneEvent) => void): () => void;
+        (event: NativeBridgeEvent, callback: (payload: unknown) => void): () => void;
+      };
     };
 
-    /**
-     * WebKit message handlers (for posting messages to native)
-     */
     webkit?: {
       messageHandlers?: {
         NativeBridge?: {

@@ -22,6 +22,8 @@
 		A100000B /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A110000B /* AppConfig.swift */; };
 		A100000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A110000C /* Assets.xcassets */; };
 		A100000D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A110000E /* SettingsView.swift */; };
+		A1000010 /* SpeechRecognitionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1100010 /* SpeechRecognitionService.swift */; };
+		A1000011 /* SpeechSynthesizerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1100011 /* SpeechSynthesizerService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -41,6 +43,8 @@
 		A110000C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A110000D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A110000E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A1100010 /* SpeechRecognitionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechRecognitionService.swift; sourceTree = "<group>"; };
+		A1100011 /* SpeechSynthesizerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechSynthesizerService.swift; sourceTree = "<group>"; };
 		A1200001 /* MobileAppLab.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MobileAppLab.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -121,6 +125,8 @@
 			children = (
 				A1100009 /* HapticService.swift */,
 				A110000A /* DeepLinkHandler.swift */,
+				A1100010 /* SpeechRecognitionService.swift */,
+				A1100011 /* SpeechSynthesizerService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -225,6 +231,8 @@
 				A100000A /* DeepLinkHandler.swift in Sources */,
 				A100000B /* AppConfig.swift in Sources */,
 				A100000D /* SettingsView.swift in Sources */,
+				A1000010 /* SpeechRecognitionService.swift in Sources */,
+				A1000011 /* SpeechSynthesizerService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

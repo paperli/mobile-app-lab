@@ -80,3 +80,45 @@ export interface SystemMenuActionPayload {
   roomCode: string;
   action: 'resume' | 'exit';
 }
+
+// Voice — mobile ↔ TV
+// Mobile owns the mic and TTS. The TV matches transcripts against
+// screen-aware grammars and may bounce a confirmation prompt back to mobile
+// for a low-confidence match.
+
+export type VoiceState = 'idle' | 'listening' | 'speaking' | 'awaiting-confirm';
+
+export interface VoiceTranscriptPayload {
+  roomCode: string;
+  // Lowercased, trimmed final transcript from mobile.
+  transcript: string;
+  // Recognizer-reported confidence 0..1. Native SFSpeechRecognizer often
+  // reports 0 for very short utterances; treat as a hint, not a gate.
+  recognizerConfidence: number;
+  // True for a final segment, false for an interim. TV ignores interim today
+  // but the wire format leaves room to react sooner later.
+  isFinal: boolean;
+  timestamp: number;
+}
+
+export interface VoiceConfirmPromptPayload {
+  roomCode: string;
+  // The yes/no question to read aloud on mobile.
+  prompt: string;
+  // Opaque id so mobile can pair the response to the right prompt; the TV
+  // treats stale responses as no-ops.
+  promptId: string;
+}
+
+export interface VoiceConfirmResponsePayload {
+  roomCode: string;
+  promptId: string;
+  // Whether the user said yes (or anything affirmative). Null if mobile
+  // gave up (timeout / unintelligible).
+  confirmed: boolean | null;
+}
+
+export interface VoiceStatePayload {
+  roomCode: string;
+  state: VoiceState;
+}

@@ -4,6 +4,7 @@ import { Undo2 } from 'lucide-react';
 import { Button } from '@weekend/ui';
 import { ControllerMode } from '@mobile-app-lab/shared';
 import { useSocket } from './hooks/useSocket';
+import { useVoiceTransport } from './hooks/useVoiceTransport';
 import { PairingScreen } from './components/PairingScreen';
 import { DPadController } from './components/DPadController';
 import { JoystickController } from './components/JoystickController';
@@ -14,13 +15,16 @@ import { GameModal } from './components/GameModal';
 import { RiveEdgeGlow, RiveGameLogo } from './components/RiveEdgeGlow';
 import { TopBar } from './components/TopBar';
 import { SettingsPanel } from './components/SettingsPanel';
+import { VoiceDebugOverlay } from './components/VoiceDebugOverlay';
 import { PreviewShell } from './preview/PreviewShell';
 import { HapticFeedback } from './utils/haptics';
 
 type AppMode = 'dpad' | 'game' | 'theme';
 
 function MainMobileApp() {
-  const { connectionStatus, isPaired, tvScreen, joinRoom, sendNavigationInput, leaveRoom } = useSocket();
+  const { socket, connectionStatus, isPaired, roomCode, tvScreen, joinRoom, sendNavigationInput, leaveRoom } = useSocket();
+  // Always-on voice. Mic is the mobile's; matcher lives on the TV.
+  useVoiceTransport({ socket, isPaired, roomCode });
   const [controllerMode, setControllerMode] = useState<ControllerMode>('square-hybrid');
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string>();
@@ -172,6 +176,7 @@ function MainMobileApp() {
           <GameModal tvScreen={tvScreen} onNavigate={handleNavigate} onAction={handleAction} />
         </div>
         {settingsPanel}
+        <VoiceDebugOverlay />
       </div>
     );
   }
@@ -203,6 +208,7 @@ function MainMobileApp() {
           />
         </div>
         {settingsPanel}
+        <VoiceDebugOverlay />
       </div>
     );
   }
@@ -261,6 +267,7 @@ function MainMobileApp() {
       </div>
 
       {settingsPanel}
+      <VoiceDebugOverlay />
     </div>
   );
 }
