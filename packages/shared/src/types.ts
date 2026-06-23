@@ -61,7 +61,7 @@ export interface NavigationInputPayload extends NavigationEvent {
 }
 
 // Screen state broadcast from TV to mobile
-export type TVScreen = 'hub' | 'loading' | 'game-menu' | 'playlist-select' | 'in-game';
+export type TVScreen = 'hub' | 'loading' | 'game-menu' | 'playlist-select' | 'party-playlist-select' | 'in-game';
 
 export interface ScreenUpdatePayload {
   screen: TVScreen;

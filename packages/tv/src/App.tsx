@@ -24,6 +24,7 @@ import { GameHub } from './components/GameHub';
 import { LoadingScreen } from './components/song-quiz/LoadingScreen';
 import { GameMenu } from './components/song-quiz/GameMenu';
 import { PlaylistSelect } from './components/song-quiz/PlaylistSelect';
+import { PartyPlaylistSelect, type PartyPlaylistHandle } from './components/song-quiz/PartyPlaylistSelect';
 import { GRID, findClosestCol } from './components/song-quiz/PlaylistFocusFrame';
 import { useSocket } from './hooks/useSocket';
 import { useKeyboardNav } from './hooks/useKeyboardNav';
@@ -31,7 +32,7 @@ import { soundManager } from './utils/sounds';
 import { PreviewShell } from './preview/PreviewShell';
 import { getMobileUrl } from './utils/getMobileUrl';
 
-type AppScreen = 'hub' | 'loading' | 'game-menu' | 'playlist-select';
+type AppScreen = 'hub' | 'loading' | 'game-menu' | 'playlist-select' | 'party-playlist-select';
 
 // Configuration
 const ENABLE_LOOP_NAVIGATION = false;
@@ -73,6 +74,9 @@ function MainTvApp() {
   const [playlistBounceDirection, setPlaylistBounceDirection] = useState<NavigationDirection | null>(null);
   const [playlistIsPressing, setPlaylistIsPressing] = useState(false);
 
+  // Party Mode playlist selection — self-contained nav system driven via ref.
+  const partyPlaylistRef = useRef<PartyPlaylistHandle>(null);
+
   const audioUnlockedRef = useRef(false);
   const games = PLACEHOLDER_GAMES;
 
@@ -88,6 +92,10 @@ function MainTvApp() {
     // System menu swallows all directional input while open.
     if (systemMenuOpenRef.current) {
       systemMenuRef.current?.navigate(direction);
+      return;
+    }
+    if (currentScreen === 'party-playlist-select') {
+      partyPlaylistRef.current?.navigate(direction);
       return;
     }
     if (currentScreen === 'hub') {
@@ -241,6 +249,10 @@ function MainTvApp() {
       setSystemMenuOpen(true);
       return;
     }
+    if (currentScreen === 'party-playlist-select') {
+      partyPlaylistRef.current?.action(action);
+      return;
+    }
     if (currentScreen === 'hub') {
       if (action === 'ok') {
         const selectedGame = games[focusedIndex];
@@ -262,6 +274,9 @@ function MainTvApp() {
         // Launch Single Player playlist selection
         if (menuFocusedIndex === 0) {
           setTimeout(() => setCurrentScreen('playlist-select'), 150);
+        } else if (menuFocusedIndex === 1) {
+          // Party Mode → multi-playlist (1–3) selection
+          setTimeout(() => setCurrentScreen('party-playlist-select'), 150);
         }
       }
       // back on game-menu is handled as a boundary above (opens exit menu)
@@ -560,6 +575,18 @@ function MainTvApp() {
         focusCol={playlistFocusCol}
         bounceDirection={playlistBounceDirection}
         isPressing={playlistIsPressing}
+      />
+    );
+  } else if (currentScreen === 'party-playlist-select') {
+    screen = (
+      <PartyPlaylistSelect
+        ref={partyPlaylistRef}
+        onExit={() => setCurrentScreen('game-menu')}
+        onSubmit={(ids) => {
+          console.log('[Party] submit playlists', ids);
+          // TODO: start the party quiz with the selected playlists.
+          setTimeout(() => setCurrentScreen('loading'), 150);
+        }}
       />
     );
   } else {
