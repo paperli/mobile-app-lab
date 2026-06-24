@@ -244,7 +244,8 @@ function MainMobileApp() {
         <RiveEdgeGlow tvScreen={tvScreen} volume={voiceVolume} />
       </div>
 
-      {/* Back button — circular, horizontally centered, 48px below the d-pad (332px tall, centered) */}
+      {/* Back button — circular, horizontally centered, 48px below the d-pad
+          (332px tall, centered). */}
       <div
         style={{
           position: 'absolute',

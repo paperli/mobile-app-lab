@@ -4,25 +4,25 @@ import {
   useState,
   useCallback,
   useRef,
+  useLayoutEffect,
 } from 'react';
 import type { NavigationDirection, NavigationAction } from '@mobile-app-lab/shared';
 import { soundManager } from '../../utils/sounds';
 
 /**
- * Party Mode playlist selection — a self-contained navigation system.
+ * Party Mode playlist selection.
  *
- * Two focus regions handed off via OK / Back:
- *   - "bar"  : [slot0, slot1, slot2, submit]  (the selected-playlist bar on top)
- *   - "grid" : featured (row 0) + recently played (row 1)
+ * Two focus regions:
+ *   - "grid"     : featured + recently-played; OK toggles a playlist's checkbox
+ *                  (up to MAX_SELECTED, FIFO once full).
+ *   - "continue" : the top-right Continue button. Disabled until ≥1 playlist is
+ *                  selected; reachable by pressing up from the featured row once
+ *                  enabled. OK confirms the selection.
  *
- * Flow: enter on the bar (slot 0, all empty, submit disabled) → OK on an empty
- * slot jumps into the grid → OK on a playlist fills the origin slot and bounces
- * focus back to the next empty slot (or submit when full) → submit enables once
- * any slot is filled. Back from the grid returns to the origin slot; back from
- * the bar exits to the Song Quiz menu.
- *
- * App.tsx forwards directional / action input here via the imperative handle,
- * the same way it drives SystemMenuOverlay.
+ * Back steps up: from the grid with a selection it focuses Continue, otherwise
+ * it exits to the Song Quiz menu; from Continue it exits to the menu. App.tsx
+ * forwards directional / action input here via the imperative handle, the same
+ * way it drives SystemMenuOverlay.
  */
 
 // ---------------------------------------------------------------------------
@@ -51,7 +51,7 @@ const RECENT: Playlist[] = [
 ];
 
 const ALL = [FEATURED, RECENT]; // [row][col]
-const SLOT_COUNT = 3;
+const MAX_SELECTED = 3;
 
 // ---------------------------------------------------------------------------
 // Layout — px at 1920x1080 reference, converted to vw/vh so it scales.
@@ -60,12 +60,14 @@ const SLOT_COUNT = 3;
 const pxToVw = (px: number) => (px / 1920) * 100;
 const pxToVh = (px: number) => (px / 1080) * 100;
 
-const SLOT = { startX: 90, y: 96, w: 248, h: 140, gap: 28 };
-const SUBMIT = { w: 268, h: 140, y: 96, x: 1920 - 90 - 268 }; // right-aligned
 const GRID = {
-  featured: { startX: 90, y: 360, w: 532, h: 237, gap: 64, titleY: 308 },
-  recent: { startX: 90, y: 700, w: 234, h: 234, gap: 64, titleY: 648 },
+  featured: { startX: 90, y: 297, w: 532, h: 237, gap: 64, titleY: 243 },
+  recent: { startX: 90, y: 721, w: 234, h: 234, gap: 64, titleY: 667 },
 };
+
+// Continue button — top-right, anchored to the grid's right edge. Content-sized,
+// so its focus rect is measured from the rendered element at runtime.
+const CONTINUE = { top: 90, right: 90 }; // px @ 1920x1080 reference
 
 const FRAME_MARGIN = 0.5; // vw
 
@@ -76,12 +78,6 @@ interface Rect {
   h: number;
 }
 
-function barSlotRect(i: number): Rect {
-  return { x: SLOT.startX + i * (SLOT.w + SLOT.gap), y: SLOT.y, w: SLOT.w, h: SLOT.h };
-}
-function submitRect(): Rect {
-  return { x: SUBMIT.x, y: SUBMIT.y, w: SUBMIT.w, h: SUBMIT.h };
-}
 function gridRect(row: number, col: number): Rect {
   const c = row === 0 ? GRID.featured : GRID.recent;
   return { x: c.startX + col * (c.w + c.gap), y: c.y, w: c.w, h: c.h };
@@ -109,30 +105,50 @@ export interface PartyPlaylistHandle {
 }
 
 interface PartyPlaylistSelectProps {
-  /** Back pressed while on the bar → return to the Song Quiz menu. */
+  /** Back pressed on the grid → return to the Song Quiz menu. */
   onExit: () => void;
-  /** Submit pressed with at least one playlist chosen. */
+  /** Continue pressed with ≥1 playlist chosen. */
   onSubmit: (playlistIds: string[]) => void;
 }
 
-type Region = 'bar' | 'grid';
-const SUBMIT_INDEX = SLOT_COUNT; // bar index for the submit button
+type Region = 'grid' | 'continue';
 
 export const PartyPlaylistSelect = forwardRef<PartyPlaylistHandle, PartyPlaylistSelectProps>(
   function PartyPlaylistSelect({ onExit, onSubmit }, ref) {
-    const [region, setRegion] = useState<Region>('bar');
-    const [barIndex, setBarIndex] = useState(0); // 0..SLOT_COUNT (SUBMIT_INDEX = submit)
+    const [region, setRegion] = useState<Region>('grid');
     const [gridRow, setGridRow] = useState(0);
     const [gridCol, setGridCol] = useState(0);
-    const [slots, setSlots] = useState<(Playlist | null)[]>(() => Array(SLOT_COUNT).fill(null));
+    // Selected playlist ids, in selection order (cap MAX_SELECTED).
+    const [selected, setSelected] = useState<string[]>([]);
     const [bounce, setBounce] = useState<NavigationDirection | null>(null);
     const [pressing, setPressing] = useState(false);
 
-    // The slot we are filling while in the grid.
-    const originSlotRef = useRef(0);
+    const continueEnabled = selected.length > 0;
 
-    const filledCount = slots.filter(Boolean).length;
-    const submitEnabled = filledCount > 0;
+    // The Continue button is content-sized, so measure its rendered box (in the
+    // 1920x1080 reference space) to position the focus frame around it.
+    const continueElRef = useRef<HTMLDivElement>(null);
+    const [continueBox, setContinueBox] = useState<Rect | null>(null);
+    useLayoutEffect(() => {
+      const measure = () => {
+        const el = continueElRef.current;
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        const W = window.innerWidth || 1920;
+        const H = window.innerHeight || 1080;
+        setContinueBox({
+          x: (r.left / W) * 1920,
+          y: (r.top / H) * 1080,
+          w: (r.width / W) * 1920,
+          h: (r.height / H) * 1080,
+        });
+      };
+      measure();
+      window.addEventListener('resize', measure);
+      // Re-measure once webfonts settle (text width shifts on font swap).
+      document.fonts?.ready.then(measure).catch(() => {});
+      return () => window.removeEventListener('resize', measure);
+    }, []);
 
     const doBounce = useCallback((direction: NavigationDirection) => {
       setBounce(direction);
@@ -145,18 +161,10 @@ export const PartyPlaylistSelect = forwardRef<PartyPlaylistHandle, PartyPlaylist
     // --- Navigation --------------------------------------------------------
     const navigate = useCallback(
       (direction: NavigationDirection) => {
-        if (region === 'bar') {
-          const maxIndex = submitEnabled ? SUBMIT_INDEX : SLOT_COUNT - 1;
-          if (direction === 'left') {
-            if (barIndex === 0) doBounce(direction);
-            else { setBarIndex(barIndex - 1); move(); }
-          } else if (direction === 'right') {
-            if (barIndex >= maxIndex) doBounce(direction);
-            else { setBarIndex(barIndex + 1); move(); }
-          } else {
-            // Nothing above the bar; the grid is reached via OK on a slot.
-            doBounce(direction);
-          }
+        if (region === 'continue') {
+          // Only down drops back to the grid; everything else bounces.
+          if (direction === 'down') { setRegion('grid'); move(); }
+          else doBounce(direction);
           return;
         }
 
@@ -171,8 +179,13 @@ export const PartyPlaylistSelect = forwardRef<PartyPlaylistHandle, PartyPlaylist
             else { setGridCol(gridCol + 1); move(); }
             break;
           case 'up':
-            if (gridRow === 0) doBounce(direction);
-            else { const c = findClosestCol(gridRow, gridCol, 0); setGridRow(0); setGridCol(c); move(); }
+            if (gridRow === 0) {
+              // From the top row, up reaches Continue once it's enabled.
+              if (continueEnabled) { setRegion('continue'); move(); }
+              else doBounce(direction);
+            } else {
+              const c = findClosestCol(gridRow, gridCol, 0); setGridRow(0); setGridCol(c); move();
+            }
             break;
           case 'down':
             if (gridRow === ALL.length - 1) doBounce(direction);
@@ -180,7 +193,7 @@ export const PartyPlaylistSelect = forwardRef<PartyPlaylistHandle, PartyPlaylist
             break;
         }
       },
-      [region, barIndex, submitEnabled, gridRow, gridCol, doBounce, move]
+      [region, continueEnabled, gridRow, gridCol, doBounce, move]
     );
 
     const flashPress = useCallback(() => {
@@ -191,85 +204,57 @@ export const PartyPlaylistSelect = forwardRef<PartyPlaylistHandle, PartyPlaylist
     // --- Actions -----------------------------------------------------------
     const action = useCallback(
       (act: NavigationAction) => {
-        if (act !== 'ok' && act !== 'back') return;
-
-        if (region === 'bar') {
+        if (region === 'continue') {
           if (act === 'back') {
+            // Back from Continue leaves to the Song Quiz menu.
             onExit();
-            return;
-          }
-          // ok
-          if (barIndex === SUBMIT_INDEX) {
-            if (!submitEnabled) { doBounce('right'); return; }
+          } else if (act === 'ok') {
             flashPress();
             soundManager.playSelectionSound();
-            onSubmit(slots.filter((s): s is Playlist => s !== null).map((s) => s.id));
-            return;
+            onSubmit(selected);
           }
-          // OK on a slot → enter the grid to fill it. If the slot is already
-          // filled, pre-focus its playlist so the user can swap.
-          originSlotRef.current = barIndex;
-          const existing = slots[barIndex];
-          if (existing) {
-            const fRow = FEATURED.some((p) => p.id === existing.id) ? 0 : 1;
-            const fCol = ALL[fRow].findIndex((p) => p.id === existing.id);
-            setGridRow(fRow);
-            setGridCol(Math.max(0, fCol));
-          } else {
-            setGridRow(0);
-            setGridCol(0);
-          }
-          flashPress();
-          soundManager.playSelectionSound();
-          setRegion('grid');
           return;
         }
 
         // region === 'grid'
         if (act === 'back') {
-          setRegion('bar');
-          setBarIndex(originSlotRef.current);
-          soundManager.playSelectionSound();
+          // With a selection, back steps up to Continue; otherwise it exits.
+          if (continueEnabled) {
+            setRegion('continue');
+            soundManager.playSelectionSound();
+          } else {
+            onExit();
+          }
           return;
         }
-        // ok — fill the origin slot with the focused playlist
-        const picked = ALL[gridRow][gridCol];
-        flashPress();
-        soundManager.playSelectionSound();
-
-        setSlots((prev) => {
-          const next = [...prev];
-          // Enforce uniqueness: clear any other slot holding this playlist.
-          for (let i = 0; i < next.length; i++) {
-            if (next[i]?.id === picked.id) next[i] = null;
-          }
-          next[originSlotRef.current] = picked;
-
-          // Advance focus to the next empty slot, else the submit button.
-          let nextEmpty = -1;
-          for (let i = 0; i < next.length; i++) {
-            const idx = (originSlotRef.current + 1 + i) % next.length;
-            if (next[idx] === null) { nextEmpty = idx; break; }
-          }
-          setBarIndex(nextEmpty === -1 ? SUBMIT_INDEX : nextEmpty);
-          return next;
-        });
-        setRegion('bar');
+        if (act === 'ok') {
+          const picked = ALL[gridRow][gridCol];
+          setSelected((prev) => {
+            if (prev.includes(picked.id)) {
+              // toggle off
+              soundManager.playSelectionSound();
+              return prev.filter((id) => id !== picked.id);
+            }
+            soundManager.playSelectionSound();
+            if (prev.length >= MAX_SELECTED) {
+              // at the cap — evict the oldest selection (FIFO) and add this one
+              return [...prev.slice(1), picked.id];
+            }
+            return [...prev, picked.id];
+          });
+          flashPress();
+        }
       },
-      [region, barIndex, slots, gridRow, gridCol, submitEnabled, onExit, onSubmit, doBounce, flashPress]
+      [region, continueEnabled, gridRow, gridCol, selected, onExit, onSubmit, flashPress]
     );
 
     useImperativeHandle(ref, () => ({ navigate, action }), [navigate, action]);
 
-    // --- Focus frame target ------------------------------------------------
-    const focusRect: Rect =
-      region === 'bar'
-        ? barIndex === SUBMIT_INDEX
-          ? submitRect()
-          : barSlotRect(barIndex)
-        : gridRect(gridRow, gridCol);
-
-    const selectedIds = new Set(slots.filter(Boolean).map((s) => (s as Playlist).id));
+    // --- Render ------------------------------------------------------------
+    // Fallback rect until the button has been measured (first paint).
+    const continueFallback: Rect = { x: 1920 - CONTINUE.right - 196, y: CONTINUE.top, w: 196, h: 64 };
+    const focusRect = region === 'continue' ? (continueBox ?? continueFallback) : gridRect(gridRow, gridCol);
+    const selectedSet = new Set(selected);
 
     return (
       <div
@@ -281,76 +266,66 @@ export const PartyPlaylistSelect = forwardRef<PartyPlaylistHandle, PartyPlaylist
           style={{ backgroundImage: 'url(/games/song-quiz/playlist-bg.jpg)', opacity: 0.5 }}
         />
 
-        {/* Header label */}
+        {/* Header — sits below the Song Quiz logo zone. */}
         <div
-          className="absolute"
-          style={{ left: `${pxToVw(90)}vw`, top: `${pxToVh(38)}vh`, fontSize: '28px', color: 'rgba(255,255,255,0.75)' }}
+          className="absolute left-0 right-0 flex items-center justify-center text-hint"
+          style={{ top: `${pxToVh(172)}vh`, color: 'rgba(255,255,255,0.9)' }}
         >
-          Select <span style={{ color: '#FFE88B', fontWeight: 600 }}>1–3 Playlists</span>
+          <span>
+            Select <span style={{ color: '#FFE88B', fontWeight: 600 }}>1–3 Playlists</span>
+          </span>
         </div>
 
-        {/* Slot bar */}
-        {slots.map((slot, i) => {
-          const r = barSlotRect(i);
-          return (
-            <div
-              key={i}
-              className="absolute flex items-center justify-center overflow-hidden"
-              style={{
-                left: `${pxToVw(r.x)}vw`,
-                top: `${pxToVh(r.y)}vh`,
-                width: `${pxToVw(r.w)}vw`,
-                height: `${pxToVh(r.h)}vh`,
-                borderRadius: '14px',
-                background: slot ? 'transparent' : 'rgba(0,0,0,0.35)',
-                border: slot ? 'none' : '2px dashed rgba(255,255,255,0.25)',
-              }}
-            >
-              {slot ? (
-                <img src={slot.image} alt={slot.title} className="w-full h-full" style={{ objectFit: 'cover' }} draggable={false} />
-              ) : (
-                <span style={{ fontSize: '52px', color: 'rgba(255,255,255,0.35)', fontWeight: 300 }}>+</span>
-              )}
-            </div>
-          );
-        })}
-
-        {/* Submit button */}
+        {/* Continue button (top-right). Content-sized; disabled until a
+            playlist is chosen. */}
         <div
-          className="absolute flex items-center justify-center"
+          ref={continueElRef}
+          className="absolute inline-flex items-center justify-center text-callout"
           style={{
-            left: `${pxToVw(SUBMIT.x)}vw`,
-            top: `${pxToVh(SUBMIT.y)}vh`,
-            width: `${pxToVw(SUBMIT.w)}vw`,
-            height: `${pxToVh(SUBMIT.h)}vh`,
-            borderRadius: '14px',
-            background: submitEnabled ? 'linear-gradient(180deg, #FFE88B 0%, #F6D300 94.88%)' : 'rgba(255,255,255,0.08)',
-            color: submitEnabled ? '#231B00' : 'rgba(255,255,255,0.3)',
-            fontSize: '30px',
-            fontWeight: 600,
-            opacity: submitEnabled ? 1 : 0.6,
-            transition: 'background 200ms ease, opacity 200ms ease',
+            top: `${pxToVh(CONTINUE.top)}vh`,
+            right: `${pxToVw(CONTINUE.right)}vw`,
+            padding: '16px 24px',
+            whiteSpace: 'nowrap',
+            borderRadius: '9999px',
+            fontWeight: 500,
+            background: continueEnabled
+              ? 'linear-gradient(180deg, #FFE88B 0%, #F6D300 94.88%)'
+              : 'rgba(255, 255, 255, 0.07)',
+            color: continueEnabled ? '#231B00' : 'rgba(255, 255, 255, 0.3)',
+            opacity: continueEnabled ? 1 : 0.7,
+            transition: 'background 200ms ease, color 200ms ease, opacity 200ms ease',
           }}
         >
-          Start
+          Continue
+          <svg
+            width="28"
+            height="28"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ marginLeft: '12px' }}
+          >
+            <path d="M5 12h14M12 5l7 7-7 7" />
+          </svg>
         </div>
 
         {/* Featured row */}
         <RowTitle x={GRID.featured.startX} y={GRID.featured.titleY} label="Featured" />
-        {FEATURED.map((p, col) => {
-          const r = gridRect(0, col);
-          return <GridCard key={p.id} playlist={p} rect={r} selected={selectedIds.has(p.id)} showDescription />;
-        })}
+        {FEATURED.map((p, col) => (
+          <GridCard key={p.id} playlist={p} rect={gridRect(0, col)} selected={selectedSet.has(p.id)} showDescription />
+        ))}
 
         {/* Recently played row */}
         <RowTitle x={GRID.recent.startX} y={GRID.recent.titleY} label="Recently Played" />
-        {RECENT.map((p, col) => {
-          const r = gridRect(1, col);
-          return <GridCard key={p.id} playlist={p} rect={r} selected={selectedIds.has(p.id)} />;
-        })}
+        {RECENT.map((p, col) => (
+          <GridCard key={p.id} playlist={p} rect={gridRect(1, col)} selected={selectedSet.has(p.id)} />
+        ))}
 
         {/* Focus frame */}
-        <FocusFrame rect={focusRect} bounce={bounce} pressing={pressing} />
+        <FocusFrame rect={focusRect} bounce={bounce} pressing={pressing} radius={region === 'continue' ? 9999 : 16} />
       </div>
     );
   }
@@ -433,10 +408,12 @@ function FocusFrame({
   rect,
   bounce,
   pressing,
+  radius = 16,
 }: {
   rect: Rect;
   bounce: NavigationDirection | null;
   pressing: boolean;
+  radius?: number;
 }) {
   const widthVw = pxToVw(rect.w) + FRAME_MARGIN * 2;
   const heightVh = pxToVh(rect.h) + FRAME_MARGIN * 2;
@@ -465,7 +442,7 @@ function FocusFrame({
           height: `${heightVh}vh`,
           top: 0,
           left: 0,
-          borderRadius: '16px',
+          borderRadius: `${radius}px`,
           padding: '8px',
           background: 'linear-gradient(180deg, #FFE88B 0%, #F6D300 94.88%)',
           WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
