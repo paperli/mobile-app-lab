@@ -8,6 +8,7 @@ import {
   useLayoutEffect,
 } from 'react';
 import type { NavigationDirection, NavigationAction } from '@mobile-app-lab/shared';
+import { ExitConfirmCard } from '@weekend/ui';
 import { soundManager } from '../../utils/sounds';
 
 /**
@@ -155,7 +156,10 @@ const BOTTOM_PAD = 48;
 // so its focus rect is measured from the rendered element at runtime.
 const CONTINUE = { top: 90, right: 90 };
 
-const FRAME_MARGIN = 0.5; // vw
+// Gap between a framed element and its focus border. Kept in reference px and
+// converted per-axis so the gap is visually equal horizontally and vertically
+// (a flat vw value would render narrower vertically than horizontally).
+const FRAME_MARGIN_PX = 8;
 
 interface Rect {
   x: number;
@@ -217,17 +221,20 @@ export interface PartyPlaylistHandle {
 }
 
 interface PartyPlaylistSelectProps {
-  /** Back pressed on the grid → return to the Song Quiz menu. */
+  /** Leave the screen → return to the Song Quiz menu. */
   onExit: () => void;
   /** Continue pressed with ≥1 playlist chosen. */
   onSubmit: (playlistIds: string[]) => void;
 }
 
-type Region = 'grid' | 'continue';
+// 'confirm' = the exit confirmation modal gating a Back from Continue.
+type Region = 'grid' | 'continue' | 'confirm';
 
 export const PartyPlaylistSelect = forwardRef<PartyPlaylistHandle, PartyPlaylistSelectProps>(
   function PartyPlaylistSelect({ onExit, onSubmit }, ref) {
     const [region, setRegion] = useState<Region>('grid');
+    // Exit confirm focus: 0 = Yes, 1 = No (defaults to the safe option).
+    const [confirmIndex, setConfirmIndex] = useState(1);
     const [focusRow, setFocusRow] = useState(0);
     // Focused/remembered column per row, so each row keeps its scroll position.
     const [colByRow, setColByRow] = useState<number[]>(() => ROWS.map(() => 0));
@@ -294,6 +301,17 @@ export const PartyPlaylistSelect = forwardRef<PartyPlaylistHandle, PartyPlaylist
     // --- Navigation --------------------------------------------------------
     const navigate = useCallback(
       (direction: NavigationDirection) => {
+        if (region === 'confirm') {
+          if (direction === 'left') {
+            if (confirmIndex === 0) doBounce(direction);
+            else { setConfirmIndex(0); move(); }
+          } else if (direction === 'right') {
+            if (confirmIndex === 1) doBounce(direction);
+            else { setConfirmIndex(1); move(); }
+          } else doBounce(direction);
+          return;
+        }
+
         if (region === 'continue') {
           if (direction === 'down') { setRegion('grid'); move(); }
           else doBounce(direction);
@@ -334,7 +352,7 @@ export const PartyPlaylistSelect = forwardRef<PartyPlaylistHandle, PartyPlaylist
             break;
         }
       },
-      [region, continueEnabled, focusRow, colByRow, doBounce, move, setCol, ensureRowVisible]
+      [region, continueEnabled, confirmIndex, focusRow, colByRow, doBounce, move, setCol, ensureRowVisible]
     );
 
     const flashPress = useCallback(() => {
@@ -345,9 +363,25 @@ export const PartyPlaylistSelect = forwardRef<PartyPlaylistHandle, PartyPlaylist
     // --- Actions -----------------------------------------------------------
     const action = useCallback(
       (act: NavigationAction) => {
+        if (region === 'confirm') {
+          if (act === 'back') {
+            // Cancel — return to Continue.
+            setRegion('continue');
+            soundManager.playSelectionSound();
+          } else if (act === 'ok') {
+            soundManager.playSelectionSound();
+            if (confirmIndex === 0) onExit(); // Yes → Song Quiz menu
+            else setRegion('continue'); // No → cancel
+          }
+          return;
+        }
+
         if (region === 'continue') {
           if (act === 'back') {
-            onExit();
+            // Leaving with a selection in progress — confirm first.
+            setConfirmIndex(1);
+            setRegion('confirm');
+            soundManager.playSelectionSound();
           } else if (act === 'ok') {
             flashPress();
             soundManager.playSelectionSound();
@@ -383,7 +417,7 @@ export const PartyPlaylistSelect = forwardRef<PartyPlaylistHandle, PartyPlaylist
           flashPress();
         }
       },
-      [region, continueEnabled, focusRow, colByRow, selected, onExit, onSubmit, flashPress]
+      [region, continueEnabled, confirmIndex, focusRow, colByRow, selected, onExit, onSubmit, flashPress]
     );
 
     useImperativeHandle(ref, () => ({ navigate, action }), [navigate, action]);
@@ -400,6 +434,17 @@ export const PartyPlaylistSelect = forwardRef<PartyPlaylistHandle, PartyPlaylist
       h: focusL.cardH,
     };
     const continueFallback: Rect = { x: 1920 - CONTINUE.right - 196, y: CONTINUE.top, w: 196, h: 64 };
+
+    // Transient nudge applied to the focused confirm button on an invalid press.
+    const confirmBounce =
+      region === 'confirm' && bounce
+        ? {
+            transform:
+              bounce === 'left' ? 'translateX(-1.2vw)' :
+              bounce === 'right' ? 'translateX(1.2vw)' :
+              bounce === 'up' ? 'translateY(-1.2vw)' : 'translateY(1.2vw)',
+          }
+        : undefined;
 
     return (
       <div
@@ -536,10 +581,32 @@ export const PartyPlaylistSelect = forwardRef<PartyPlaylistHandle, PartyPlaylist
           </svg>
         </div>
 
-        {/* Continue focus frame — fixed (screen space), shown when focused. */}
-        {region === 'continue' && (
-          <div className="absolute inset-0" style={{ zIndex: 25 }}>
-            <FocusFrame rect={continueBox ?? continueFallback} bounce={bounce} pressing={pressing} radius={9999} />
+        {/* Continue focus frame — fixed (screen space), shown when focused.
+            Inflate the rect so the frame breathes around the button. */}
+        {region === 'continue' && (() => {
+          const b = continueBox ?? continueFallback;
+          const pad = 8; // px @ reference, extra gap around the button
+          const padded: Rect = { x: b.x - pad, y: b.y - pad, w: b.w + pad * 2, h: b.h + pad * 2 };
+          return (
+            <div className="absolute inset-0" style={{ zIndex: 25 }}>
+              <FocusFrame rect={padded} bounce={bounce} pressing={pressing} radius={9999} />
+            </div>
+          );
+        })()}
+
+        {/* Exit confirmation — gates a Back from Continue. */}
+        {region === 'confirm' && (
+          <div
+            className="absolute inset-0 flex items-center justify-center"
+            style={{ zIndex: 40, background: 'rgba(8, 4, 22, 0.7)' }}
+          >
+            <ExitConfirmCard
+              title="Exit to the menu?"
+              description="Your selected playlists won't be saved."
+              focusedIndex={confirmIndex}
+              focused
+              bounceStyle={confirmBounce}
+            />
           </div>
         )}
       </div>
@@ -624,10 +691,12 @@ function FocusFrame({
   pressing: boolean;
   radius?: number;
 }) {
-  const widthVw = pxToVw(rect.w) + FRAME_MARGIN * 2;
-  const heightVh = pxToVh(rect.h) + FRAME_MARGIN * 2;
-  const translateXVw = pxToVw(rect.x) - FRAME_MARGIN;
-  const translateYVh = pxToVh(rect.y) - FRAME_MARGIN;
+  const mx = pxToVw(FRAME_MARGIN_PX);
+  const my = pxToVh(FRAME_MARGIN_PX);
+  const widthVw = pxToVw(rect.w) + mx * 2;
+  const heightVh = pxToVh(rect.h) + my * 2;
+  const translateXVw = pxToVw(rect.x) - mx;
+  const translateYVh = pxToVh(rect.y) - my;
 
   const offset = (() => {
     switch (bounce) {
