@@ -214,7 +214,25 @@ function MainTvApp() {
       }
       return;
     }
-    // Back on a boundary screen opens the exit tab directly.
+    // Hub owns OK/Back (panel-aware). Back closes the game-info panel if open;
+    // otherwise it falls through to the exit menu (hub is a boundary screen).
+    if (currentScreen === 'hub') {
+      if (action === 'ok') {
+        hubRef.current?.action('ok');
+        return;
+      }
+      if (action === 'back') {
+        if (hubRef.current?.isPanelOpen()) {
+          hubRef.current.action('back');
+          return;
+        }
+        setSystemMenuInitialTab('exit');
+        setSystemMenuOpen(true);
+        return;
+      }
+      return;
+    }
+    // Back on other boundary screens (game-menu) opens the exit tab directly.
     if (action === 'back' && BOUNDARY_SCREENS.has(currentScreen)) {
       setSystemMenuInitialTab('exit');
       setSystemMenuOpen(true);
@@ -224,10 +242,7 @@ function MainTvApp() {
       partyPlaylistRef.current?.action(action);
       return;
     }
-    if (currentScreen === 'hub') {
-      // Hub handles OK internally and calls onLaunch (see handleHubLaunch).
-      if (action === 'ok') hubRef.current?.action('ok');
-    } else if (currentScreen === 'game-menu') {
+    if (currentScreen === 'game-menu') {
       if (action === 'ok') {
         setMenuIsPressing(true);
         setTimeout(() => setMenuIsPressing(false), 150);

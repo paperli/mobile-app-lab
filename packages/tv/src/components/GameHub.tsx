@@ -101,7 +101,12 @@ export interface HubHandle {
   action: (action: NavigationAction) => void;
   /** Focus a game by id (voice "go to X"); optionally launch it. */
   focusGame: (id: string, autoLaunch?: boolean) => void;
+  /** True while the game-info side panel is open (so Back closes it first). */
+  isPanelOpen: () => boolean;
 }
+
+// Actions in the game-info side panel, top → bottom.
+const PANEL_ACTIONS = ['play', 'favorite', 'lobby'] as const;
 
 /** Hub layout variations. 1 = the Figma "Multiplatform Hub" layout (current). */
 export const HUB_VARIATIONS = [1] as const;
@@ -147,18 +152,21 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const [pressing, setPressing] = useState(false);
   const [shot, setShot] = useState(0);
   const [scrollY, setScrollY] = useState(0);
+  // Game-info side panel: which game (null = closed) + focused action index.
+  const [panel, setPanel] = useState<{ game: HubGame | null; focus: number }>({ game: null, focus: 0 });
+  const [panelShot, setPanelShot] = useState(0);
+  const [favorites, setFavorites] = useState<ReadonlySet<string>>(() => new Set());
 
   const navRef = useRef(nav);
   navRef.current = nav;
+  const panelRef = useRef(panel);
+  panelRef.current = panel;
   const colMemoryRef = useRef<number[]>([]);
   const rowRefs = useRef<(HTMLElement | null)[]>([]);
   const scrollerRef = useRef<HTMLDivElement>(null);
 
-  const launch = useCallback(
-    (autoDelay = 150) => {
-      const cur = navRef.current;
-      const game = cur.sec === 0 ? HERO_GAMES[cur.heroSlide] : ROWS[cur.sec - 1].games[cur.col];
-      if (!game) return;
+  const launchGame = useCallback(
+    (game: HubGame, autoDelay = 150) => {
       setPressing(true);
       setTimeout(() => setPressing(false), 150);
       soundManager.playSelectionSound();
@@ -167,7 +175,60 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     [onLaunch]
   );
 
+  const launch = useCallback(
+    (autoDelay = 150) => {
+      const cur = navRef.current;
+      const game = cur.sec === 0 ? HERO_GAMES[cur.heroSlide] : ROWS[cur.sec - 1].games[cur.col];
+      if (game) launchGame(game, autoDelay);
+    },
+    [launchGame]
+  );
+
+  const openPanel = useCallback((game: HubGame) => {
+    const np = { game, focus: 0 };
+    panelRef.current = np;
+    setPanel(np);
+    soundManager.playSelectionSound();
+  }, []);
+
+  const closePanel = useCallback(() => {
+    if (!panelRef.current.game) return;
+    const np = { game: null, focus: 0 };
+    panelRef.current = np;
+    setPanel(np);
+    soundManager.playNavigationSound();
+  }, []);
+
+  const toggleFavorite = useCallback((id: string) => {
+    soundManager.playSelectionSound();
+    setFavorites((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }, []);
+
   const move = useCallback((dx: number, dy: number) => {
+    // While the panel is open, ▲▼ move between its actions.
+    const p = panelRef.current;
+    if (p.game) {
+      if (dy !== 0) {
+        const nf = Math.min(Math.max(0, p.focus + (dy > 0 ? 1 : -1)), PANEL_ACTIONS.length - 1);
+        if (nf !== p.focus) {
+          const np = { ...p, focus: nf };
+          panelRef.current = np;
+          setPanel(np);
+          soundManager.playNavigationSound();
+        } else {
+          soundManager.playBounceSound();
+        }
+      } else {
+        soundManager.playBounceSound();
+      }
+      return;
+    }
+
     const prev = navRef.current;
     let next = prev;
     let sound: 'nav' | 'bounce' | null = null;
@@ -241,23 +302,58 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     [launch]
   );
 
+  const doAction = useCallback(
+    (action: NavigationAction) => {
+      const p = panelRef.current;
+      if (p.game) {
+        if (action === 'back') {
+          closePanel();
+          return;
+        }
+        if (action === 'ok') {
+          const which = PANEL_ACTIONS[p.focus];
+          if (which === 'play') {
+            const g = p.game;
+            closePanel();
+            launchGame(g);
+          } else if (which === 'favorite') {
+            toggleFavorite(p.game.id);
+          } else {
+            closePanel();
+          }
+        }
+        return;
+      }
+      // Panel closed: OK on the hero plays now; OK on a tile opens its panel.
+      if (action === 'ok') {
+        const cur = navRef.current;
+        if (cur.sec === 0) {
+          launch();
+        } else {
+          const g = ROWS[cur.sec - 1].games[cur.col];
+          if (g) openPanel(g);
+        }
+      }
+    },
+    [closePanel, launchGame, toggleFavorite, launch, openPanel]
+  );
+
   useImperativeHandle(
     ref,
     () => ({
       navigate,
-      action: (action) => {
-        if (action === 'ok') launch();
-      },
+      action: doAction,
       focusGame,
+      isPanelOpen: () => panelRef.current.game !== null,
     }),
-    [navigate, launch, focusGame]
+    [navigate, doAction, focusGame]
   );
 
   // Hero auto-advance while the hero is focused. A per-slide timeout (rather
   // than a fixed interval) so manual navigation resets the clock and the
   // active-dot countdown stays in sync.
   useEffect(() => {
-    if (nav.sec !== 0 || reduceMotion) return;
+    if (nav.sec !== 0 || reduceMotion || panel.game) return;
     const t = setTimeout(() => {
       setNav((p) => {
         const n = { ...p, heroSlide: (p.heroSlide + 1) % HERO_GAMES.length };
@@ -266,7 +362,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       });
     }, HERO_AUTOPLAY_MS);
     return () => clearTimeout(t);
-  }, [nav.sec, nav.heroSlide]);
+  }, [nav.sec, nav.heroSlide, panel.game]);
 
   // Slideshow: loop screenshots inside a focused tile on a slideshow row.
   useEffect(() => {
@@ -276,6 +372,14 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     const t = setInterval(() => setShot((s) => (s + 1) % SHOT_VARIANTS.length), 1500);
     return () => clearInterval(t);
   }, [nav.sec, nav.col]);
+
+  // Slideshow inside the open game-info panel.
+  useEffect(() => {
+    setPanelShot(0);
+    if (!panel.game || reduceMotion) return;
+    const t = setInterval(() => setPanelShot((s) => (s + 1) % SHOT_VARIANTS.length), 1800);
+    return () => clearInterval(t);
+  }, [panel.game]);
 
   // Vertical scroll so the focused row is comfortably in view.
   useLayoutEffect(() => {
@@ -314,6 +418,11 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
 
   const mobileUrl = `${getMobileUrl()}?code=${roomCode}`;
   const heroGame = HERO_GAMES[nav.heroSlide];
+
+  // Keep rendering the last game while the panel slides out (panel.game → null).
+  const lastPanelGameRef = useRef<HubGame | null>(null);
+  if (panel.game) lastPanelGameRef.current = panel.game;
+  const panelGame = panel.game ?? lastPanelGameRef.current;
 
   return (
     <div
@@ -445,7 +554,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
             >
               {HERO_GAMES.map((g, i) => {
                 const active = i === nav.heroSlide;
-                const countdown = active && nav.sec === 0 && !reduceMotion;
+                const countdown = active && nav.sec === 0 && !reduceMotion && !panel.game;
                 return (
                   <span
                     key={g.id}
@@ -526,6 +635,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                         const n = { ...navRef.current, sec: r + 1, col: i };
                         navRef.current = n;
                         setNav(n);
+                        openPanel(row.games[i]);
                       }}
                     />
                   ))}
@@ -536,10 +646,169 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
 
           <div style={{ height: 100 }} />
         </div>
+
+        {/* ── Game info side panel ───────────────────────────────── */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            pointerEvents: panel.game ? 'auto' : 'none',
+          }}
+        >
+          {/* Dim the hub behind; click to dismiss. */}
+          <div
+            onClick={closePanel}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'rgba(0,0,0,0.62)',
+              opacity: panel.game ? 1 : 0,
+              transition: 'opacity 300ms ease',
+            }}
+          />
+          <aside
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              height: STAGE_H,
+              width: 640,
+              background: '#0d0e10',
+              borderLeft: '1px solid #26272b',
+              boxShadow: '-30px 0 80px rgba(0,0,0,0.6)',
+              transform: panel.game ? 'translateX(0)' : 'translateX(100%)',
+              transition: 'transform 360ms cubic-bezier(.22,.61,.36,1)',
+              display: 'flex',
+              flexDirection: 'column',
+              padding: '46px 44px',
+              gap: 26,
+              color: INK,
+            }}
+          >
+            {panelGame && (
+              <>
+                {/* Screenshots slideshow */}
+                <div
+                  style={{
+                    position: 'relative',
+                    width: '100%',
+                    aspectRatio: '16 / 9',
+                    borderRadius: 14,
+                    overflow: 'hidden',
+                    flex: '0 0 auto',
+                    background: '#141518',
+                  }}
+                >
+                  {SHOT_VARIANTS.map((v, i) => (
+                    <Screenshot
+                      key={v}
+                      game={panelGame}
+                      variant={v}
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        opacity: i === panelShot ? 1 : 0,
+                        transition: 'opacity 700ms ease',
+                      }}
+                    />
+                  ))}
+                </div>
+
+                {/* Title + meta + description */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <span
+                    style={{
+                      fontFamily: FONT,
+                      fontWeight: 800,
+                      fontSize: 44,
+                      letterSpacing: '-0.02em',
+                      lineHeight: 1.05,
+                    }}
+                  >
+                    {panelGame.title}
+                  </span>
+                  <GameMetaPills players={panelGame.players} interaction={panelGame.interaction} size={36} />
+                  <p style={{ margin: 0, fontSize: 20, lineHeight: 1.4, color: 'rgba(243,244,241,0.72)' }}>
+                    {panelGame.description}
+                  </p>
+                </div>
+
+                {/* Actions */}
+                <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <PanelButton
+                    label="Play"
+                    focused={panel.focus === 0}
+                    pressing={pressing && panel.focus === 0}
+                    onClick={() => {
+                      const g = panelRef.current.game ?? panelGame;
+                      closePanel();
+                      launchGame(g);
+                    }}
+                  />
+                  <PanelButton
+                    label={favorites.has(panelGame.id) ? '♥  Favorited' : '♡  Add to Favorites'}
+                    focused={panel.focus === 1}
+                    onClick={() => toggleFavorite(panelGame.id)}
+                  />
+                  <PanelButton label="Back to Lobby" focused={panel.focus === 2} onClick={closePanel} />
+                </div>
+              </>
+            )}
+          </aside>
+        </div>
       </div>
     </div>
   );
 });
+
+// ── Game-info panel action button ────────────────────────────────────────────
+function PanelButton({
+  label,
+  focused,
+  pressing,
+  onClick,
+}: {
+  label: string;
+  focused: boolean;
+  pressing?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        appearance: 'none',
+        width: '100%',
+        height: 60,
+        borderRadius: 12,
+        cursor: 'pointer',
+        fontFamily: FONT,
+        fontSize: 20,
+        fontWeight: 700,
+        letterSpacing: '0.01em',
+        transition:
+          'transform 200ms cubic-bezier(.22,.61,.36,1), background 200ms ease, box-shadow 200ms ease, color 200ms ease, border-color 200ms ease',
+        ...(focused
+          ? {
+              background: INK,
+              color: '#000',
+              border: '1px solid #fff',
+              transform: pressing ? 'scale(0.98)' : 'scale(1.02)',
+              boxShadow: '0 0 0 3px #fff, 0 12px 30px rgba(0,0,0,0.55)',
+            }
+          : {
+              background: '#1c1d21',
+              color: INK,
+              border: '1px solid #3a3b3f',
+              transform: 'scale(1)',
+              boxShadow: 'none',
+            }),
+      }}
+    >
+      {label}
+    </button>
+  );
+}
 
 // ── Hero slide ───────────────────────────────────────────────────────────────
 type HeroPhase = 'idle' | 'in' | 'out';
