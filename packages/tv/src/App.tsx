@@ -46,9 +46,11 @@ const BOUNDARY_SCREENS: ReadonlySet<AppScreen> = new Set(['hub', 'game-menu']);
 function MainTvApp() {
   // URL params (mockup switches):
   //   ?pairing=true    → show the QR pairing panel (hidden by default on the mockup)
+  //   ?phase=N         → pick a hub prototype phase (1 = current; more later)
   //   ?variation=N     → pick a hub layout variation (1 = current; more later)
   const [searchParams] = useSearchParams();
   const showPairing = searchParams.get('pairing') === 'true';
+  const hubPhase = Number(searchParams.get('phase')) || 1;
   const hubVariation = Number(searchParams.get('variation')) || 1;
   const showDebug = searchParams.get('debug') === 'true';
 
@@ -561,6 +563,7 @@ function MainTvApp() {
         roomCode={roomCode}
         onLaunch={handleHubLaunch}
         showPairing={showPairing}
+        phase={hubPhase}
         variation={hubVariation}
       />
     );

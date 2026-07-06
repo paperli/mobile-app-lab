@@ -45,7 +45,7 @@ const reduceMotion =
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ── Content model — edit these to mock new categories ──────────────────────
-type TileVariant = 'sm' | 'lg';
+type TileVariant = 'sm' | 'lg' | 'grid';
 interface RowDef {
   key: string;
   title: string;
@@ -56,31 +56,55 @@ interface RowDef {
   games: HubGame[];
 }
 
-const HERO_GAMES = HUB_GAMES.slice(0, 3); // 3 featured slides → 3 dots
+/** One navigable row below the hero (a shelf, a grid row, or the promo banner). */
+interface NavRow {
+  games: HubGame[];
+  variant: TileVariant;
+  slideshow: boolean;
+  /** Single full-width focusable item (no tiles), e.g. the free-trial banner. */
+  banner?: boolean;
+}
+
+// 20-game mockup catalog (a slice of the full themed dataset).
+const HUB_CATALOG = HUB_GAMES.slice(0, 20);
+const HERO_GAMES = HUB_CATALOG.slice(0, 3); // 3 featured slides → 3 dots
+
+// "All Games" grid (variation 2): every game in the catalog, GRID_COLS per row.
+const ALL_GAMES = HUB_CATALOG;
+const GRID_COLS = 5;
+
+function chunk<T>(arr: readonly T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
 
 const ROWS: RowDef[] = [
-  { key: 'more', title: 'More Weekend Games', variant: 'sm', slideshow: false, games: HUB_GAMES.slice(0, 7) },
+  { key: 'more', title: 'More Weekend Games', variant: 'sm', slideshow: false, games: HUB_CATALOG.slice(0, 7) },
   {
     key: 'community',
     title: 'Community Crafted Games',
     sub: 'Made by the Weekend developer community with our AI studio',
     variant: 'lg',
     slideshow: true,
-    games: HUB_GAMES.slice(7, 13),
+    games: HUB_CATALOG.slice(7, 11),
   },
-  { key: 'party', title: 'Party Starters', variant: 'sm', slideshow: false, games: HUB_GAMES.slice(13, 22) },
-  { key: 'brain', title: 'Brain Benders', variant: 'sm', slideshow: false, games: HUB_GAMES.slice(22) },
+  { key: 'party', title: 'Party Starters', variant: 'sm', slideshow: false, games: HUB_CATALOG.slice(11, 16) },
+  { key: 'brain', title: 'Brain Benders', variant: 'sm', slideshow: false, games: HUB_CATALOG.slice(16, 20) },
 ];
 
-const SECTION_COUNT = ROWS.length + 1; // +1 for the hero
-
-// Tile geometry per variant (design px).
+// Tile geometry per variant (design px). `grid` sizes so GRID_COLS fit one row.
 const TILE = {
   sm: { w: 340, h: (340 * 9) / 16, r: 14, gap: 40, visible: 4 },
   lg: { w: 620, h: (620 * 9) / 16, r: 16, gap: 28, visible: 2 },
+  grid: { w: 332, h: (332 * 9) / 16, r: 12, gap: 24, visible: GRID_COLS },
 } as const;
 
 const SHELF_PAD = 80;
+
+// Height of the hero band, and (variation 3) the pinned top preview height.
+const HERO_SECTION_H = 700;
+const PREVIEW_H = 480;
 
 // How long each hero slide stays before auto-advancing. The active dot fills
 // over this same duration as a countdown.
@@ -108,8 +132,16 @@ export interface HubHandle {
 // Actions in the game-info side panel, top → bottom.
 const PANEL_ACTIONS = ['play', 'favorite', 'lobby'] as const;
 
-/** Hub layout variations. 1 = the Figma "Multiplatform Hub" layout (current). */
-export const HUB_VARIATIONS = [1] as const;
+/** Hub prototype phases. 1 = the current Figma "Multiplatform Hub" build. */
+export const HUB_PHASES = [1] as const;
+/**
+ * Hub layout variations.
+ *   1 = base layout (all category shelves, no grid)
+ *   2 = trimmed shelves + an "All Games" grid, OK opens the game-info panel
+ *   3 = like 2, but the top area is a live preview of the focused game and OK
+ *       launches directly (no panel)
+ */
+export const HUB_VARIATIONS = [1, 2, 3] as const;
 
 interface GameHubProps {
   roomCode: string;
@@ -117,6 +149,8 @@ interface GameHubProps {
   onLaunch: (game: HubGame) => void;
   /** Show the QR pairing panel. Off by default (hidden on the mockup). */
   showPairing?: boolean;
+  /** Prototype phase (?phase=N). Falls back to 1 for unknown values. */
+  phase?: number;
   /** Layout variation (?variation=N). Falls back to 1 for unknown values. */
   variation?: number;
 }
@@ -141,12 +175,19 @@ function useFitScale() {
 }
 
 export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
-  { roomCode, onLaunch, showPairing = false, variation = 1 },
+  { roomCode, onLaunch, showPairing = false, phase = 1, variation = 1 },
   ref
 ) {
-  // Only variation 1 exists today; unknown values fall back to it. Future
-  // variations branch on `resolvedVariation` when their layouts land.
-  const resolvedVariation = HUB_VARIATIONS.includes(variation as 1) ? variation : 1;
+  // Unknown values fall back to 1. Future phases/variations branch on these.
+  const resolvedPhase = (HUB_PHASES as readonly number[]).includes(phase) ? phase : 1;
+  const resolvedVariation = (HUB_VARIATIONS as readonly number[]).includes(variation) ? variation : 1;
+  // Variation 3 keeps the large hero (section 0); the smaller top preview only
+  // appears while a game tile below is focused, and OK launches directly.
+  // Kept in a ref for the input callbacks.
+  const isV3 = resolvedVariation === 3;
+  const isV3Ref = useRef(isV3);
+  isV3Ref.current = isV3;
+
   const scale = useFitScale();
   const [nav, setNav] = useState<NavState>({ sec: 0, col: 0, heroSlide: 0 });
   const [pressing, setPressing] = useState(false);
@@ -165,6 +206,33 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const rowRefs = useRef<(HTMLElement | null)[]>([]);
   const scrollerRef = useRef<HTMLDivElement>(null);
 
+  // Ordered sections below the hero. Variations 2 & 3 drop the Party/Brain
+  // shelves in favour of the All Games grid. A promo banner sits right below
+  // Community Crafted Games. Both nav and render derive from this list, so
+  // section index = list index + 1 (section 0 is the hero).
+  const gridChunks = resolvedVariation >= 2 ? chunk(ALL_GAMES, GRID_COLS) : [];
+  const visibleShelves =
+    resolvedVariation >= 2 ? ROWS.filter((r) => r.key === 'more' || r.key === 'community') : ROWS;
+
+  type SectionDef =
+    | { kind: 'shelf'; row: RowDef }
+    | { kind: 'banner' }
+    | { kind: 'grid'; games: HubGame[]; gridIndex: number };
+  const sections: SectionDef[] = [];
+  visibleShelves.forEach((row) => {
+    sections.push({ kind: 'shelf', row });
+    if (row.key === 'community') sections.push({ kind: 'banner' });
+  });
+  gridChunks.forEach((games, gridIndex) => sections.push({ kind: 'grid', games, gridIndex }));
+
+  const navRows: NavRow[] = sections.map((s) => {
+    if (s.kind === 'shelf') return { games: s.row.games, variant: s.row.variant, slideshow: s.row.slideshow };
+    if (s.kind === 'grid') return { games: s.games, variant: 'grid' as TileVariant, slideshow: false };
+    return { games: [], variant: 'sm' as TileVariant, slideshow: false, banner: true };
+  });
+  const navRowsRef = useRef(navRows);
+  navRowsRef.current = navRows;
+
   const launchGame = useCallback(
     (game: HubGame, autoDelay = 150) => {
       setPressing(true);
@@ -178,7 +246,8 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const launch = useCallback(
     (autoDelay = 150) => {
       const cur = navRef.current;
-      const game = cur.sec === 0 ? HERO_GAMES[cur.heroSlide] : ROWS[cur.sec - 1].games[cur.col];
+      const game =
+        cur.sec === 0 ? HERO_GAMES[cur.heroSlide] : navRowsRef.current[cur.sec - 1]?.games[cur.col];
       if (game) launchGame(game, autoDelay);
     },
     [launchGame]
@@ -198,6 +267,28 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     setPanel(np);
     soundManager.playNavigationSound();
   }, []);
+
+  // Move focus to a section (used by the banner, which has no launch action).
+  const focusSection = useCallback((sectionIndex: number, col = 0) => {
+    colMemoryRef.current[sectionIndex] = col;
+    const n = { ...navRef.current, sec: sectionIndex, col };
+    navRef.current = n;
+    setNav(n);
+    soundManager.playNavigationSound();
+  }, []);
+
+  // Click/focus a tile. Variation 3 launches directly; others open the panel.
+  const selectTile = useCallback(
+    (sectionIndex: number, i: number, game: HubGame) => {
+      colMemoryRef.current[sectionIndex] = i;
+      const n = { ...navRef.current, sec: sectionIndex, col: i };
+      navRef.current = n;
+      setNav(n);
+      if (isV3Ref.current) launchGame(game);
+      else openPanel(game);
+    },
+    [launchGame, openPanel]
+  );
 
   const toggleFavorite = useCallback((id: string) => {
     soundManager.playSelectionSound();
@@ -233,13 +324,17 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     let next = prev;
     let sound: 'nav' | 'bounce' | null = null;
 
+    const rows = navRowsRef.current;
+    const sectionCount = rows.length + 1;
     if (dx !== 0) {
       if (prev.sec === 0) {
         const hs = (prev.heroSlide + (dx > 0 ? 1 : -1) + HERO_GAMES.length) % HERO_GAMES.length;
         next = { ...prev, heroSlide: hs };
         sound = 'nav';
+      } else if (rows[prev.sec - 1]?.banner) {
+        sound = 'bounce'; // banner is a single full-width item
       } else {
-        const items = ROWS[prev.sec - 1].games;
+        const items = rows[prev.sec - 1]?.games ?? [];
         const nc = prev.col + (dx > 0 ? 1 : -1);
         if (nc < 0 || nc >= items.length) sound = 'bounce';
         else {
@@ -250,9 +345,16 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       }
     } else if (dy !== 0) {
       const ns = prev.sec + (dy > 0 ? 1 : -1);
-      if (ns < 0 || ns >= SECTION_COUNT) sound = 'bounce';
+      if (ns < 0 || ns >= sectionCount) sound = 'bounce';
       else {
-        const col = ns === 0 ? 0 : Math.min(colMemoryRef.current[ns] ?? 0, ROWS[ns - 1].games.length - 1);
+        const targetRow = rows[ns - 1];
+        // Keep the current column when moving vertically so focus lands on the
+        // closest item in the next row (rather than jumping back to the first).
+        const col =
+          ns === 0 || targetRow?.banner
+            ? 0
+            : Math.max(0, Math.min(prev.col, (targetRow?.games.length ?? 1) - 1));
+        colMemoryRef.current[ns] = col;
         next = { ...prev, sec: ns, col };
         sound = 'nav';
       }
@@ -278,8 +380,9 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
 
   const focusGame = useCallback(
     (id: string, autoLaunch?: boolean) => {
-      for (let r = 0; r < ROWS.length; r++) {
-        const idx = ROWS[r].games.findIndex((g) => g.id === id);
+      const rows = navRowsRef.current;
+      for (let r = 0; r < rows.length; r++) {
+        const idx = rows[r].games.findIndex((g) => g.id === id);
         if (idx >= 0) {
           colMemoryRef.current[r + 1] = idx;
           const next = { ...navRef.current, sec: r + 1, col: idx };
@@ -328,9 +431,13 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       if (action === 'ok') {
         const cur = navRef.current;
         if (cur.sec === 0) {
-          launch();
+          launch(); // hero CTA (all variations)
+        } else if (isV3Ref.current) {
+          // Variation 3: launch the focused game tile directly (no panel).
+          const g = navRowsRef.current[cur.sec - 1]?.games[cur.col];
+          if (g) launchGame(g);
         } else {
-          const g = ROWS[cur.sec - 1].games[cur.col];
+          const g = navRowsRef.current[cur.sec - 1]?.games[cur.col];
           if (g) openPanel(g);
         }
       }
@@ -368,7 +475,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   useEffect(() => {
     setShot(0);
     if (nav.sec === 0 || reduceMotion) return;
-    if (!ROWS[nav.sec - 1].slideshow) return;
+    if (!navRowsRef.current[nav.sec - 1]?.slideshow) return;
     const t = setInterval(() => setShot((s) => (s + 1) % SHOT_VARIANTS.length), 1500);
     return () => clearInterval(t);
   }, [nav.sec, nav.col]);
@@ -391,8 +498,11 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     const sc = scrollerRef.current;
     if (!el || !sc) return;
     const max = Math.max(0, sc.offsetHeight - STAGE_H);
-    setScrollY(Math.min(Math.max(0, el.offsetTop - 120), max));
-  }, [nav.sec]);
+    // v3 parks the focused row flush below the opaque preview overlay (so no
+    // hero peeks through); other variations leave headroom above the row.
+    const target = isV3 ? el.offsetTop - PREVIEW_H : el.offsetTop - 120;
+    setScrollY(Math.min(Math.max(0, target), max));
+  }, [nav.sec, isV3]);
 
   // Hero slide transition: on a slide change, keep the previous slide mounted
   // briefly as the "outgoing" layer so it can fade + slide left while the new
@@ -424,6 +534,154 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   if (panel.game) lastPanelGameRef.current = panel.game;
   const panelGame = panel.game ?? lastPanelGameRef.current;
 
+  // Variation 3: while a game tile is focused (sec ≥ 1) the top area previews
+  // that game; on the hero (sec 0) the large hero shows instead.
+  const previewGame = isV3 && nav.sec >= 1 ? navRows[nav.sec - 1]?.games[nav.col] ?? null : null;
+  const showPreview = isV3 && previewGame !== null;
+
+  // Shared rows (shelves, promo banner, All Games grid), used by every variation.
+  const rowsContent = (
+    <>
+      {sections.map((s, si) => {
+        const sectionIndex = si + 1;
+        const focusedHere = nav.sec === sectionIndex;
+
+        // ── Free-trial promo banner (single full-width focusable item) ──
+        if (s.kind === 'banner') {
+          return (
+            <div
+              key="promo-banner"
+              ref={(el) => (rowRefs.current[sectionIndex - 1] = el)}
+              style={{ padding: `0 ${SHELF_PAD}px`, marginTop: 44 }}
+            >
+              <button
+                onClick={() => focusSection(sectionIndex, 0)}
+                style={{
+                  appearance: 'none',
+                  width: '100%',
+                  height: 220,
+                  borderRadius: 20,
+                  overflow: 'hidden',
+                  position: 'relative',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0 56px',
+                  gap: 40,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  color: INK,
+                  fontFamily: FONT,
+                  background: 'linear-gradient(100deg, #17181c 0%, #26272d 58%, #35363d 100%)',
+                  border: '1px solid #3a3b3f',
+                  transform: focusedHere ? (pressing ? 'scale(0.995)' : 'scale(1.008)') : 'scale(1)',
+                  boxShadow: focusedHere ? '0 0 0 4px #fff, 0 24px 60px rgba(0,0,0,0.6)' : 'none',
+                  transition: 'transform 240ms cubic-bezier(.22,.61,.36,1), box-shadow 240ms ease',
+                  zIndex: focusedHere ? 3 : 1,
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 1100 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.14em', color: '#b9babe' }}>
+                    WEEKEND PREMIUM
+                  </span>
+                  <span style={{ fontSize: 46, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.05 }}>
+                    Start your 7-day free trial
+                  </span>
+                  <span style={{ fontSize: 22, color: 'rgba(243,244,241,0.72)' }}>
+                    Unlimited access to every game. Cancel anytime.
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 22, flex: '0 0 auto' }}>
+                  <span style={{ fontSize: 18, fontWeight: 600, color: '#cfd0d3' }}>Scan to start →</span>
+                  <div style={{ background: '#fff', padding: 12, borderRadius: 14, lineHeight: 0 }}>
+                    <QRCodeSVG value="https://weekend.tv/free-trial" size={124} level="M" includeMargin={false} />
+                  </div>
+                </div>
+              </button>
+            </div>
+          );
+        }
+
+        // ── All Games grid row ──
+        if (s.kind === 'grid') {
+          const t = TILE.grid;
+          const col = focusedHere ? nav.col : Math.min(colMemoryRef.current[sectionIndex] ?? 0, s.games.length - 1);
+          return (
+            <div key={`all-games-${s.gridIndex}`}>
+              {s.gridIndex === 0 && (
+                <div style={{ padding: `0 ${SHELF_PAD}px`, margin: '44px 0 22px' }}>
+                  <h2 style={{ margin: 0, fontSize: 32, fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>
+                    All Games
+                  </h2>
+                </div>
+              )}
+              <div
+                ref={(el) => (rowRefs.current[sectionIndex - 1] = el)}
+                style={{ display: 'flex', gap: t.gap, padding: `0 ${SHELF_PAD}px`, marginTop: s.gridIndex === 0 ? 0 : t.gap }}
+              >
+                {s.games.map((game, i) => (
+                  <Tile
+                    key={game.id}
+                    game={game}
+                    variant="grid"
+                    focused={focusedHere && i === col}
+                    pressing={pressing && focusedHere && i === col}
+                    slideshow={false}
+                    shot={shot}
+                    onClick={() => selectTile(sectionIndex, i, s.games[i])}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        }
+
+        // ── Category shelf ──
+        const row = s.row;
+        const t = TILE[row.variant];
+        const col = focusedHere ? nav.col : Math.min(colMemoryRef.current[sectionIndex] ?? 0, row.games.length - 1);
+        const step = t.w + t.gap;
+        const trackX = -Math.max(0, col - (t.visible - 1)) * step;
+        return (
+          <section
+            key={row.key}
+            ref={(el) => (rowRefs.current[sectionIndex - 1] = el)}
+            style={{ marginTop: si === 0 ? 8 : 36, paddingBottom: 12 }}
+          >
+            <div style={{ padding: `0 ${SHELF_PAD}px`, marginBottom: 22 }}>
+              <h2 style={{ margin: 0, fontSize: 32, fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>{row.title}</h2>
+              {row.sub && <p style={{ margin: '10px 0 0', fontSize: 21, color: '#8a8a9a' }}>{row.sub}</p>}
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                gap: t.gap,
+                paddingLeft: SHELF_PAD,
+                transform: `translateX(${trackX}px)`,
+                transition: 'transform 420ms cubic-bezier(.22,.61,.36,1)',
+              }}
+            >
+              {row.games.map((game, i) => (
+                <Tile
+                  key={game.id}
+                  game={game}
+                  variant={row.variant}
+                  focused={focusedHere && i === col}
+                  pressing={pressing && focusedHere && i === col}
+                  slideshow={row.slideshow}
+                  shot={shot}
+                  onClick={() => selectTile(sectionIndex, i, row.games[i])}
+                />
+              ))}
+            </div>
+          </section>
+        );
+      })}
+
+      <div style={{ height: 100 }} />
+    </>
+  );
+
   return (
     <div
       style={{
@@ -436,6 +694,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       }}
     >
       <div
+        data-hub-phase={resolvedPhase}
         data-hub-variation={resolvedVariation}
         style={{
           width: STAGE_W,
@@ -463,7 +722,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           }}
         >
           {/* ── Hero ─────────────────────────────────────────────── */}
-          <section style={{ position: 'relative', height: 700 }}>
+          <section style={{ position: 'relative', height: HERO_SECTION_H }}>
             {/* Incoming / current slide (outgoing is rendered after, so it
                 sits on top and is visibly the one leaving). */}
             <HeroSlide
@@ -591,60 +850,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
             </div>
           </section>
 
-          {/* ── Category rows ────────────────────────────────────── */}
-          {ROWS.map((row, r) => {
-            const t = TILE[row.variant];
-            const focusedHere = nav.sec === r + 1;
-            const col = focusedHere ? nav.col : Math.min(colMemoryRef.current[r + 1] ?? 0, row.games.length - 1);
-            const step = t.w + t.gap;
-            const trackX = -Math.max(0, col - (t.visible - 1)) * step;
-            return (
-              <section
-                key={row.key}
-                ref={(el) => (rowRefs.current[r] = el)}
-                style={{ marginTop: r === 0 ? 8 : 36, paddingBottom: 12 }}
-              >
-                <div style={{ padding: `0 ${SHELF_PAD}px`, marginBottom: 22 }}>
-                  <h2 style={{ margin: 0, fontSize: 32, fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>
-                    {row.title}
-                  </h2>
-                  {row.sub && (
-                    <p style={{ margin: '10px 0 0', fontSize: 21, color: '#8a8a9a' }}>{row.sub}</p>
-                  )}
-                </div>
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: t.gap,
-                    paddingLeft: SHELF_PAD,
-                    transform: `translateX(${trackX}px)`,
-                    transition: 'transform 420ms cubic-bezier(.22,.61,.36,1)',
-                  }}
-                >
-                  {row.games.map((game, i) => (
-                    <Tile
-                      key={game.id}
-                      game={game}
-                      variant={row.variant}
-                      focused={focusedHere && i === col}
-                      pressing={pressing && focusedHere && i === col}
-                      slideshow={row.slideshow}
-                      shot={shot}
-                      onClick={() => {
-                        colMemoryRef.current[r + 1] = i;
-                        const n = { ...navRef.current, sec: r + 1, col: i };
-                        navRef.current = n;
-                        setNav(n);
-                        openPanel(row.games[i]);
-                      }}
-                    />
-                  ))}
-                </div>
-              </section>
-            );
-          })}
-
-          <div style={{ height: 100 }} />
+          {rowsContent}
         </div>
 
         {/* ── Game info side panel ───────────────────────────────── */}
@@ -756,6 +962,13 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
             )}
           </aside>
         </div>
+
+        {/* Variation 3: pinned preview overlay while a game tile is focused. */}
+        {isV3 && showPreview && previewGame && (
+          <div style={{ position: 'absolute', top: 0, left: 0, width: STAGE_W, height: PREVIEW_H, zIndex: 4 }}>
+            <PreviewHero game={previewGame} showPairing={showPairing} roomCode={roomCode} mobileUrl={mobileUrl} />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -807,6 +1020,142 @@ function PanelButton({
     >
       {label}
     </button>
+  );
+}
+
+// ── Preview hero (variation 3) ───────────────────────────────────────────────
+// A pinned top band that mirrors the hero styling but reflects the focused
+// game (no CTA, no carousel). Re-keyed by game id so it cross-fades on focus.
+interface PreviewHeroProps {
+  game: HubGame;
+  showPairing: boolean;
+  roomCode: string;
+  mobileUrl: string;
+}
+
+function PreviewHero({ game, showPairing, roomCode, mobileUrl }: PreviewHeroProps) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: STAGE_W,
+        height: PREVIEW_H,
+        overflow: 'hidden',
+        background: STAGE_BG, // opaque so the large hero never shows through
+      }}
+    >
+      {/* Art + fades. Swaps opaquely in place (no fade) so the hero behind the
+          overlay is never briefly revealed when switching games. */}
+      <div style={{ position: 'absolute', inset: 0 }}>
+        <GameArt
+          game={game}
+          variant="hero"
+          style={{ position: 'absolute', top: 0, left: 0, width: STAGE_W, height: PREVIEW_H }}
+        />
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: `linear-gradient(to right, ${STAGE_BG} 0%, ${STAGE_BG} 24%, transparent 56%)`,
+          }}
+        />
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 200,
+            background: `linear-gradient(to top, ${STAGE_BG} 0%, transparent 100%)`,
+          }}
+        />
+      </div>
+
+      {/* Weekend wordmark */}
+      <div
+        style={{
+          position: 'absolute',
+          left: SHELF_PAD,
+          top: 44,
+          fontFamily: FONT,
+          fontWeight: 800,
+          fontSize: 44,
+          letterSpacing: '-0.02em',
+          color: INK,
+          textShadow: '0 2px 20px rgba(0,0,0,0.6)',
+        }}
+      >
+        weekend
+      </div>
+
+      {/* Pairing panel — hidden by default; enable with ?pairing=true */}
+      {showPairing && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 36,
+            right: 60,
+            background: 'rgba(0,0,0,0.55)',
+            backdropFilter: 'blur(8px)',
+            borderRadius: 20,
+            border: '1px solid rgba(255,255,255,0.12)',
+            padding: '14px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 18,
+            color: INK,
+          }}
+        >
+          <div style={{ background: '#fff', padding: 7, borderRadius: 10, lineHeight: 0 }}>
+            <QRCodeSVG value={mobileUrl} size={96} level="M" includeMargin={false} />
+          </div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#b9babe', letterSpacing: '0.06em' }}>PAIRING CODE</div>
+            <div style={{ fontSize: 36, fontWeight: 800, letterSpacing: '0.12em', fontVariantNumeric: 'tabular-nums' }}>
+              {roomCode || 'LOADING'}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Focused game info (swaps in place) */}
+      <div
+        style={{
+          position: 'absolute',
+          left: SHELF_PAD,
+          top: 150,
+          width: 1000,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-start',
+          gap: 22,
+        }}
+      >
+        <div style={{ maxWidth: 760 }}>
+          <GameLogo title={game.title} theme={game.theme} style={{ fontSize: 80, whiteSpace: 'normal' }} />
+        </div>
+        <p
+          style={{
+            margin: 0,
+            maxWidth: 620,
+            fontSize: 24,
+            lineHeight: 1.35,
+            color: 'rgba(243,244,241,0.82)',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}
+        >
+          {game.description}
+        </p>
+        <GameMetaPills players={game.players} interaction={game.interaction} size={40} />
+      </div>
+    </div>
   );
 }
 
@@ -985,7 +1334,7 @@ function Tile({ game, variant, focused, pressing, slideshow, shot, onClick }: Ti
     left: 0,
     right: 0,
     bottom: 0,
-    padding: variant === 'sm' ? 18 : 22,
+    padding: variant === 'lg' ? 22 : variant === 'grid' ? 14 : 18,
     display: 'flex',
     flexDirection: 'column',
     gap: 5,
@@ -1012,17 +1361,41 @@ function Tile({ game, variant, focused, pressing, slideshow, shot, onClick }: Ti
         zIndex: focused ? 3 : 1,
       }}
     >
-      {/* Base tile art */}
+      {/* Base tile art with the game name centered as the logotype */}
       <GameArt
         game={game}
         variant="tile"
+        hideMotif
         style={{
           position: 'absolute',
           inset: 0,
           opacity: showShots ? 0 : 1,
           transition: 'opacity 500ms ease',
         }}
-      />
+      >
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '0 10%',
+          }}
+        >
+          <GameLogo
+            title={game.title}
+            theme={game.theme}
+            style={{
+              fontSize: variant === 'lg' ? '15cqh' : '18cqh',
+              maxWidth: '86%',
+              whiteSpace: 'normal',
+              textAlign: 'center',
+              lineHeight: 1,
+            }}
+          />
+        </div>
+      </GameArt>
 
       {/* Slideshow screenshots (loop while focused) */}
       {slideshow &&
@@ -1050,22 +1423,9 @@ function Tile({ game, variant, focused, pressing, slideshow, shot, onClick }: Ti
         }}
       />
 
-      {/* Caption */}
+      {/* Caption — metadata only; the game name now lives centered on the art */}
       <div style={captionStyle}>
-        <span
-          style={{
-            fontFamily: FONT,
-            fontWeight: 700,
-            fontSize: variant === 'sm' ? 24 : 34,
-            color: INK,
-            lineHeight: 1.05,
-            letterSpacing: '-0.02em',
-            textAlign: 'left',
-          }}
-        >
-          {game.title}
-        </span>
-        <span style={{ display: 'flex', gap: 10, alignItems: 'center', color: INK_DIM, fontSize: variant === 'sm' ? 15 : 20 }}>
+        <span style={{ display: 'flex', gap: 10, alignItems: 'center', color: INK_DIM, fontSize: variant === 'lg' ? 20 : variant === 'grid' ? 14 : 15 }}>
           <span style={{ fontVariantNumeric: 'tabular-nums' }}>{game.players}</span>
           {variant === 'lg' && <span style={{ color: '#8a8a9a' }}>• {game.description}</span>}
         </span>
