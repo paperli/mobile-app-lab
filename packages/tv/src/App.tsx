@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useSearchParams } from 'react-router-dom';
 import {
   NavigationInputPayload,
   NavigationDirection,
@@ -20,7 +20,8 @@ import {
   type SystemMenuOverlayHandle,
   type SystemMenuTab,
 } from '@weekend/ui';
-import { GameHub } from './components/GameHub';
+import { GameHub, type HubHandle } from './components/GameHub';
+import { HUB_GAMES } from './prototype/hub/games';
 import { LoadingScreen } from './components/song-quiz/LoadingScreen';
 import { GameMenu } from './components/song-quiz/GameMenu';
 import { PlaylistSelect } from './components/song-quiz/PlaylistSelect';
@@ -35,7 +36,6 @@ import { getMobileUrl } from './utils/getMobileUrl';
 type AppScreen = 'hub' | 'loading' | 'game-menu' | 'playlist-select' | 'party-playlist-select';
 
 // Configuration
-const ENABLE_LOOP_NAVIGATION = false;
 const LOADING_DURATION_MS = 5000; // Adjustable loading time
 const MENU_ITEM_COUNT = 2; // Single Player + Party Mode
 
@@ -44,6 +44,14 @@ const MENU_ITEM_COUNT = 2; // Single Player + Party Mode
 const BOUNDARY_SCREENS: ReadonlySet<AppScreen> = new Set(['hub', 'game-menu']);
 
 function MainTvApp() {
+  // URL params (mockup switches):
+  //   ?pairing=true    → show the QR pairing panel (hidden by default on the mockup)
+  //   ?variation=N     → pick a hub layout variation (1 = current; more later)
+  const [searchParams] = useSearchParams();
+  const showPairing = searchParams.get('pairing') === 'true';
+  const hubVariation = Number(searchParams.get('variation')) || 1;
+  const showDebug = searchParams.get('debug') === 'true';
+
   // Screen state
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('hub');
 
@@ -58,10 +66,8 @@ function MainTvApp() {
     systemMenuOpenRef.current = systemMenuOpen;
   }, [systemMenuOpen]);
 
-  // Hub state
-  const [focusedIndex, setFocusedIndex] = useState(0);
-  const [bounceDirection, setBounceDirection] = useState<NavigationDirection | null>(null);
-  const [isPressing, setIsPressing] = useState(false);
+  // Hub — self-contained nav system driven via ref (like PartyPlaylistSelect).
+  const hubRef = useRef<HubHandle>(null);
 
   // Game menu state
   const [menuFocusedIndex, setMenuFocusedIndex] = useState(0);
@@ -99,43 +105,8 @@ function MainTvApp() {
       return;
     }
     if (currentScreen === 'hub') {
-      setFocusedIndex((current) => {
-        let newIndex = current;
-        let shouldBounce = false;
-
-        switch (direction) {
-          case 'left':
-            if (ENABLE_LOOP_NAVIGATION) {
-              newIndex = current === 0 ? games.length - 1 : current - 1;
-            } else {
-              if (current === 0) shouldBounce = true;
-              else newIndex = current - 1;
-            }
-            break;
-          case 'right':
-            if (ENABLE_LOOP_NAVIGATION) {
-              newIndex = current === games.length - 1 ? 0 : current + 1;
-            } else {
-              if (current === games.length - 1) shouldBounce = true;
-              else newIndex = current + 1;
-            }
-            break;
-          case 'up':
-          case 'down':
-            shouldBounce = true;
-            break;
-        }
-
-        if (shouldBounce) {
-          setBounceDirection(direction);
-          setTimeout(() => setBounceDirection(null), 200);
-          soundManager.playBounceSound();
-        } else if (newIndex !== current) {
-          soundManager.playNavigationSound();
-        }
-
-        return newIndex;
-      });
+      // Hub owns its own 2D roving focus (hero + rows); plays its own sounds.
+      hubRef.current?.navigate(direction);
     } else if (currentScreen === 'game-menu') {
       setMenuFocusedIndex((current) => {
         let newIndex = current;
@@ -221,7 +192,7 @@ function MainTvApp() {
           break;
       }
     }
-  }, [currentScreen, games.length, playlistFocusRow, playlistFocusCol]);
+  }, [currentScreen, playlistFocusRow, playlistFocusCol]);
 
   const handleAction = useCallback((action: NavigationAction) => {
     // System button toggles the menu. Open from closed starts on the Resume
@@ -254,17 +225,8 @@ function MainTvApp() {
       return;
     }
     if (currentScreen === 'hub') {
-      if (action === 'ok') {
-        const selectedGame = games[focusedIndex];
-        setIsPressing(true);
-        setTimeout(() => setIsPressing(false), 150);
-        soundManager.playSelectionSound();
-
-        // Launch Song Quiz
-        if (selectedGame.id === 'game-1') {
-          setTimeout(() => setCurrentScreen('loading'), 150);
-        }
-      }
+      // Hub handles OK internally and calls onLaunch (see handleHubLaunch).
+      if (action === 'ok') hubRef.current?.action('ok');
     } else if (currentScreen === 'game-menu') {
       if (action === 'ok') {
         setMenuIsPressing(true);
@@ -293,7 +255,7 @@ function MainTvApp() {
         setPlaylistBounceDirection(null);
       }
     }
-  }, [currentScreen, focusedIndex, games, menuFocusedIndex]);
+  }, [currentScreen, menuFocusedIndex]);
 
   // Handle navigation input from mobile
   const handleNavigationInput = useCallback(
@@ -320,8 +282,6 @@ function MainTvApp() {
   // (medium confidence). Fuzzy candidates today are just the hub games; other
   // screens fall through to verb-only matching.
 
-  const focusedIndexRef = useRef(focusedIndex);
-  useEffect(() => { focusedIndexRef.current = focusedIndex; }, [focusedIndex]);
   const currentScreenRef = useRef<AppScreen>(currentScreen);
   useEffect(() => { currentScreenRef.current = currentScreen; }, [currentScreen]);
 
@@ -351,25 +311,9 @@ function MainTvApp() {
       return;
     }
     // goto — focus the target tile, optionally chain into ok ("play X").
-    const idx = games.findIndex((g) => g.id === intent.targetId);
-    if (idx < 0) return;
-    setFocusedIndex(idx);
-    soundManager.playNavigationSound();
-    if (intent.autoLaunch) {
-      // Let the focus animation settle before firing ok so the user sees what
-      // they triggered.
-      setTimeout(() => {
-        const target = games[idx];
-        if (!target) return;
-        setIsPressing(true);
-        setTimeout(() => setIsPressing(false), 150);
-        soundManager.playSelectionSound();
-        if (target.id === 'game-1') {
-          setTimeout(() => setCurrentScreen('loading'), 150);
-        }
-      }, 250);
-    }
-  }, [games, handleNavigate, handleAction]);
+    // The hub owns focus + launch; it fires onLaunch when autoLaunch is set.
+    hubRef.current?.focusGame(intent.targetId, intent.autoLaunch);
+  }, [handleNavigate, handleAction]);
 
   useEffect(() => {
     if (!socket || !roomCode) return;
@@ -377,7 +321,7 @@ function MainTvApp() {
 
     const buildContext = () => {
       if (currentScreenRef.current === 'hub') {
-        return { candidates: games.map((g) => ({ id: g.id, label: g.title })) };
+        return { candidates: HUB_GAMES.map((g) => ({ id: g.id, label: g.title })) };
       }
       return { candidates: [] as { id: string; label: string }[] };
     };
@@ -471,7 +415,7 @@ function MainTvApp() {
       socket.off(SOCKET_EVENTS.VOICE_TRANSCRIPT, onTranscript);
       socket.off(SOCKET_EVENTS.VOICE_CONFIRM_RESPONSE, onConfirmResponse);
     };
-  }, [socket, roomCode, games, executeVoiceIntent]);
+  }, [socket, roomCode, executeVoiceIntent]);
 
   // Mock slots — real party/slot domain state lands in PU&P M2.
   // Mixed states so the system-menu visual treatment can be seen end-to-end
@@ -535,6 +479,12 @@ function MainTvApp() {
     setCurrentScreen('loading');
   }, [handleMenuOpenChange]);
 
+  // Hub OK / voice "play X" → launch. Only Song Quiz has a real flow today;
+  // every launch routes through the shared loading screen for now.
+  const handleHubLaunch = useCallback(() => {
+    setCurrentScreen('loading');
+  }, []);
+
   // Broadcast screen state to mobile devices
   useEffect(() => {
     if (socket) {
@@ -592,11 +542,11 @@ function MainTvApp() {
   } else {
     screen = (
       <GameHub
+        ref={hubRef}
         roomCode={roomCode}
-        focusedIndex={focusedIndex}
-        bounceDirection={bounceDirection}
-        isPressing={isPressing}
-        onFocusChange={setFocusedIndex}
+        onLaunch={handleHubLaunch}
+        showPairing={showPairing}
+        variation={hubVariation}
       />
     );
   }
@@ -604,11 +554,13 @@ function MainTvApp() {
   return (
     <>
       {screen}
-      <VoiceDebugOverlay
-        events={voiceDebugEvents}
-        pendingPromptText={pendingPromptText}
-        pendingPromptConfirmed={pendingPromptConfirmed}
-      />
+      {showDebug && (
+        <VoiceDebugOverlay
+          events={voiceDebugEvents}
+          pendingPromptText={pendingPromptText}
+          pendingPromptConfirmed={pendingPromptConfirmed}
+        />
+      )}
       <SystemMenuOverlay
         ref={systemMenuRef}
         open={systemMenuOpen}
