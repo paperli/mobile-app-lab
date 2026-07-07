@@ -355,7 +355,8 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // Real favorites (v1/v2 only): the panel's Add/Remove toggles this set, which
   // populates a "Favorites" row at the top of the hub.
   const favoriteGames = HUB_CATALOG.filter((g) => favorites.has(g.id));
-  const showFavRow = !isPhase0 && favoriteGames.length > 0;
+  // Favorites now live on the My Games page, so the Home Favorites row is hidden.
+  const showFavRow = false;
 
   // Search results (live-filtered by the on-screen keyboard query).
   const RESULTS_COLS = 3;
