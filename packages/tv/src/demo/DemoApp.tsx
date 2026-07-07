@@ -59,7 +59,7 @@ const USER_STORIES: UserStory[] = [
   {
     role: 'new user',
     want: 'explore the games available on Weekend',
-    benefit: 'I can quickly find something worth playing',
+    benefit: 'I can be convinced to sign up for the free trial',
   },
   {
     role: 'returning user',
