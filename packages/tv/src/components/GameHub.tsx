@@ -2457,7 +2457,18 @@ function TopNav({
       }}
     >
       <div style={{ fontWeight: 800, fontSize: 34, letterSpacing: '-0.02em', color: INK, marginRight: 6 }}>weekend</div>
-      <div style={{ display: 'flex', gap: 14 }}>
+      <div
+        style={{
+          position: 'absolute',
+          left: '50%',
+          top: 0,
+          height: NAV_BAR_H,
+          transform: 'translateX(-50%)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 14,
+        }}
+      >
         {TOP_NAV.map((t, i) => {
           const active = t.key === page;
           const focused = navFocus && i === navCol;
