@@ -2085,16 +2085,27 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                   Sign Out from the TV
                 </button>
               </div>
-              {/* Support QR */}
-              <div style={{ marginTop: 64, display: 'flex', alignItems: 'center', gap: 26 }}>
-                <div style={{ background: '#fff', padding: 14, borderRadius: 16, lineHeight: 0 }}>
-                  <QRCodeSVG value="https://support.weekend.com" size={120} level="M" includeMargin={false} />
-                </div>
-                <div>
-                  <div style={{ fontSize: 26, fontWeight: 800, color: INK }}>Need help?</div>
-                  <div style={{ marginTop: 8, fontSize: 19, color: 'rgba(243,244,241,0.7)' }}>
-                    Scan the QR code to get support.
-                  </div>
+            </div>
+            {/* Support QR — right side */}
+            <div
+              style={{
+                position: 'absolute',
+                right: SHELF_PAD,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 16,
+              }}
+            >
+              <div style={{ background: '#fff', padding: 14, borderRadius: 16, lineHeight: 0 }}>
+                <QRCodeSVG value="https://support.weekend.com" size={140} level="M" includeMargin={false} />
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 26, fontWeight: 800, color: INK }}>Need help?</div>
+                <div style={{ marginTop: 8, fontSize: 19, color: 'rgba(243,244,241,0.7)' }}>
+                  Scan the QR code to get support.
                 </div>
               </div>
             </div>
@@ -3269,7 +3280,7 @@ function TopNav({
           ) : (
             <>
               <IconGift size={22} color={profileFocused ? '#000' : INK} />
-              <span>Claim Your Free Trial</span>
+              <span>Claim Free Trial</span>
             </>
           )}
         </button>
