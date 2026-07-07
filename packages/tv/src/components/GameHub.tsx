@@ -54,6 +54,8 @@ interface RowDef {
   /** Loop the game's screenshots inside the tile while it's focused. */
   slideshow: boolean;
   games: HubGame[];
+  /** Append a "See all games" tile as the last item (opens the All Games page). */
+  seeAll?: boolean;
 }
 
 /** One navigable row below the hero (a shelf, a grid row, or the promo banner). */
@@ -63,10 +65,15 @@ interface NavRow {
   slideshow: boolean;
   /** Single full-width focusable item (no tiles), e.g. the free-trial banner. */
   banner?: boolean;
+  /** Row ends with an extra "See all games" tile (focusable at index games.length). */
+  seeAll?: boolean;
 }
 
-// 20-game mockup catalog (a slice of the full themed dataset).
-const HUB_CATALOG = HUB_GAMES.slice(0, 20);
+/** Effective focusable item count for a row (games + optional See-all tile). */
+const navRowLen = (r: NavRow) => r.games.length + (r.seeAll ? 1 : 0);
+
+// Full 30-game catalog (phase 1). Phase 0 uses a 12-game slice of it.
+const HUB_CATALOG = HUB_GAMES;
 const HERO_GAMES = HUB_CATALOG.slice(0, 3); // 3 featured slides → 3 dots
 
 // "All Games" grid (variation 2): every game in the catalog, GRID_COLS per row.
@@ -79,18 +86,31 @@ function chunk<T>(arr: readonly T[], size: number): T[][] {
   return out;
 }
 
+// The full-catalog grid shown on the "See all games" page.
+const ALL_GAMES_GRID = chunk(ALL_GAMES, GRID_COLS);
+
+// Pick specific catalog games by index (for faked, themed genre rows).
+const pick = (...idx: number[]) => idx.map((i) => HUB_CATALOG[i]);
+
 const ROWS: RowDef[] = [
-  { key: 'more', title: 'More Weekend Games', variant: 'sm', slideshow: false, games: HUB_CATALOG.slice(0, 7) },
+  // Faked "continue playing" row — 2 recently-played games, same sm style.
+  { key: 'jumpback', title: 'Jump Back On', variant: 'sm', slideshow: false, games: pick(1, 7) },
+  { key: 'more', title: 'New on Weekend', variant: 'sm', slideshow: false, games: HUB_CATALOG.slice(0, 8) },
   {
     key: 'community',
-    title: 'Community Crafted Games',
-    sub: 'Made by the Weekend developer community with our AI studio',
+    title: 'Games That Go Viral',
+    sub: "The games everyone's talking about right now",
     variant: 'lg',
     slideshow: true,
-    games: HUB_CATALOG.slice(7, 11),
+    games: HUB_CATALOG.slice(8, 12),
   },
-  { key: 'party', title: 'Party Starters', variant: 'sm', slideshow: false, games: HUB_CATALOG.slice(11, 16) },
-  { key: 'brain', title: 'Brain Benders', variant: 'sm', slideshow: false, games: HUB_CATALOG.slice(16, 20) },
+  // Genre shelves (phase 1 / variation 1 only) — faked with catalog games.
+  { key: 'fromtv', title: 'From Famous TV Shows', variant: 'sm', slideshow: false, games: pick(0, 3, 1, 16, 29, 4) },
+  { key: 'party', title: 'Party Starters', variant: 'sm', slideshow: false, games: HUB_CATALOG.slice(12, 21) },
+  { key: 'coop', title: 'Work Together', variant: 'sm', slideshow: false, games: pick(18, 19, 22, 8, 27, 24) },
+  { key: 'family', title: 'Family Game Night', variant: 'sm', slideshow: false, games: pick(2, 9, 5, 12, 28, 13) },
+  { key: 'popculture', title: 'Pop Culture', variant: 'sm', slideshow: false, games: pick(1, 16, 14, 25, 15, 26) },
+  { key: 'brain', title: 'Brain Benders', variant: 'sm', slideshow: false, games: HUB_CATALOG.slice(21, 30) },
 ];
 
 // Tile geometry per variant (design px). `grid` sizes so GRID_COLS fit one row.
@@ -105,6 +125,8 @@ const SHELF_PAD = 80;
 // Height of the hero band, and (variation 3) the pinned top preview height.
 const HERO_SECTION_H = 700;
 const PREVIEW_H = 480;
+// Clearance below the v3 preview so a focused row's ring/scale isn't clipped.
+const PREVIEW_GAP = 28;
 
 // How long each hero slide stays before auto-advancing. The active dot fills
 // over this same duration as a countdown.
@@ -117,6 +139,8 @@ const HERO_ANIM_CSS = `
 @keyframes hubHeroFadeOut { from { opacity: 1; } to { opacity: 0; } }
 @keyframes hubHeroFadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes hubHeroDotFill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes hubHeroPan { from { transform: translate(0, -50%); } to { transform: translate(-33.333%, -50%); } }
+@keyframes hubHeroPanX { from { transform: translateX(0); } to { transform: translateX(-33.333%); } }
 `;
 
 // ── Imperative handle exposed to App.tsx ────────────────────────────────────
@@ -132,8 +156,13 @@ export interface HubHandle {
 // Actions in the game-info side panel, top → bottom.
 const PANEL_ACTIONS = ['play', 'favorite', 'lobby'] as const;
 
-/** Hub prototype phases. 1 = the current Figma "Multiplatform Hub" build. */
-export const HUB_PHASES = [1] as const;
+/**
+ * Hub prototype phases.
+ *   0 = grid-only browse: large hero (preview-on-focus) + a titleless "All
+ *       Games" grid (12 games) + the free-trial banner below it.
+ *   1 = the full Figma "Multiplatform Hub" build.
+ */
+export const HUB_PHASES = [0, 1] as const;
 /**
  * Hub layout variations.
  *   1 = base layout (all category shelves, no grid)
@@ -181,12 +210,27 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // Unknown values fall back to 1. Future phases/variations branch on these.
   const resolvedPhase = (HUB_PHASES as readonly number[]).includes(phase) ? phase : 1;
   const resolvedVariation = (HUB_VARIATIONS as readonly number[]).includes(variation) ? variation : 1;
-  // Variation 3 keeps the large hero (section 0); the smaller top preview only
-  // appears while a game tile below is focused, and OK launches directly.
-  // Kept in a ref for the input callbacks.
-  const isV3 = resolvedVariation === 3;
+  // "Preview mode" (variation 3, and phase 0): keep the large hero at section 0
+  // but show a pinned game-info preview at the top while a tile is focused, and
+  // launch directly on OK (no side panel). Phase 0 also strips the hub down to
+  // just the All Games grid. Kept in refs for the input callbacks.
+  const isPhase0 = resolvedPhase === 0;
+  const previewMode = resolvedVariation === 3 || isPhase0;
+  const isV3 = previewMode; // preview-mode behaviour (hero preview + direct launch)
   const isV3Ref = useRef(isV3);
   isV3Ref.current = isV3;
+
+  // Free-trial promo as the first hero slide: all phase-1 variations, plus the
+  // phase-0/variation-1 grid layout.
+  const showPromoSlide = !isPhase0 || resolvedVariation === 1;
+  const promoOffset = showPromoSlide ? 1 : 0;
+  const heroSlideCount = HERO_GAMES.length + promoOffset;
+  const isPromoSlide = (i: number) => showPromoSlide && i === 0;
+  const heroGameAt = (i: number) => HERO_GAMES[i - promoOffset];
+  const isPromoSlideRef = useRef(isPromoSlide);
+  isPromoSlideRef.current = isPromoSlide;
+  const heroSlideCountRef = useRef(heroSlideCount);
+  heroSlideCountRef.current = heroSlideCount;
 
   const scale = useFitScale();
   const [nav, setNav] = useState<NavState>({ sec: 0, col: 0, heroSlide: 0 });
@@ -197,36 +241,76 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const [panel, setPanel] = useState<{ game: HubGame | null; focus: number }>({ game: null, focus: 0 });
   const [panelShot, setPanelShot] = useState(0);
   const [favorites, setFavorites] = useState<ReadonlySet<string>>(() => new Set());
+  // "See all games" page (opened from the New on Weekend row in v1/phase 1).
+  const [allGamesOpen, setAllGamesOpen] = useState(false);
+  const [agNav, setAgNav] = useState({ row: 0, col: 0 });
+  const [agScrollY, setAgScrollY] = useState(0);
+  // Full-screen upsell page (opened via MORE INFO on the free-trial slide).
+  const [upsellOpen, setUpsellOpen] = useState(false);
 
   const navRef = useRef(nav);
   navRef.current = nav;
+  const allGamesOpenRef = useRef(allGamesOpen);
+  allGamesOpenRef.current = allGamesOpen;
+  const agNavRef = useRef(agNav);
+  agNavRef.current = agNav;
+  const agRowRefs = useRef<(HTMLElement | null)[]>([]);
+  const agScrollerRef = useRef<HTMLDivElement>(null);
+  const upsellOpenRef = useRef(upsellOpen);
+  upsellOpenRef.current = upsellOpen;
   const panelRef = useRef(panel);
   panelRef.current = panel;
   const colMemoryRef = useRef<number[]>([]);
   const rowRefs = useRef<(HTMLElement | null)[]>([]);
   const scrollerRef = useRef<HTMLDivElement>(null);
 
-  // Ordered sections below the hero. Variations 2 & 3 drop the Party/Brain
-  // shelves in favour of the All Games grid. A promo banner sits right below
-  // Community Crafted Games. Both nav and render derive from this list, so
-  // section index = list index + 1 (section 0 is the hero).
-  const gridChunks = resolvedVariation >= 2 ? chunk(ALL_GAMES, GRID_COLS) : [];
+  // Ordered sections below the hero. Both nav and render derive from this list,
+  // so section index = list index + 1 (section 0 is the hero).
+  //   phase 0: just the (12-game) grid, then the promo banner — no shelves.
+  //   phase 1: shelves; variations 2 & 3 drop Party/Brain for an All Games
+  //            grid, with the banner below Community Crafted Games.
+  const gridGames = isPhase0 ? HUB_CATALOG.slice(0, 12) : ALL_GAMES;
+  const gridChunks = isPhase0 || resolvedVariation >= 2 ? chunk(gridGames, GRID_COLS) : [];
+  // "Jump Back On" is currently hidden in every variation.
   const visibleShelves =
-    resolvedVariation >= 2 ? ROWS.filter((r) => r.key === 'more' || r.key === 'community') : ROWS;
+    resolvedVariation >= 2
+      ? ROWS.filter((r) => r.key === 'more' || r.key === 'community')
+      : ROWS.filter((r) => r.key !== 'jumpback');
+
+  // Real favorites (v1/v2 only): the panel's Add/Remove toggles this set, which
+  // populates a "Favorites" row at the top of the hub.
+  const favoriteGames = HUB_CATALOG.filter((g) => favorites.has(g.id));
+  const showFavRow = !isPhase0 && favoriteGames.length > 0;
 
   type SectionDef =
     | { kind: 'shelf'; row: RowDef }
     | { kind: 'banner' }
     | { kind: 'grid'; games: HubGame[]; gridIndex: number };
   const sections: SectionDef[] = [];
-  visibleShelves.forEach((row) => {
-    sections.push({ kind: 'shelf', row });
-    if (row.key === 'community') sections.push({ kind: 'banner' });
-  });
-  gridChunks.forEach((games, gridIndex) => sections.push({ kind: 'grid', games, gridIndex }));
+  if (isPhase0) {
+    gridChunks.forEach((games, gridIndex) => sections.push({ kind: 'grid', games, gridIndex }));
+    sections.push({ kind: 'banner' });
+  } else {
+    if (showFavRow) {
+      sections.push({
+        kind: 'shelf',
+        row: { key: 'favorites', title: 'Favorites', variant: 'sm', slideshow: false, games: favoriteGames },
+      });
+    }
+    // v1/phase 1: New on Weekend shows 5 games + a "See all games" tile.
+    const showSeeAll = resolvedVariation === 1;
+    visibleShelves.forEach((row) => {
+      const shelf =
+        showSeeAll && row.key === 'more' ? { ...row, games: row.games.slice(0, 5), seeAll: true } : row;
+      sections.push({ kind: 'shelf', row: shelf });
+      if (row.key === 'community') sections.push({ kind: 'banner' });
+    });
+    gridChunks.forEach((games, gridIndex) => sections.push({ kind: 'grid', games, gridIndex }));
+  }
 
   const navRows: NavRow[] = sections.map((s) => {
-    if (s.kind === 'shelf') return { games: s.row.games, variant: s.row.variant, slideshow: s.row.slideshow };
+    if (s.kind === 'shelf')
+      return { games: s.row.games, variant: s.row.variant, slideshow: s.row.slideshow, seeAll: s.row.seeAll };
     if (s.kind === 'grid') return { games: s.games, variant: 'grid' as TileVariant, slideshow: false };
     return { games: [], variant: 'sm' as TileVariant, slideshow: false, banner: true };
   });
@@ -243,14 +327,31 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     [onLaunch]
   );
 
+  const openUpsell = useCallback(() => {
+    upsellOpenRef.current = true;
+    setUpsellOpen(true);
+    soundManager.playSelectionSound();
+  }, []);
+
+  const closeUpsell = useCallback(() => {
+    upsellOpenRef.current = false;
+    setUpsellOpen(false);
+    soundManager.playNavigationSound();
+  }, []);
+
   const launch = useCallback(
     (autoDelay = 150) => {
       const cur = navRef.current;
+      // MORE INFO on the promo hero slide opens the full-screen upsell page.
+      if (cur.sec === 0 && isPromoSlideRef.current(cur.heroSlide)) {
+        openUpsell();
+        return;
+      }
       const game =
         cur.sec === 0 ? HERO_GAMES[cur.heroSlide] : navRowsRef.current[cur.sec - 1]?.games[cur.col];
       if (game) launchGame(game, autoDelay);
     },
-    [launchGame]
+    [launchGame, openUpsell]
   );
 
   const openPanel = useCallback((game: HubGame) => {
@@ -265,6 +366,21 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     const np = { game: null, focus: 0 };
     panelRef.current = np;
     setPanel(np);
+    soundManager.playNavigationSound();
+  }, []);
+
+  const openAllGames = useCallback(() => {
+    const n = { row: 0, col: 0 };
+    agNavRef.current = n;
+    setAgNav(n);
+    allGamesOpenRef.current = true;
+    setAllGamesOpen(true);
+    soundManager.playSelectionSound();
+  }, []);
+
+  const closeAllGames = useCallback(() => {
+    allGamesOpenRef.current = false;
+    setAllGamesOpen(false);
     soundManager.playNavigationSound();
   }, []);
 
@@ -320,6 +436,34 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       return;
     }
 
+    // The upsell page has nothing to navigate.
+    if (upsellOpenRef.current) return;
+
+    // All Games page: roving focus over the full grid (closest-item vertical).
+    if (allGamesOpenRef.current) {
+      const cur = agNavRef.current;
+      let { row, col } = cur;
+      let s: 'nav' | 'bounce' | null = null;
+      if (dx !== 0) {
+        const nc = col + (dx > 0 ? 1 : -1);
+        if (nc < 0 || nc >= (ALL_GAMES_GRID[row]?.length ?? 0)) s = 'bounce';
+        else { col = nc; s = 'nav'; }
+      } else if (dy !== 0) {
+        const nr = row + (dy > 0 ? 1 : -1);
+        if (nr < 0 || nr >= ALL_GAMES_GRID.length) s = 'bounce';
+        else { row = nr; col = Math.max(0, Math.min(col, (ALL_GAMES_GRID[nr]?.length ?? 1) - 1)); s = 'nav'; }
+      }
+      if (s === 'nav') {
+        const n = { row, col };
+        agNavRef.current = n;
+        setAgNav(n);
+        soundManager.playNavigationSound();
+      } else if (s === 'bounce') {
+        soundManager.playBounceSound();
+      }
+      return;
+    }
+
     const prev = navRef.current;
     let next = prev;
     let sound: 'nav' | 'bounce' | null = null;
@@ -328,15 +472,16 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     const sectionCount = rows.length + 1;
     if (dx !== 0) {
       if (prev.sec === 0) {
-        const hs = (prev.heroSlide + (dx > 0 ? 1 : -1) + HERO_GAMES.length) % HERO_GAMES.length;
+        const count = heroSlideCountRef.current;
+        const hs = (prev.heroSlide + (dx > 0 ? 1 : -1) + count) % count;
         next = { ...prev, heroSlide: hs };
         sound = 'nav';
       } else if (rows[prev.sec - 1]?.banner) {
         sound = 'bounce'; // banner is a single full-width item
       } else {
-        const items = rows[prev.sec - 1]?.games ?? [];
+        const len = rows[prev.sec - 1] ? navRowLen(rows[prev.sec - 1]) : 0;
         const nc = prev.col + (dx > 0 ? 1 : -1);
-        if (nc < 0 || nc >= items.length) sound = 'bounce';
+        if (nc < 0 || nc >= len) sound = 'bounce';
         else {
           colMemoryRef.current[prev.sec] = nc;
           next = { ...prev, col: nc };
@@ -353,7 +498,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
         const col =
           ns === 0 || targetRow?.banner
             ? 0
-            : Math.max(0, Math.min(prev.col, (targetRow?.games.length ?? 1) - 1));
+            : Math.max(0, Math.min(prev.col, (targetRow ? navRowLen(targetRow) : 1) - 1));
         colMemoryRef.current[ns] = col;
         next = { ...prev, sec: ns, col };
         sound = 'nav';
@@ -395,7 +540,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       }
       const hIdx = HERO_GAMES.findIndex((g) => g.id === id);
       if (hIdx >= 0) {
-        const next = { ...navRef.current, sec: 0, heroSlide: hIdx };
+        const next = { ...navRef.current, sec: 0, heroSlide: hIdx + promoOffset };
         navRef.current = next;
         setNav(next);
         soundManager.playNavigationSound();
@@ -427,22 +572,41 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
         }
         return;
       }
+      // Upsell page: Back returns to the hub (QR is the only CTA).
+      if (upsellOpenRef.current) {
+        if (action === 'back') closeUpsell();
+        return;
+      }
+      // All Games page: OK opens the focused game's panel; Back returns to hub.
+      if (allGamesOpenRef.current) {
+        if (action === 'back') {
+          closeAllGames();
+        } else if (action === 'ok') {
+          const cur = agNavRef.current;
+          const g = ALL_GAMES_GRID[cur.row]?.[cur.col];
+          if (g) openPanel(g);
+        }
+        return;
+      }
       // Panel closed: OK on the hero plays now; OK on a tile opens its panel.
       if (action === 'ok') {
         const cur = navRef.current;
         if (cur.sec === 0) {
           launch(); // hero CTA (all variations)
-        } else if (isV3Ref.current) {
-          // Variation 3: launch the focused game tile directly (no panel).
-          const g = navRowsRef.current[cur.sec - 1]?.games[cur.col];
-          if (g) launchGame(g);
-        } else {
-          const g = navRowsRef.current[cur.sec - 1]?.games[cur.col];
-          if (g) openPanel(g);
+          return;
         }
+        const row = navRowsRef.current[cur.sec - 1];
+        if (row?.seeAll && cur.col >= row.games.length) {
+          openAllGames(); // the trailing "See all games" tile
+          return;
+        }
+        const g = row?.games[cur.col];
+        if (!g) return;
+        if (isV3Ref.current) launchGame(g); // variation 3: launch directly
+        else openPanel(g);
       }
     },
-    [closePanel, launchGame, toggleFavorite, launch, openPanel]
+    [closePanel, closeAllGames, closeUpsell, openAllGames, launchGame, toggleFavorite, launch, openPanel]
   );
 
   useImperativeHandle(
@@ -451,7 +615,8 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       navigate,
       action: doAction,
       focusGame,
-      isPanelOpen: () => panelRef.current.game !== null,
+      isPanelOpen: () =>
+        panelRef.current.game !== null || allGamesOpenRef.current || upsellOpenRef.current,
     }),
     [navigate, doAction, focusGame]
   );
@@ -463,7 +628,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     if (nav.sec !== 0 || reduceMotion || panel.game) return;
     const t = setTimeout(() => {
       setNav((p) => {
-        const n = { ...p, heroSlide: (p.heroSlide + 1) % HERO_GAMES.length };
+        const n = { ...p, heroSlide: (p.heroSlide + 1) % heroSlideCount };
         navRef.current = n;
         return n;
       });
@@ -488,6 +653,24 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     return () => clearInterval(t);
   }, [panel.game]);
 
+  // Favorites changed: keep hub focus on the same row when the Favorites row
+  // appears/disappears at the top, and clamp the column if that row shrank.
+  const favRowPresentRef = useRef(showFavRow);
+  useEffect(() => {
+    const rowAppearedOrLeft = showFavRow !== favRowPresentRef.current;
+    favRowPresentRef.current = showFavRow; // pure: update ref outside the setState updater
+    setNav((n) => {
+      if (n.sec === 0) return n;
+      const sec = rowAppearedOrLeft ? Math.max(1, n.sec + (showFavRow ? 1 : -1)) : n.sec;
+      const row = navRowsRef.current[sec - 1];
+      const col = Math.max(0, Math.min(n.col, (row?.games.length ?? 1) - 1));
+      if (sec === n.sec && col === n.col) return n;
+      const ns = { ...n, sec, col };
+      navRef.current = ns;
+      return ns;
+    });
+  }, [showFavRow, favorites]);
+
   // Vertical scroll so the focused row is comfortably in view.
   useLayoutEffect(() => {
     if (nav.sec === 0) {
@@ -498,11 +681,24 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     const sc = scrollerRef.current;
     if (!el || !sc) return;
     const max = Math.max(0, sc.offsetHeight - STAGE_H);
-    // v3 parks the focused row flush below the opaque preview overlay (so no
-    // hero peeks through); other variations leave headroom above the row.
-    const target = isV3 ? el.offsetTop - PREVIEW_H : el.offsetTop - 120;
+    // v3 parks the focused row a little below the preview overlay so its focus
+    // ring isn't clipped; other variations leave headroom above the row.
+    const target = isV3 ? el.offsetTop - PREVIEW_H - PREVIEW_GAP : el.offsetTop - 120;
     setScrollY(Math.min(Math.max(0, target), max));
   }, [nav.sec, isV3]);
+
+  // All Games page: scroll the focused grid row into view.
+  useLayoutEffect(() => {
+    if (!allGamesOpen) {
+      setAgScrollY(0);
+      return;
+    }
+    const el = agRowRefs.current[agNav.row];
+    const sc = agScrollerRef.current;
+    if (!el || !sc) return;
+    const max = Math.max(0, sc.offsetHeight - STAGE_H);
+    setAgScrollY(Math.min(Math.max(0, el.offsetTop - 220), max));
+  }, [allGamesOpen, agNav.row]);
 
   // Hero slide transition: on a slide change, keep the previous slide mounted
   // briefly as the "outgoing" layer so it can fade + slide left while the new
@@ -527,7 +723,8 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   }, [launch]);
 
   const mobileUrl = `${getMobileUrl()}?code=${roomCode}`;
-  const heroGame = HERO_GAMES[nav.heroSlide];
+  const heroGame = heroGameAt(nav.heroSlide);
+  const trialUrl = 'https://weekend.tv/free-trial';
 
   // Keep rendering the last game while the panel slides out (panel.game → null).
   const lastPanelGameRef = useRef<HubGame | null>(null);
@@ -617,7 +814,12 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
               )}
               <div
                 ref={(el) => (rowRefs.current[sectionIndex - 1] = el)}
-                style={{ display: 'flex', gap: t.gap, padding: `0 ${SHELF_PAD}px`, marginTop: s.gridIndex === 0 ? 0 : t.gap }}
+                style={{
+                  display: 'flex',
+                  gap: t.gap,
+                  padding: `0 ${SHELF_PAD}px`,
+                  marginTop: s.gridIndex === 0 ? 0 : t.gap,
+                }}
               >
                 {s.games.map((game, i) => (
                   <Tile
@@ -639,14 +841,15 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
         // ── Category shelf ──
         const row = s.row;
         const t = TILE[row.variant];
-        const col = focusedHere ? nav.col : Math.min(colMemoryRef.current[sectionIndex] ?? 0, row.games.length - 1);
+        const maxIdx = row.games.length - 1 + (row.seeAll ? 1 : 0);
+        const col = focusedHere ? nav.col : Math.min(colMemoryRef.current[sectionIndex] ?? 0, maxIdx);
         const step = t.w + t.gap;
         const trackX = -Math.max(0, col - (t.visible - 1)) * step;
         return (
           <section
             key={row.key}
             ref={(el) => (rowRefs.current[sectionIndex - 1] = el)}
-            style={{ marginTop: si === 0 ? 8 : 36, paddingBottom: 12 }}
+            style={{ marginTop: si === 0 ? 40 : 36, paddingBottom: 12 }}
           >
             <div style={{ padding: `0 ${SHELF_PAD}px`, marginBottom: 22 }}>
               <h2 style={{ margin: 0, fontSize: 32, fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>{row.title}</h2>
@@ -673,6 +876,19 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                   onClick={() => selectTile(sectionIndex, i, row.games[i])}
                 />
               ))}
+              {row.seeAll && (
+                <SeeAllTile
+                  variant={row.variant}
+                  focused={focusedHere && col === row.games.length}
+                  onClick={() => {
+                    colMemoryRef.current[sectionIndex] = row.games.length;
+                    const n = { ...navRef.current, sec: sectionIndex, col: row.games.length };
+                    navRef.current = n;
+                    setNav(n);
+                    openAllGames();
+                  }}
+                />
+              )}
             </div>
           </section>
         );
@@ -727,7 +943,10 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                 sits on top and is visibly the one leaving). */}
             <HeroSlide
               key={`hero-in-${nav.heroSlide}`}
+              promo={isPromoSlide(nav.heroSlide)}
               game={heroGame}
+              promoGames={HUB_CATALOG}
+              trialUrl={trialUrl}
               phase={heroTransFrom !== null ? 'in' : 'idle'}
               heroFocused={nav.sec === 0}
               pressing={pressing}
@@ -736,7 +955,10 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
             {heroTransFrom !== null && (
               <HeroSlide
                 key={`hero-out-${heroTransFrom}`}
-                game={HERO_GAMES[heroTransFrom]}
+                promo={isPromoSlide(heroTransFrom)}
+                game={heroGameAt(heroTransFrom)}
+                promoGames={HUB_CATALOG}
+                trialUrl={trialUrl}
                 phase="out"
                 heroFocused={nav.sec === 0}
                 pressing={false}
@@ -811,12 +1033,12 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                 alignItems: 'center',
               }}
             >
-              {HERO_GAMES.map((g, i) => {
+              {Array.from({ length: heroSlideCount }).map((_, i) => {
                 const active = i === nav.heroSlide;
                 const countdown = active && nav.sec === 0 && !reduceMotion && !panel.game;
                 return (
                   <span
-                    key={g.id}
+                    key={`dot-${i}`}
                     style={{
                       position: 'relative',
                       width: active ? 36 : 12,
@@ -853,11 +1075,159 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           {rowsContent}
         </div>
 
+        {/* ── All Games page (opened from the "See all games" tile) ── */}
+        {allGamesOpen && (
+          <div style={{ position: 'absolute', inset: 0, background: STAGE_BG, zIndex: 6, overflow: 'hidden' }}>
+            <div
+              ref={agScrollerRef}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: STAGE_W,
+                transform: `translateY(${-agScrollY}px)`,
+                transition: 'transform 460ms cubic-bezier(.22,.61,.36,1)',
+              }}
+            >
+              <div style={{ padding: '56px 80px 28px' }}>
+                <h2 style={{ margin: 0, fontSize: 44, fontWeight: 800, letterSpacing: '-0.02em', color: INK }}>
+                  All Games
+                </h2>
+                <p style={{ margin: '10px 0 0', fontSize: 20, color: '#8a8a9a' }}>Press Back to return to the hub</p>
+              </div>
+              {ALL_GAMES_GRID.map((rowGames, r) => (
+                <div
+                  key={r}
+                  ref={(el) => (agRowRefs.current[r] = el)}
+                  style={{
+                    display: 'flex',
+                    gap: TILE.grid.gap,
+                    padding: `0 ${SHELF_PAD}px`,
+                    marginTop: r === 0 ? 0 : TILE.grid.gap,
+                  }}
+                >
+                  {rowGames.map((g, i) => (
+                    <Tile
+                      key={g.id}
+                      game={g}
+                      variant="grid"
+                      focused={agNav.row === r && agNav.col === i}
+                      pressing={pressing && agNav.row === r && agNav.col === i}
+                      slideshow={false}
+                      shot={shot}
+                      onClick={() => {
+                        const n = { row: r, col: i };
+                        agNavRef.current = n;
+                        setAgNav(n);
+                        openPanel(g);
+                      }}
+                    />
+                  ))}
+                </div>
+              ))}
+              <div style={{ height: 100 }} />
+            </div>
+          </div>
+        )}
+
+        {/* ── Upsell page (MORE INFO on the free-trial slide) ──────── */}
+        {upsellOpen && (
+          <div style={{ position: 'absolute', inset: 0, background: STAGE_BG, zIndex: 8, overflow: 'hidden' }}>
+            <TileMontage games={HUB_CATALOG} />
+            <div
+              aria-hidden
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: `linear-gradient(to right, ${STAGE_BG} 0%, ${STAGE_BG} 30%, transparent 62%)`,
+              }}
+            />
+            {/* Weekend wordmark */}
+            <div
+              style={{
+                position: 'absolute',
+                left: 140,
+                top: 64,
+                fontFamily: FONT,
+                fontWeight: 800,
+                fontSize: 44,
+                letterSpacing: '-0.02em',
+                color: INK,
+              }}
+            >
+              weekend
+            </div>
+            {/* Title + subtitle */}
+            <div style={{ position: 'absolute', left: 140, top: 232, width: 760 }}>
+              <h2 style={{ margin: 0, fontFamily: FONT, fontWeight: 800, fontSize: 60, lineHeight: 1.08, letterSpacing: '-0.02em', color: INK }}>
+                Scan QR to connect &amp; start playing!
+              </h2>
+              <p style={{ margin: '24px 0 0', fontSize: 24, lineHeight: 1.4, color: 'rgba(243,244,241,0.72)', maxWidth: 640 }}>
+                One step away from playing Jeopardy!, Song Quiz, and more Weekend games on your TV!
+              </p>
+            </div>
+            {/* QR + scan hint */}
+            <div style={{ position: 'absolute', left: 140, top: 600, display: 'flex', alignItems: 'flex-start', gap: 36 }}>
+              <div style={{ background: '#fff', padding: 24, borderRadius: 24, lineHeight: 0, boxShadow: '0 30px 80px rgba(0,0,0,0.85), 0 8px 24px rgba(0,0,0,0.6)' }}>
+                <QRCodeSVG value={mobileUrl} size={300} level="M" includeMargin={false} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 40, paddingTop: 12 }}>
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    alignSelf: 'flex-start',
+                    padding: '14px 22px',
+                    borderRadius: 9999,
+                    background: 'rgba(255,255,255,0.1)',
+                    border: '1px solid rgba(255,255,255,0.16)',
+                    color: INK,
+                    fontSize: 22,
+                    fontWeight: 600,
+                  }}
+                >
+                  <span style={{ fontSize: 22 }}>▢</span> Scan with your phone camera
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, color: 'rgba(243,244,241,0.82)', fontSize: 24 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <span>Or go to</span>
+                    <span style={{ padding: '8px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.12)', color: INK, fontWeight: 700 }}>
+                      pair.weekend.com
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <span>and enter this code</span>
+                    <span
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: 12,
+                        background: 'rgba(255,255,255,0.12)',
+                        color: INK,
+                        fontWeight: 700,
+                        letterSpacing: '0.1em',
+                        fontVariantNumeric: 'tabular-nums',
+                      }}
+                    >
+                      {roomCode || 'X47H'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Back hint */}
+            <div style={{ position: 'absolute', left: 140, bottom: 44, fontSize: 18, color: '#8a8a9a' }}>
+              Press Back to return
+            </div>
+          </div>
+        )}
+
         {/* ── Game info side panel ───────────────────────────────── */}
         <div
           style={{
             position: 'absolute',
             inset: 0,
+            zIndex: 20,
             pointerEvents: panel.game ? 'auto' : 'none',
           }}
         >
@@ -1023,6 +1393,47 @@ function PanelButton({
   );
 }
 
+// ── Tile montage ──────────────────────────────────────────────────────────────
+// A tilted, multi-row wall of game tiles panning diagonally (alternating rows).
+// Used behind the free-trial promo slide and the upsell page.
+function TileMontage({ games }: { games: HubGame[] }) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        inset: '-28%',
+        transform: 'rotate(-8deg)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        gap: 20,
+      }}
+    >
+      {[0, 1, 2, 3, 4].map((r) => {
+        const rowGames = games.slice(r).concat(games.slice(0, r));
+        return (
+          <div
+            key={r}
+            style={{
+              display: 'flex',
+              gap: 20,
+              width: 'max-content',
+              marginLeft: r % 2 ? -160 : 0,
+              animation: `hubHeroPanX ${110 + r * 8}s linear infinite ${r % 2 ? 'reverse' : 'normal'}`,
+            }}
+          >
+            {[...rowGames, ...rowGames, ...rowGames].map((g, i) => (
+              <div key={i} style={{ width: 300, height: 169, flex: '0 0 auto' }}>
+                <GameArt game={g} variant="tile" style={{ width: '100%', height: '100%', borderRadius: 12 }} />
+              </div>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Preview hero (variation 3) ───────────────────────────────────────────────
 // A pinned top band that mirrors the hero styling but reflects the focused
 // game (no CTA, no carousel). Re-keyed by game id so it cross-fades on focus.
@@ -1163,7 +1574,12 @@ function PreviewHero({ game, showPairing, roomCode, mobileUrl }: PreviewHeroProp
 type HeroPhase = 'idle' | 'in' | 'out';
 
 interface HeroSlideProps {
-  game: HubGame;
+  /** Free-trial promo slide (panning tiles + QR) instead of a game. */
+  promo?: boolean;
+  game?: HubGame;
+  /** Games to pan across the promo slide's art. */
+  promoGames?: HubGame[];
+  trialUrl?: string;
   phase: HeroPhase;
   /** Whether the hero section currently holds D-pad focus. */
   heroFocused: boolean;
@@ -1171,7 +1587,7 @@ interface HeroSlideProps {
   onPlay: () => void;
 }
 
-function HeroSlide({ game, phase, heroFocused, pressing, onPlay }: HeroSlideProps) {
+function HeroSlide({ promo, game, promoGames = [], trialUrl = '', phase, heroFocused, pressing, onPlay }: HeroSlideProps) {
   // The CTA re-selects (unselected → selected) as the new slide settles, so the
   // change reads clearly. Incoming slides start unselected then flip; otherwise
   // the button just mirrors whether the hero is focused.
@@ -1215,11 +1631,38 @@ function HeroSlide({ game, phase, heroFocused, pressing, onPlay }: HeroSlideProp
     >
       {/* Art + fades (this is what slides left on the way out) */}
       <div style={{ position: 'absolute', inset: 0, animation: artAnim }}>
-        <GameArt
-          game={game}
-          variant="hero"
-          style={{ position: 'absolute', top: 0, left: 0, width: STAGE_W, height: 620 }}
-        />
+        {promo ? (
+          <>
+            {/* Panning montage — tilted multi-row wall of game tiles. */}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 620, overflow: 'hidden' }}>
+              <TileMontage games={promoGames} />
+            </div>
+            {/* QR code popping over the montage */}
+            <div
+              style={{
+                position: 'absolute',
+                right: 140,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: '#fff',
+                padding: 28,
+                borderRadius: 28,
+                lineHeight: 0,
+                boxShadow: '0 30px 80px rgba(0,0,0,0.85), 0 8px 24px rgba(0,0,0,0.6)',
+              }}
+            >
+              <QRCodeSVG value={trialUrl} size={300} level="M" includeMargin={false} />
+            </div>
+          </>
+        ) : (
+          game && (
+            <GameArt
+              game={game}
+              variant="hero"
+              style={{ position: 'absolute', top: 0, left: 0, width: STAGE_W, height: 620 }}
+            />
+          )
+        )}
         <div
           aria-hidden
           style={{
@@ -1255,25 +1698,52 @@ function HeroSlide({ game, phase, heroFocused, pressing, onPlay }: HeroSlideProp
           animation: contentAnim,
         }}
       >
-        <div style={{ maxWidth: 640 }}>
-          <GameLogo title={game.title} theme={game.theme} style={{ fontSize: 92, whiteSpace: 'normal' }} />
-        </div>
-        <p
-          style={{
-            margin: 0,
-            maxWidth: 620,
-            fontSize: 26,
-            lineHeight: 1.35,
-            color: 'rgba(243,244,241,0.82)',
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-          }}
-        >
-          {game.description}
-        </p>
-        <GameMetaPills players={game.players} interaction={game.interaction} size={42} />
+        {promo ? (
+          <>
+            <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.14em', color: '#b9babe' }}>
+              WEEKEND PREMIUM
+            </span>
+            <span
+              style={{
+                fontFamily: FONT,
+                fontWeight: 800,
+                fontSize: 84,
+                letterSpacing: '-0.02em',
+                lineHeight: 1.02,
+                color: INK,
+              }}
+            >
+              7-day free trial
+            </span>
+            <p style={{ margin: 0, maxWidth: 620, fontSize: 26, lineHeight: 1.35, color: 'rgba(243,244,241,0.82)' }}>
+              Unlimited access to every game. Scan the code to start.
+            </p>
+          </>
+        ) : (
+          game && (
+            <>
+              <div style={{ maxWidth: 640 }}>
+                <GameLogo title={game.title} theme={game.theme} style={{ fontSize: 92, whiteSpace: 'normal' }} />
+              </div>
+              <p
+                style={{
+                  margin: 0,
+                  maxWidth: 620,
+                  fontSize: 26,
+                  lineHeight: 1.35,
+                  color: 'rgba(243,244,241,0.82)',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                }}
+              >
+                {game.description}
+              </p>
+              <GameMetaPills players={game.players} interaction={game.interaction} size={42} />
+            </>
+          )
+        )}
         <button
           onClick={onPlay}
           style={{
@@ -1307,10 +1777,46 @@ function HeroSlide({ game, phase, heroFocused, pressing, onPlay }: HeroSlideProp
                 }),
           }}
         >
-          PLAY NOW
+          {promo ? 'MORE INFO' : 'PLAY NOW'}
         </button>
       </div>
     </div>
+  );
+}
+
+// ── "See all games" tile (trailing tile that opens the All Games page) ────────
+function SeeAllTile({ variant, focused, onClick }: { variant: TileVariant; focused: boolean; onClick: () => void }) {
+  const t = TILE[variant];
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        appearance: 'none',
+        flex: '0 0 auto',
+        width: t.w,
+        height: t.h,
+        borderRadius: t.r,
+        cursor: 'pointer',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+        background: '#141518',
+        border: '1px dashed #3a3b3f',
+        color: INK,
+        fontFamily: FONT,
+        transform: focused ? 'scale(1.06)' : 'scale(1)',
+        boxShadow: focused ? '0 0 0 4px #fff, 0 26px 60px rgba(0,0,0,0.7)' : 'none',
+        transition: 'transform 240ms cubic-bezier(.22,.61,.36,1), box-shadow 240ms ease',
+        zIndex: focused ? 3 : 1,
+      }}
+    >
+      <span style={{ fontSize: variant === 'lg' ? 34 : 24, fontWeight: 700, letterSpacing: '-0.01em' }}>
+        See all games
+      </span>
+      <span style={{ fontSize: variant === 'lg' ? 26 : 20, color: '#9a9ba0' }}>→</span>
+    </button>
   );
 }
 

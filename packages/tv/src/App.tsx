@@ -50,7 +50,8 @@ function MainTvApp() {
   //   ?variation=N     → pick a hub layout variation (1 = current; more later)
   const [searchParams] = useSearchParams();
   const showPairing = searchParams.get('pairing') === 'true';
-  const hubPhase = Number(searchParams.get('phase')) || 1;
+  // Use the phase param verbatim when present (so ?phase=0 stays 0); default 1.
+  const hubPhase = searchParams.has('phase') ? Number(searchParams.get('phase')) : 1;
   const hubVariation = Number(searchParams.get('variation')) || 1;
   const showDebug = searchParams.get('debug') === 'true';
 
