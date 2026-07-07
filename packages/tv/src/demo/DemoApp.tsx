@@ -230,10 +230,12 @@ function Gallery() {
               <div
                 key={i}
                 style={{
-                  background: '#101114',
-                  border: '1px solid #26272b',
-                  borderRadius: 16,
-                  padding: '22px 24px',
+                  // Flat callout with a left accent rail — reads as reference
+                  // content, distinct from the raised, clickable prototype cards.
+                  background: 'rgba(255,255,255,0.02)',
+                  borderLeft: '2px solid #6a6b70',
+                  borderRadius: '0 12px 12px 0',
+                  padding: '20px 24px',
                 }}
               >
                 <div
@@ -263,6 +265,18 @@ function Gallery() {
         <div
           style={{
             marginTop: 56,
+            fontSize: 13,
+            fontWeight: 700,
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            color: '#8a8a9a',
+          }}
+        >
+          Prototypes
+        </div>
+        <div
+          style={{
+            marginTop: 20,
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
             gap: 24,
