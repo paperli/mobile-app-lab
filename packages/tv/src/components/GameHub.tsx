@@ -272,9 +272,14 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const isV3Ref = useRef(isV3);
   isV3Ref.current = isV3;
 
-  // Free-trial promo as the first hero slide: all phase-1 variations, plus the
-  // phase-0/variation-1 grid layout.
-  const showPromoSlide = !isPhase0 || resolvedVariation === 1;
+  // Profile / account (prototype pseudo-state). Default = signed out; the state
+  // is in-memory only, so a hard refresh always returns to this logged-out state.
+  const [signedIn, setSignedIn] = useState(false);
+
+  // Free-trial promo as the first hero slide. Phase 0/variation 1 always shows
+  // it; phase-1 variations show it only while signed out (signed-in users have
+  // already claimed the trial).
+  const showPromoSlide = isPhase0 ? resolvedVariation === 1 : !signedIn;
   const promoOffset = showPromoSlide ? 1 : 0;
   const heroSlideCount = HERO_GAMES.length + promoOffset;
   const isPromoSlide = (i: number) => showPromoSlide && i === 0;
@@ -319,9 +324,6 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const [searchZone, setSearchZone] = useState<'kb' | 'results'>('kb');
   const [resNav, setResNav] = useState({ row: 0, col: 0 });
 
-  // Profile / account (prototype pseudo-state). Default = signed out; the state
-  // is in-memory only, so a hard refresh always returns to this logged-out state.
-  const [signedIn, setSignedIn] = useState(false);
   const [profileIdx, setProfileIdx] = useState(0);
   const [profileNames, setProfileNames] = useState<string[]>(PROFILE_NAMES_DEFAULT);
   // Randomly assign a distinct mock avatar to each profile at launch.
@@ -426,8 +428,8 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const recommendedGames = MYGAMES_EMPTY_IDS.map((id) => HUB_CATALOG.find((g) => g.id === id)).filter(
     (g): g is HubGame => !!g
   );
-  // Favorites now live on the My Games page, so the Home Favorites row is hidden.
-  const showFavRow = false;
+  // The Home "Jump Back On" row (phase 1) appears once the user has play history.
+  const homeJumpBack = !isPhase0 && jumpBackGames.length > 0;
 
   // Search results (live-filtered by the on-screen keyboard query).
   const RESULTS_COLS = 3;
@@ -468,10 +470,12 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     gridChunks.forEach((games, gridIndex) => sections.push({ kind: 'grid', games, gridIndex }));
     sections.push({ kind: 'banner' });
   } else {
-    if (showFavRow) {
+    // Jump Back On (all phase-1 variations) — only once the user has played
+    // something; same source as the My Games page.
+    if (jumpBackGames.length) {
       sections.push({
         kind: 'shelf',
-        row: { key: 'favorites', title: 'Favorites', variant: 'sm', slideshow: false, games: favoriteGames },
+        row: { key: 'jumpback', title: 'Jump Back On', variant: 'sm', slideshow: false, games: jumpBackGames },
       });
     }
     // v1/phase 1: New on Weekend shows 5 games + a "See all games" tile.
@@ -536,10 +540,12 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
         return;
       }
       const game =
-        cur.sec === 0 ? HERO_GAMES[cur.heroSlide] : navRowsRef.current[cur.sec - 1]?.games[cur.col];
+        cur.sec === 0
+          ? HERO_GAMES[cur.heroSlide - promoOffset]
+          : navRowsRef.current[cur.sec - 1]?.games[cur.col];
       if (game) launchGame(game, autoDelay);
     },
-    [launchGame, openUpsell]
+    [launchGame, openUpsell, promoOffset]
   );
 
   const openPanel = useCallback((game: HubGame) => {
@@ -1315,6 +1321,17 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     [navigate, doAction, focusGame]
   );
 
+  // Signing in removes the promo hero slide, so clamp the focused slide into
+  // the new (smaller) range.
+  useEffect(() => {
+    setNav((n) => {
+      if (n.heroSlide < heroSlideCount) return n;
+      const ns = { ...n, heroSlide: heroSlideCount - 1, col: 0 };
+      navRef.current = ns;
+      return ns;
+    });
+  }, [heroSlideCount]);
+
   // Hero auto-advance while the hero is focused. A per-slide timeout (rather
   // than a fixed interval) so manual navigation resets the clock and the
   // active-dot countdown stays in sync.
@@ -1384,17 +1401,16 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     };
   }, [upsellOpen, closeUpsell]);
 
-  // Favorites changed: keep hub focus on the same row when the Favorites row
-  // appears/disappears at the top, and clamp the column if that row shrank.
-  const favRowPresentRef = useRef(showFavRow);
+  // Keep Home focus on the same row when the "Jump Back On" row appears at the
+  // top (after the first play), so the focus ring doesn't jump to a neighbor.
+  const jumpBackPresentRef = useRef(homeJumpBack);
   useEffect(() => {
-    const rowAppearedOrLeft = showFavRow !== favRowPresentRef.current;
-    favRowPresentRef.current = showFavRow; // pure: update ref outside the setState updater
-    // Only the Home page carries the Favorites row; other pages manage their own focus.
-    if (pageRef.current !== 'home') return;
+    const appeared = homeJumpBack !== jumpBackPresentRef.current;
+    jumpBackPresentRef.current = homeJumpBack; // pure: update ref outside the setState updater
+    if (!appeared || pageRef.current !== 'home') return;
     setNav((n) => {
       if (n.sec === 0) return n;
-      const sec = rowAppearedOrLeft ? Math.max(1, n.sec + (showFavRow ? 1 : -1)) : n.sec;
+      const sec = Math.max(1, n.sec + (homeJumpBack ? 1 : -1));
       const row = navRowsRef.current[sec - 1];
       const col = Math.max(0, Math.min(n.col, (row?.games.length ?? 1) - 1));
       if (sec === n.sec && col === n.col) return n;
@@ -1402,7 +1418,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       navRef.current = ns;
       return ns;
     });
-  }, [showFavRow, favorites]);
+  }, [homeJumpBack]);
 
   // Vertical scroll so the focused row is comfortably in view.
   useLayoutEffect(() => {
@@ -1516,23 +1532,47 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                   zIndex: focusedHere ? 3 : 1,
                 }}
               >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 1100 }}>
-                  <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.14em', color: '#b9babe' }}>
-                    WEEKEND PREMIUM
-                  </span>
-                  <span style={{ fontSize: 46, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.05 }}>
-                    Start your 7-day free trial
-                  </span>
-                  <span style={{ fontSize: 22, color: 'rgba(243,244,241,0.72)' }}>
-                    Unlimited access to every game. Cancel anytime.
-                  </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 22, flex: '0 0 auto' }}>
-                  <span style={{ fontSize: 18, fontWeight: 600, color: '#cfd0d3' }}>Scan to start →</span>
-                  <div style={{ background: '#fff', padding: 12, borderRadius: 14, lineHeight: 0 }}>
-                    <QRCodeSVG value="https://weekend.tv/free-trial" size={124} level="M" includeMargin={false} />
-                  </div>
-                </div>
+                {signedIn ? (
+                  <>
+                    {/* Mobile image (left) */}
+                    <PhoneMock height={150} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.14em', color: '#b9babe' }}>
+                        GAME CONTROLLER
+                      </span>
+                      <span style={{ fontSize: 46, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.05 }}>
+                        Connect your phone as a game controller
+                      </span>
+                      <span style={{ fontSize: 22, color: 'rgba(243,244,241,0.72)' }}>
+                        Scan the code to pair your phone and start playing.
+                      </span>
+                    </div>
+                    {/* QR (right) */}
+                    <div style={{ background: '#fff', padding: 12, borderRadius: 14, lineHeight: 0, flex: '0 0 auto' }}>
+                      <QRCodeSVG value={mobileUrl} size={140} level="M" includeMargin={false} />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 1100 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.14em', color: '#b9babe' }}>
+                        WEEKEND PREMIUM
+                      </span>
+                      <span style={{ fontSize: 46, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.05 }}>
+                        Start your 7-day free trial
+                      </span>
+                      <span style={{ fontSize: 22, color: 'rgba(243,244,241,0.72)' }}>
+                        Unlimited access to every game. Cancel anytime.
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 22, flex: '0 0 auto' }}>
+                      <span style={{ fontSize: 18, fontWeight: 600, color: '#cfd0d3' }}>Scan to start →</span>
+                      <div style={{ background: '#fff', padding: 12, borderRadius: 14, lineHeight: 0 }}>
+                        <QRCodeSVG value="https://weekend.tv/free-trial" size={124} level="M" includeMargin={false} />
+                      </div>
+                    </div>
+                  </>
+                )}
               </button>
             </div>
           );
@@ -3210,6 +3250,30 @@ function IconX({ size = 20, color = INK }: { size?: number; color?: string }) {
     </svg>
   );
 }
+// A stylized phone showing a game-controller UI, for the "connect your phone"
+// banner (signed-in state).
+function PhoneMock({ height = 150 }: { height?: number }) {
+  const w = (height * 78) / 150;
+  return (
+    <svg width={w} height={height} viewBox="0 0 78 150" fill="none" style={{ flex: '0 0 auto' }}>
+      <rect x="3" y="3" width="72" height="144" rx="16" fill="#0d0e10" stroke="#5a5b60" strokeWidth="2.5" />
+      <rect x="11" y="15" width="56" height="112" rx="8" fill="#1c1d21" />
+      {/* D-pad (left) */}
+      <g fill="#e9eaec">
+        <rect x="20" y="70" width="9" height="27" rx="2" />
+        <rect x="11" y="79" width="27" height="9" rx="2" />
+      </g>
+      {/* Action buttons (right) */}
+      <circle cx="52" cy="76" r="5" fill="#e9eaec" />
+      <circle cx="60" cy="88" r="5" fill="#9a9ba0" />
+      {/* Screen label dot row */}
+      <rect x="19" y="26" width="40" height="6" rx="3" fill="#3a3b40" />
+      {/* Home indicator */}
+      <rect x="30" y="135" width="18" height="3" rx="1.5" fill="#5a5b60" />
+    </svg>
+  );
+}
+
 function IconGift({ size = 22, color = INK }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
