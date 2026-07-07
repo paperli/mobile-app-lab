@@ -2086,13 +2086,13 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                 </button>
               </div>
             </div>
-            {/* Support QR — right side */}
+            {/* Support QR — centered in the right column, up near the content top */}
             <div
               style={{
                 position: 'absolute',
-                right: SHELF_PAD,
-                top: '50%',
-                transform: 'translateY(-50%)',
+                left: '50%',
+                right: 0,
+                top: 150,
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
