@@ -123,7 +123,7 @@ function HubView({ phase, variation, pairing }: { phase: number; variation: numb
         case 'Escape':
         case 'Backspace':
           e.preventDefault();
-          if (h.isPanelOpen()) h.action('back');
+          if (h.wantsBack()) h.action('back');
           else window.location.href = window.location.pathname; // back to the gallery
           break;
       }

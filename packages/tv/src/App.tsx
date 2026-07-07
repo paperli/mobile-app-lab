@@ -225,7 +225,9 @@ function MainTvApp() {
         return;
       }
       if (action === 'back') {
-        if (hubRef.current?.isPanelOpen()) {
+        // Hub consumes Back to close a modal or escalate toward the top nav;
+        // only when it doesn't (focus already at the top) do we open the exit menu.
+        if (hubRef.current?.wantsBack()) {
           hubRef.current.action('back');
           return;
         }

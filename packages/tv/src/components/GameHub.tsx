@@ -126,6 +126,30 @@ const TILE = {
 
 const SHELF_PAD = 80;
 
+// ── Top navigation (phase 1 only) ────────────────────────────────────────────
+type Page = 'search' | 'home' | 'mygames';
+const NAV_BAR_H = 96;
+const TOP_NAV: { key: Page; label: string }[] = [
+  { key: 'search', label: 'Search' },
+  { key: 'home', label: 'Home' },
+  { key: 'mygames', label: 'My Games' },
+];
+const HOME_TAB = TOP_NAV.findIndex((t) => t.key === 'home'); // default focus
+
+// My Games page content: a "Jump Back On" shelf + a Favorites grid.
+const JUMPBACK_GAMES = pick(1, 7, 12);
+
+// On-screen alphabet keyboard for the Search page (TV-style, not QWERTY). Rows
+// of letters plus an action row; navigation clamps the column per row.
+const KB_GRID: string[][] = [
+  ['A', 'B', 'C', 'D', 'E', 'F'],
+  ['G', 'H', 'I', 'J', 'K', 'L'],
+  ['M', 'N', 'O', 'P', 'Q', 'R'],
+  ['S', 'T', 'U', 'V', 'W', 'X'],
+  ['Y', 'Z'],
+  ['SPACE', 'DELETE', 'CLEAR'],
+];
+
 // Height of the hero band, and (variation 3) the pinned top preview height.
 const HERO_SECTION_H = 700;
 const PREVIEW_H = 480;
@@ -155,6 +179,8 @@ export interface HubHandle {
   focusGame: (id: string, autoLaunch?: boolean) => void;
   /** True while the game-info side panel is open (so Back closes it first). */
   isPanelOpen: () => boolean;
+  /** True when the hub should consume Back (close a modal or escalate to the top nav). */
+  wantsBack: () => boolean;
 }
 
 // Actions in the game-info side panel, top → bottom.
@@ -270,6 +296,19 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // Full-screen upsell page (opened via MORE INFO on the free-trial slide).
   const [upsellOpen, setUpsellOpen] = useState(false);
 
+  // Top navigation (phase 1 only): Search / Home / My Games. `navFocus` = focus
+  // is on the top nav bar; default focus is the Home tab.
+  const hasTopNav = !isPhase0;
+  const [page, setPage] = useState<Page>('home');
+  const [navFocus, setNavFocus] = useState(hasTopNav);
+  const [navCol, setNavCol] = useState(HOME_TAB);
+  // Search page state: query text, on-screen keyboard cursor, and which zone
+  // (keyboard vs results grid) currently has focus.
+  const [query, setQuery] = useState('');
+  const [kb, setKb] = useState({ r: 0, c: 0 });
+  const [searchZone, setSearchZone] = useState<'kb' | 'results'>('kb');
+  const [resNav, setResNav] = useState({ row: 0, col: 0 });
+
   const navRef = useRef(nav);
   navRef.current = nav;
   const allGamesOpenRef = useRef(allGamesOpen);
@@ -280,6 +319,20 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const agScrollerRef = useRef<HTMLDivElement>(null);
   const upsellOpenRef = useRef(upsellOpen);
   upsellOpenRef.current = upsellOpen;
+  const pageRef = useRef(page);
+  pageRef.current = page;
+  const navFocusRef = useRef(navFocus);
+  navFocusRef.current = navFocus;
+  const navColRef = useRef(navCol);
+  navColRef.current = navCol;
+  const queryRef = useRef(query);
+  queryRef.current = query;
+  const kbRef = useRef(kb);
+  kbRef.current = kb;
+  const searchZoneRef = useRef(searchZone);
+  searchZoneRef.current = searchZone;
+  const resNavRef = useRef(resNav);
+  resNavRef.current = resNav;
   const panelRef = useRef(panel);
   panelRef.current = panel;
   const colMemoryRef = useRef<number[]>([]);
@@ -304,12 +357,32 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const favoriteGames = HUB_CATALOG.filter((g) => favorites.has(g.id));
   const showFavRow = !isPhase0 && favoriteGames.length > 0;
 
+  // Search results (live-filtered by the on-screen keyboard query).
+  const RESULTS_COLS = 3;
+  const searchResults = query.trim()
+    ? HUB_CATALOG.filter((g) => g.title.toLowerCase().includes(query.trim().toLowerCase()))
+    : [];
+  const resultChunks = chunk(searchResults, RESULTS_COLS);
+
+  // Only the Home page carries the big hero; My Games / Search start at the top nav.
+  const pageHasHero = page === 'home';
+
   type SectionDef =
     | { kind: 'shelf'; row: RowDef }
     | { kind: 'banner' }
-    | { kind: 'grid'; games: HubGame[]; gridIndex: number };
+    | { kind: 'grid'; games: HubGame[]; gridIndex: number; gridTitle?: string };
   const sections: SectionDef[] = [];
-  if (isPhase0) {
+  if (page === 'search') {
+    // Search renders its own body (keyboard + results) — no scrolling sections.
+  } else if (page === 'mygames') {
+    sections.push({
+      kind: 'shelf',
+      row: { key: 'jumpback', title: 'Jump Back On', variant: 'sm', slideshow: false, games: JUMPBACK_GAMES },
+    });
+    chunk(favoriteGames, GRID_COLS).forEach((games, gridIndex) =>
+      sections.push({ kind: 'grid', games, gridIndex, gridTitle: 'Favorites' })
+    );
+  } else if (isPhase0) {
     gridChunks.forEach((games, gridIndex) => sections.push({ kind: 'grid', games, gridIndex }));
     sections.push({ kind: 'banner' });
   } else {
@@ -338,6 +411,12 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   });
   const navRowsRef = useRef(navRows);
   navRowsRef.current = navRows;
+  const pageHasHeroRef = useRef(pageHasHero);
+  pageHasHeroRef.current = pageHasHero;
+  const hasTopNavRef = useRef(hasTopNav);
+  hasTopNavRef.current = hasTopNav;
+  const resultChunksRef = useRef(resultChunks);
+  resultChunksRef.current = resultChunks;
 
   const launchGame = useCallback(
     (game: HubGame, autoDelay = 150) => {
@@ -438,6 +517,75 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     });
   }, []);
 
+  // ── Top-nav / page focus ────────────────────────────────────────────────────
+  // Move focus up to the top nav bar (highlighting the active page's tab).
+  const toNav = useCallback(() => {
+    navColRef.current = TOP_NAV.findIndex((t) => t.key === pageRef.current);
+    setNavCol(navColRef.current);
+    navFocusRef.current = true;
+    setNavFocus(true);
+    setScrollY(0);
+    soundManager.playNavigationSound();
+  }, []);
+
+  // Drop focus from the nav bar into the current page's content.
+  const enterContent = useCallback(() => {
+    const p = pageRef.current;
+    if (p === 'mygames') {
+      const n = { ...navRef.current, sec: 1, col: 0 };
+      navRef.current = n;
+      setNav(n);
+    } else if (p === 'home') {
+      const n = { ...navRef.current, sec: 0 };
+      navRef.current = n;
+      setNav(n);
+    } else {
+      searchZoneRef.current = 'kb';
+      setSearchZone('kb');
+    }
+    navFocusRef.current = false;
+    setNavFocus(false);
+    soundManager.playNavigationSound();
+  }, []);
+
+  // Switch page (from an OK on a nav tab) and drop focus into that page.
+  const goToPage = useCallback((p: Page) => {
+    pageRef.current = p;
+    setPage(p);
+    setScrollY(0);
+    if (p === 'home') {
+      const n = { ...navRef.current, sec: 0, col: 0 };
+      navRef.current = n;
+      setNav(n);
+    } else if (p === 'mygames') {
+      const n = { sec: 1, col: 0, heroSlide: navRef.current.heroSlide };
+      navRef.current = n;
+      setNav(n);
+    } else {
+      searchZoneRef.current = 'kb';
+      setSearchZone('kb');
+      kbRef.current = { r: 0, c: 0 };
+      setKb({ r: 0, c: 0 });
+    }
+    navFocusRef.current = false;
+    setNavFocus(false);
+    soundManager.playSelectionSound();
+  }, []);
+
+  // Apply an on-screen keyboard key to the search query.
+  const applyKey = useCallback((key: string) => {
+    setQuery((q) => {
+      let n = q;
+      if (key === 'SPACE') n = q + ' ';
+      else if (key === 'DELETE') n = q.slice(0, -1);
+      else if (key === 'CLEAR') n = '';
+      else n = q + key;
+      queryRef.current = n;
+      return n;
+    });
+    soundManager.playNavigationSound();
+  }, []);
+
   const move = useCallback((dx: number, dy: number) => {
     // While the panel is open, ▲▼ move between its actions.
     const p = panelRef.current;
@@ -486,6 +634,98 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       return;
     }
 
+    // Top nav zone: ◀▶ switch tab, ▼ enters the page content.
+    if (navFocusRef.current) {
+      if (dx !== 0) {
+        const nc = Math.min(Math.max(0, navColRef.current + (dx > 0 ? 1 : -1)), TOP_NAV.length - 1);
+        if (nc !== navColRef.current) {
+          navColRef.current = nc;
+          setNavCol(nc);
+          soundManager.playNavigationSound();
+        } else soundManager.playBounceSound();
+      } else if (dy > 0) {
+        enterContent();
+      } else {
+        soundManager.playBounceSound();
+      }
+      return;
+    }
+
+    // Search page: on-screen keyboard (left) + results grid (right).
+    if (pageRef.current === 'search') {
+      if (searchZoneRef.current === 'kb') {
+        let { r, c } = kbRef.current;
+        if (dx !== 0) {
+          const nc = c + (dx > 0 ? 1 : -1);
+          if (nc < 0) {
+            soundManager.playBounceSound();
+            return;
+          }
+          if (nc >= KB_GRID[r].length) {
+            // Off the right edge → jump into the results grid, if any.
+            if (resultChunksRef.current.length) {
+              searchZoneRef.current = 'results';
+              setSearchZone('results');
+              resNavRef.current = { row: 0, col: 0 };
+              setResNav({ row: 0, col: 0 });
+              soundManager.playNavigationSound();
+            } else soundManager.playBounceSound();
+            return;
+          }
+          c = nc;
+        } else if (dy !== 0) {
+          const nr = r + (dy > 0 ? 1 : -1);
+          if (nr < 0) {
+            toNav();
+            return;
+          }
+          if (nr >= KB_GRID.length) {
+            soundManager.playBounceSound();
+            return;
+          }
+          r = nr;
+          c = Math.min(c, KB_GRID[nr].length - 1);
+        }
+        kbRef.current = { r, c };
+        setKb({ r, c });
+        soundManager.playNavigationSound();
+        return;
+      }
+      // results zone
+      const chunks = resultChunksRef.current;
+      let { row, col } = resNavRef.current;
+      if (dx !== 0) {
+        const nc = col + (dx > 0 ? 1 : -1);
+        if (nc < 0) {
+          searchZoneRef.current = 'kb';
+          setSearchZone('kb');
+          soundManager.playNavigationSound();
+          return;
+        }
+        if (nc >= (chunks[row]?.length ?? 0)) {
+          soundManager.playBounceSound();
+          return;
+        }
+        col = nc;
+      } else if (dy !== 0) {
+        const nr = row + (dy > 0 ? 1 : -1);
+        if (nr < 0) {
+          toNav();
+          return;
+        }
+        if (nr >= chunks.length) {
+          soundManager.playBounceSound();
+          return;
+        }
+        row = nr;
+        col = Math.min(col, (chunks[nr]?.length ?? 1) - 1);
+      }
+      resNavRef.current = { row, col };
+      setResNav({ row, col });
+      soundManager.playNavigationSound();
+      return;
+    }
+
     const prev = navRef.current;
     let next = prev;
     let sound: 'nav' | 'bounce' | null = null;
@@ -510,10 +750,16 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           sound = 'nav';
         }
       }
-    } else if (dy !== 0) {
-      const ns = prev.sec + (dy > 0 ? 1 : -1);
-      if (ns < 0 || ns >= sectionCount) sound = 'bounce';
-      else {
+    } else if (dy < 0) {
+      // Up: past the top of the content escalates to the top nav bar.
+      const ns = prev.sec - 1;
+      if (ns < (pageHasHeroRef.current ? 0 : 1)) {
+        if (hasTopNavRef.current) {
+          toNav();
+          return;
+        }
+        sound = 'bounce';
+      } else {
         const targetRow = rows[ns - 1];
         // Keep the current column when moving vertically so focus lands on the
         // closest item in the next row (rather than jumping back to the first).
@@ -521,6 +767,18 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           ns === 0 || targetRow?.banner
             ? 0
             : Math.max(0, Math.min(prev.col, (targetRow ? navRowLen(targetRow) : 1) - 1));
+        colMemoryRef.current[ns] = col;
+        next = { ...prev, sec: ns, col };
+        sound = 'nav';
+      }
+    } else if (dy > 0) {
+      const ns = prev.sec + 1;
+      if (ns >= sectionCount) sound = 'bounce';
+      else {
+        const targetRow = rows[ns - 1];
+        const col = targetRow?.banner
+          ? 0
+          : Math.max(0, Math.min(prev.col, (targetRow ? navRowLen(targetRow) : 1) - 1));
         colMemoryRef.current[ns] = col;
         next = { ...prev, sec: ns, col };
         sound = 'nav';
@@ -533,7 +791,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       navRef.current = next;
       setNav(next);
     }
-  }, []);
+  }, [toNav, enterContent]);
 
   const navigate = useCallback(
     (direction: NavigationDirection) => {
@@ -610,7 +868,56 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
         }
         return;
       }
-      // Panel closed: OK on the hero plays now; OK on a tile opens its panel.
+      // Top nav focused: OK switches page. Back is not consumed here (the
+      // caller opens the exit menu / returns to the gallery).
+      if (navFocusRef.current) {
+        if (action === 'ok') goToPage(TOP_NAV[navColRef.current].key);
+        return;
+      }
+
+      // Search page: OK types the focused key or launches the focused result;
+      // Back steps results → keyboard → top nav.
+      if (pageRef.current === 'search') {
+        if (action === 'back') {
+          if (searchZoneRef.current === 'results') {
+            searchZoneRef.current = 'kb';
+            setSearchZone('kb');
+            soundManager.playNavigationSound();
+          } else {
+            toNav();
+          }
+          return;
+        }
+        if (searchZoneRef.current === 'kb') {
+          applyKey(KB_GRID[kbRef.current.r][kbRef.current.c]);
+        } else {
+          const cur = resNavRef.current;
+          const g = resultChunksRef.current[cur.row]?.[cur.col];
+          if (g) {
+            if (isV3Ref.current) launchGame(g);
+            else openPanel(g);
+          }
+        }
+        return;
+      }
+
+      // Home / My Games content.
+      if (action === 'back') {
+        if (!hasTopNavRef.current) return; // phase 0: not consumed (caller exits)
+        // Escalate to the top: rows → top of content → top nav bar.
+        const topSec = pageHasHeroRef.current ? 0 : 1;
+        const cur = navRef.current;
+        if (cur.sec > topSec) {
+          const n = { ...cur, sec: topSec, col: 0 };
+          navRef.current = n;
+          setNav(n);
+          soundManager.playNavigationSound();
+        } else {
+          toNav();
+        }
+        return;
+      }
+      // OK on the hero plays now; OK on a tile opens its panel (or launches in v3).
       if (action === 'ok') {
         const cur = navRef.current;
         if (cur.sec === 0) {
@@ -628,7 +935,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
         else openPanel(g);
       }
     },
-    [closePanel, closeAllGames, closeUpsell, openAllGames, launchGame, toggleFavorite, launch, openPanel]
+    [closePanel, closeAllGames, closeUpsell, openAllGames, launchGame, toggleFavorite, launch, openPanel, goToPage, applyKey, toNav]
   );
 
   useImperativeHandle(
@@ -639,6 +946,14 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       focusGame,
       isPanelOpen: () =>
         panelRef.current.game !== null || allGamesOpenRef.current || upsellOpenRef.current,
+      // Whether the hub should consume a Back press (close a modal, or escalate
+      // up toward the top nav) rather than the caller exiting. Focus on the top
+      // nav bar itself is the top level, so Back there is not consumed.
+      wantsBack: () =>
+        panelRef.current.game !== null ||
+        allGamesOpenRef.current ||
+        upsellOpenRef.current ||
+        (hasTopNavRef.current && !navFocusRef.current),
     }),
     [navigate, doAction, focusGame]
   );
@@ -647,7 +962,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // than a fixed interval) so manual navigation resets the clock and the
   // active-dot countdown stays in sync.
   useEffect(() => {
-    if (nav.sec !== 0 || reduceMotion || panel.game) return;
+    if (page !== 'home' || nav.sec !== 0 || reduceMotion || panel.game) return;
     const t = setTimeout(() => {
       setNav((p) => {
         const n = { ...p, heroSlide: (p.heroSlide + 1) % heroSlideCount };
@@ -656,7 +971,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       });
     }, HERO_AUTOPLAY_MS);
     return () => clearTimeout(t);
-  }, [nav.sec, nav.heroSlide, panel.game]);
+  }, [page, nav.sec, nav.heroSlide, panel.game]);
 
   // Slideshow: loop screenshots inside a focused tile on a slideshow row.
   useEffect(() => {
@@ -681,6 +996,8 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   useEffect(() => {
     const rowAppearedOrLeft = showFavRow !== favRowPresentRef.current;
     favRowPresentRef.current = showFavRow; // pure: update ref outside the setState updater
+    // Only the Home page carries the Favorites row; other pages manage their own focus.
+    if (pageRef.current !== 'home') return;
     setNav((n) => {
       if (n.sec === 0) return n;
       const sec = rowAppearedOrLeft ? Math.max(1, n.sec + (showFavRow ? 1 : -1)) : n.sec;
@@ -763,7 +1080,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     <>
       {sections.map((s, si) => {
         const sectionIndex = si + 1;
-        const focusedHere = nav.sec === sectionIndex;
+        const focusedHere = !navFocus && nav.sec === sectionIndex;
 
         // ── Free-trial promo banner (single full-width focusable item) ──
         if (s.kind === 'banner') {
@@ -830,7 +1147,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
               {s.gridIndex === 0 && (
                 <div style={{ padding: `0 ${SHELF_PAD}px`, margin: '44px 0 22px' }}>
                   <h2 style={{ margin: 0, fontSize: 32, fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>
-                    All Games
+                    {s.gridTitle ?? 'All Games'}
                   </h2>
                 </div>
               )}
@@ -951,6 +1268,36 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
             transition: 'transform 460ms cubic-bezier(.22,.61,.36,1)',
           }}
         >
+          {/* My Games header (no hero on this page). */}
+          {page === 'mygames' && (
+            <div style={{ padding: `${NAV_BAR_H + 44}px ${SHELF_PAD}px 4px` }}>
+              <h1 style={{ margin: 0, fontSize: 54, fontWeight: 800, letterSpacing: '-0.03em', color: INK }}>My Games</h1>
+              {favoriteGames.length === 0 && (
+                <p style={{ margin: '14px 0 0', fontSize: 20, color: '#8a8a9a' }}>
+                  Favorite a game (its ♥ on the game page) to see it here.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Search page: query + on-screen alphabet keyboard + live results. */}
+          {page === 'search' && (
+            <SearchBody
+              query={query}
+              results={searchResults}
+              resultChunks={resultChunks}
+              cols={RESULTS_COLS}
+              zone={searchZone}
+              kb={kb}
+              resNav={resNav}
+              navFocus={navFocus}
+              onKey={applyKey}
+              onPickResult={(g) => (isV3 ? launchGame(g) : openPanel(g))}
+            />
+          )}
+
+          {page === 'home' && (
+          <>
           {/* ── Hero ─────────────────────────────────────────────── */}
           <section style={{ position: 'relative', height: HERO_SECTION_H }}>
             {/* Incoming / current slide (outgoing is rendered after, so it
@@ -962,7 +1309,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
               promoGames={HUB_CATALOG}
               trialUrl={trialUrl}
               phase={heroTransFrom !== null ? 'in' : 'idle'}
-              heroFocused={nav.sec === 0}
+              heroFocused={nav.sec === 0 && !navFocus}
               pressing={pressing}
               onPlay={handleHeroPlay}
             />
@@ -974,28 +1321,30 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                 promoGames={HUB_CATALOG}
                 trialUrl={trialUrl}
                 phase="out"
-                heroFocused={nav.sec === 0}
+                heroFocused={nav.sec === 0 && !navFocus}
                 pressing={false}
                 onPlay={handleHeroPlay}
               />
             )}
 
-            {/* Persistent chrome (stays put across slide changes) */}
-            <div
-              style={{
-                position: 'absolute',
-                left: SHELF_PAD,
-                top: 44,
-                fontFamily: FONT,
-                fontWeight: 800,
-                fontSize: 44,
-                letterSpacing: '-0.02em',
-                color: INK,
-                textShadow: '0 2px 20px rgba(0,0,0,0.6)',
-              }}
-            >
-              weekend
-            </div>
+            {/* Brand wordmark — phase 1 shows it in the top nav bar instead. */}
+            {!hasTopNav && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: SHELF_PAD,
+                  top: 44,
+                  fontFamily: FONT,
+                  fontWeight: 800,
+                  fontSize: 44,
+                  letterSpacing: '-0.02em',
+                  color: INK,
+                  textShadow: '0 2px 20px rgba(0,0,0,0.6)',
+                }}
+              >
+                weekend
+              </div>
+            )}
 
             {/* Pairing panel — hidden by default; enable with ?pairing=true */}
             {showPairing && (
@@ -1049,7 +1398,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
             >
               {Array.from({ length: heroSlideCount }).map((_, i) => {
                 const active = i === nav.heroSlide;
-                const countdown = active && nav.sec === 0 && !reduceMotion && !panel.game;
+                const countdown = active && nav.sec === 0 && !navFocus && !reduceMotion && !panel.game;
                 return (
                   <span
                     key={`dot-${i}`}
@@ -1085,9 +1434,14 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
               })}
             </div>
           </section>
+          </>
+          )}
 
-          {rowsContent}
+          {(page === 'home' || page === 'mygames') && rowsContent}
         </div>
+
+        {/* ── Top navigation bar (phase 1) — persistent over the page ── */}
+        {hasTopNav && <TopNav page={page} navFocus={navFocus} navCol={navCol} onTab={goToPage} />}
 
         {/* ── All Games page (opened from the "See all games" tile) ── */}
         {allGamesOpen && (
@@ -2041,5 +2395,218 @@ function Tile({ game, variant, focused, pressing, slideshow, shot, onClick }: Ti
         </div>
       )}
     </button>
+  );
+}
+
+// ── Top navigation (phase 1) ──────────────────────────────────────────────────
+function IconSearch({ size = 22, color = INK }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="7" />
+      <line x1="21" y1="21" x2="16.5" y2="16.5" />
+    </svg>
+  );
+}
+function IconHome({ size = 22, color = INK }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 11.5 12 4l9 7.5" />
+      <path d="M5 10v9h14v-9" />
+    </svg>
+  );
+}
+function IconHeart({ size = 22, color = INK }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20s-7-4.6-9.2-9C1.3 8 2.6 5 5.6 5 7.6 5 9 6.3 12 9c3-2.7 4.4-4 6.4-4 3 0 4.3 3 2.8 6-2.2 4.4-9.2 9-9.2 9Z" />
+    </svg>
+  );
+}
+const NAV_ICONS: Record<Page, (p: { size?: number; color?: string }) => JSX.Element> = {
+  search: IconSearch,
+  home: IconHome,
+  mygames: IconHeart,
+};
+
+function TopNav({
+  page,
+  navFocus,
+  navCol,
+  onTab,
+}: {
+  page: Page;
+  navFocus: boolean;
+  navCol: number;
+  onTab: (p: Page) => void;
+}) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: STAGE_W,
+        height: NAV_BAR_H,
+        zIndex: 5,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 36,
+        padding: `0 ${SHELF_PAD}px`,
+        background: 'linear-gradient(to bottom, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.4) 55%, transparent 100%)',
+        fontFamily: FONT,
+      }}
+    >
+      <div style={{ fontWeight: 800, fontSize: 34, letterSpacing: '-0.02em', color: INK, marginRight: 6 }}>weekend</div>
+      <div style={{ display: 'flex', gap: 14 }}>
+        {TOP_NAV.map((t, i) => {
+          const active = t.key === page;
+          const focused = navFocus && i === navCol;
+          const Icon = NAV_ICONS[t.key];
+          const fg = focused ? '#000' : INK;
+          return (
+            <button
+              key={t.key}
+              onClick={() => onTab(t.key)}
+              style={{
+                appearance: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                height: 52,
+                padding: '0 22px',
+                borderRadius: 9999,
+                fontFamily: FONT,
+                fontSize: 20,
+                fontWeight: 700,
+                color: fg,
+                background: focused ? INK : active ? 'rgba(255,255,255,0.16)' : 'transparent',
+                border: `1px solid ${active && !focused ? 'rgba(255,255,255,0.32)' : 'transparent'}`,
+                boxShadow: focused ? '0 0 0 4px #fff, 0 12px 30px rgba(0,0,0,0.5)' : 'none',
+                transition: 'background 200ms ease, color 200ms ease, box-shadow 200ms ease',
+              }}
+            >
+              <Icon size={22} color={fg} />
+              <span>{t.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Search page body (query + on-screen alphabet keyboard + results) ──────────
+function SearchBody({
+  query,
+  results,
+  resultChunks,
+  zone,
+  kb,
+  resNav,
+  navFocus,
+  onKey,
+  onPickResult,
+}: {
+  query: string;
+  results: HubGame[];
+  resultChunks: HubGame[][];
+  cols: number;
+  zone: 'kb' | 'results';
+  kb: { r: number; c: number };
+  resNav: { row: number; col: number };
+  navFocus: boolean;
+  onKey: (key: string) => void;
+  onPickResult: (g: HubGame) => void;
+}) {
+  const keyLabel = (k: string) => (k === 'SPACE' ? 'SPACE' : k === 'DELETE' ? '⌫ DEL' : k === 'CLEAR' ? 'CLEAR' : k);
+  return (
+    <div style={{ padding: `${NAV_BAR_H + 44}px ${SHELF_PAD}px 60px`, display: 'flex', gap: 56, minHeight: STAGE_H }}>
+      {/* Left: query + keyboard */}
+      <div style={{ width: 540, flex: '0 0 auto' }}>
+        <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.12em', color: '#8a8a9a', textTransform: 'uppercase' }}>
+          Search
+        </div>
+        <div
+          style={{
+            marginTop: 14,
+            minHeight: 66,
+            paddingBottom: 8,
+            borderBottom: '2px solid #3a3b3f',
+            fontSize: 44,
+            fontWeight: 700,
+            color: query ? INK : '#5c5d63',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+          }}
+        >
+          {query || 'Type to search…'}
+        </div>
+        <div style={{ marginTop: 36, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {KB_GRID.map((rowKeys, r) => (
+            <div key={r} style={{ display: 'flex', gap: 14 }}>
+              {rowKeys.map((k, c) => {
+                const focused = !navFocus && zone === 'kb' && kb.r === r && kb.c === c;
+                const wide = k.length > 1;
+                return (
+                  <button
+                    key={k}
+                    onClick={() => onKey(k)}
+                    style={{
+                      appearance: 'none',
+                      cursor: 'pointer',
+                      height: 62,
+                      minWidth: wide ? 148 : 62,
+                      padding: wide ? '0 18px' : 0,
+                      borderRadius: 12,
+                      fontFamily: FONT,
+                      fontSize: wide ? 17 : 25,
+                      fontWeight: 700,
+                      letterSpacing: wide ? '0.05em' : 0,
+                      color: focused ? '#000' : INK,
+                      background: focused ? INK : '#17181c',
+                      border: `1px solid ${focused ? '#fff' : '#2b2c30'}`,
+                      boxShadow: focused ? '0 0 0 4px #fff' : 'none',
+                      transition: 'background 140ms ease, color 140ms ease, box-shadow 140ms ease',
+                    }}
+                  >
+                    {keyLabel(k)}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Right: live results */}
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.12em', color: '#8a8a9a', textTransform: 'uppercase' }}>
+          {query.trim() ? `${results.length} result${results.length === 1 ? '' : 's'}` : 'Results'}
+        </div>
+        <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: TILE.grid.gap }}>
+          {resultChunks.map((rowGames, ri) => (
+            <div key={ri} style={{ display: 'flex', gap: TILE.grid.gap }}>
+              {rowGames.map((g, ci) => (
+                <Tile
+                  key={g.id}
+                  game={g}
+                  variant="grid"
+                  focused={!navFocus && zone === 'results' && resNav.row === ri && resNav.col === ci}
+                  pressing={false}
+                  slideshow={false}
+                  shot={0}
+                  onClick={() => onPickResult(g)}
+                />
+              ))}
+            </div>
+          ))}
+          {query.trim() && results.length === 0 && (
+            <p style={{ fontSize: 22, color: '#8a8a9a' }}>No games match “{query.trim()}”.</p>
+          )}
+          {!query.trim() && <p style={{ fontSize: 22, color: '#8a8a9a' }}>Use the keyboard to find a game by name.</p>}
+        </div>
+      </div>
+    </div>
   );
 }
