@@ -1304,17 +1304,23 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // — flip the QR to a checked state and play the success sound.
   useEffect(() => {
     if (!upsellOpen) return;
+    let dismiss: ReturnType<typeof setTimeout> | undefined;
     const onKey = (e: KeyboardEvent) => {
       if ((e.key === 's' || e.key === 'S') && !signedInRef.current) {
         signedInRef.current = true;
         setSignedIn(true);
         setSignInDone(true);
         soundManager.playSuccessSound();
+        // Let the success confirmation land, then auto-dismiss the upsell.
+        dismiss = setTimeout(() => closeUpsell(), 1000);
       }
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [upsellOpen]);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      if (dismiss) clearTimeout(dismiss);
+    };
+  }, [upsellOpen, closeUpsell]);
 
   // Favorites changed: keep hub focus on the same row when the Favorites row
   // appears/disappears at the top, and clamp the column if that row shrank.
