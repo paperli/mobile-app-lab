@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite --port 5173",
     "build": "tsc && vite build",
+    "build:demo": "vite build --config vite.demo.config.ts",
+    "preview:demo": "vite preview --config vite.demo.config.ts --port 4173",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
   },
