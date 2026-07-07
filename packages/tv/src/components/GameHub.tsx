@@ -139,6 +139,10 @@ const HOME_TAB = TOP_NAV.findIndex((t) => t.key === 'home'); // default focus
 // Games featured in the My Games empty state (a nudge to start playing).
 const MYGAMES_EMPTY_IDS = ['jeopardy', 'song-quiz', 'wits-end'];
 
+// Profiles (prototype): four switchable players with editable names.
+const PROFILE_NAMES_DEFAULT = ['Alex', 'Jamie', 'Riley', 'Sam'];
+const PROFILE_MENU = ['Settings', 'Switch Profile'] as const;
+
 // On-screen alphabet keyboard for the Search page (TV-style, not QWERTY). Rows
 // of letters plus an action row; navigation clamps the column per row.
 const KB_GRID: string[][] = [
@@ -312,6 +316,22 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const [searchZone, setSearchZone] = useState<'kb' | 'results'>('kb');
   const [resNav, setResNav] = useState({ row: 0, col: 0 });
 
+  // Profile / account (prototype pseudo-state).
+  const [signedIn, setSignedIn] = useState(true);
+  const [profileIdx, setProfileIdx] = useState(0);
+  const [profileNames, setProfileNames] = useState<string[]>(PROFILE_NAMES_DEFAULT);
+  const [profileMenu, setProfileMenu] = useState<number | null>(null); // dropdown focus (null = closed)
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsFocus, setSettingsFocus] = useState(0); // 0 = member block, 1 = Sign Out
+  const [switchOpen, setSwitchOpen] = useState(false);
+  const [switchNav, setSwitchNav] = useState<{ col: number; row: 0 | 1 }>({ col: 0, row: 0 }); // row 0 = pick, 1 = edit
+  const [signOutConfirm, setSignOutConfirm] = useState(false);
+  const [signOutFocus, setSignOutFocus] = useState(0); // 0 = Cancel, 1 = Sign Out
+  const [editingProfile, setEditingProfile] = useState<number | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editKb, setEditKb] = useState({ r: 0, c: 0 });
+  const [signInDone, setSignInDone] = useState(false); // QR "checked" flash on the sign-in upsell
+
   const navRef = useRef(nav);
   navRef.current = nav;
   const allGamesOpenRef = useRef(allGamesOpen);
@@ -336,6 +356,32 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   searchZoneRef.current = searchZone;
   const resNavRef = useRef(resNav);
   resNavRef.current = resNav;
+  const signedInRef = useRef(signedIn);
+  signedInRef.current = signedIn;
+  const profileIdxRef = useRef(profileIdx);
+  profileIdxRef.current = profileIdx;
+  const profileNamesRef = useRef(profileNames);
+  profileNamesRef.current = profileNames;
+  const profileMenuRef = useRef(profileMenu);
+  profileMenuRef.current = profileMenu;
+  const settingsOpenRef = useRef(settingsOpen);
+  settingsOpenRef.current = settingsOpen;
+  const settingsFocusRef = useRef(settingsFocus);
+  settingsFocusRef.current = settingsFocus;
+  const switchOpenRef = useRef(switchOpen);
+  switchOpenRef.current = switchOpen;
+  const switchNavRef = useRef(switchNav);
+  switchNavRef.current = switchNav;
+  const signOutConfirmRef = useRef(signOutConfirm);
+  signOutConfirmRef.current = signOutConfirm;
+  const signOutFocusRef = useRef(signOutFocus);
+  signOutFocusRef.current = signOutFocus;
+  const editingProfileRef = useRef(editingProfile);
+  editingProfileRef.current = editingProfile;
+  const editNameRef = useRef(editName);
+  editNameRef.current = editName;
+  const editKbRef = useRef(editKb);
+  editKbRef.current = editKb;
   const panelRef = useRef(panel);
   panelRef.current = panel;
   const colMemoryRef = useRef<number[]>([]);
@@ -456,6 +502,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const openUpsell = useCallback(() => {
     upsellOpenRef.current = true;
     setUpsellOpen(true);
+    setSignInDone(false); // fresh QR each time the sign-in/upsell opens
     soundManager.playSelectionSound();
   }, []);
 
@@ -611,7 +658,200 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     soundManager.playNavigationSound();
   }, []);
 
+  // ── Profile / account callbacks ─────────────────────────────────────────────
+  // OK on the profile button: open the dropdown (signed in) or the sign-in
+  // upsell (signed out).
+  const openProfile = useCallback(() => {
+    if (signedInRef.current) {
+      profileMenuRef.current = 0;
+      setProfileMenu(0);
+      soundManager.playSelectionSound();
+    } else {
+      openUpsell();
+    }
+  }, [openUpsell]);
+  const closeProfileMenu = useCallback(() => {
+    profileMenuRef.current = null;
+    setProfileMenu(null);
+    soundManager.playNavigationSound();
+  }, []);
+  const openSettings = useCallback(() => {
+    profileMenuRef.current = null;
+    setProfileMenu(null);
+    settingsOpenRef.current = true;
+    setSettingsOpen(true);
+    settingsFocusRef.current = 0;
+    setSettingsFocus(0);
+    soundManager.playSelectionSound();
+  }, []);
+  const closeSettings = useCallback(() => {
+    settingsOpenRef.current = false;
+    setSettingsOpen(false);
+    soundManager.playNavigationSound();
+  }, []);
+  const openSwitch = useCallback(() => {
+    profileMenuRef.current = null;
+    setProfileMenu(null);
+    switchOpenRef.current = true;
+    setSwitchOpen(true);
+    const n = { col: profileIdxRef.current, row: 0 as 0 | 1 };
+    switchNavRef.current = n;
+    setSwitchNav(n);
+    soundManager.playSelectionSound();
+  }, []);
+  const closeSwitch = useCallback(() => {
+    switchOpenRef.current = false;
+    setSwitchOpen(false);
+    soundManager.playNavigationSound();
+  }, []);
+  const selectProfile = useCallback((i: number) => {
+    profileIdxRef.current = i;
+    setProfileIdx(i);
+    switchOpenRef.current = false;
+    setSwitchOpen(false);
+    soundManager.playSelectionSound();
+  }, []);
+  const startEdit = useCallback((i: number) => {
+    editingProfileRef.current = i;
+    setEditingProfile(i);
+    const nm = profileNamesRef.current[i] ?? '';
+    editNameRef.current = nm;
+    setEditName(nm);
+    editKbRef.current = { r: 0, c: 0 };
+    setEditKb({ r: 0, c: 0 });
+    soundManager.playSelectionSound();
+  }, []);
+  const commitEdit = useCallback(() => {
+    const i = editingProfileRef.current;
+    if (i !== null) {
+      setProfileNames((prev) => {
+        const n = [...prev];
+        n[i] = editNameRef.current.trim() || prev[i];
+        return n;
+      });
+    }
+    editingProfileRef.current = null;
+    setEditingProfile(null);
+    soundManager.playNavigationSound();
+  }, []);
+  const applyEditKey = useCallback((key: string) => {
+    setEditName((q) => {
+      let n = q;
+      if (key === 'SPACE') n = q + ' ';
+      else if (key === 'DELETE') n = q.slice(0, -1);
+      else if (key === 'CLEAR') n = '';
+      else n = (q + key).slice(0, 16);
+      editNameRef.current = n;
+      return n;
+    });
+    soundManager.playNavigationSound();
+  }, []);
+  const openSignOutConfirm = useCallback(() => {
+    signOutConfirmRef.current = true;
+    setSignOutConfirm(true);
+    signOutFocusRef.current = 0;
+    setSignOutFocus(0);
+    soundManager.playSelectionSound();
+  }, []);
+  const closeSignOutConfirm = useCallback(() => {
+    signOutConfirmRef.current = false;
+    setSignOutConfirm(false);
+    soundManager.playNavigationSound();
+  }, []);
+  const doSignOut = useCallback(() => {
+    signOutConfirmRef.current = false;
+    setSignOutConfirm(false);
+    settingsOpenRef.current = false;
+    setSettingsOpen(false);
+    signedInRef.current = false;
+    setSignedIn(false);
+    soundManager.playSelectionSound();
+  }, []);
+
   const move = useCallback((dx: number, dy: number) => {
+    // ── Profile overlays (highest priority) ──
+    // Sign-out confirmation: ◀▶ between Cancel / Sign Out.
+    if (signOutConfirmRef.current) {
+      if (dx !== 0) {
+        const nf = signOutFocusRef.current === 0 ? 1 : 0;
+        signOutFocusRef.current = nf;
+        setSignOutFocus(nf);
+        soundManager.playNavigationSound();
+      } else soundManager.playBounceSound();
+      return;
+    }
+    // Profile name editor: alphabet keyboard grid.
+    if (editingProfileRef.current !== null) {
+      let { r, c } = editKbRef.current;
+      if (dx !== 0) {
+        const nc = c + (dx > 0 ? 1 : -1);
+        if (nc < 0 || nc >= KB_GRID[r].length) {
+          soundManager.playBounceSound();
+          return;
+        }
+        c = nc;
+      } else if (dy !== 0) {
+        const nr = r + (dy > 0 ? 1 : -1);
+        if (nr < 0 || nr >= KB_GRID.length) {
+          soundManager.playBounceSound();
+          return;
+        }
+        r = nr;
+        c = Math.min(c, KB_GRID[nr].length - 1);
+      }
+      editKbRef.current = { r, c };
+      setEditKb({ r, c });
+      soundManager.playNavigationSound();
+      return;
+    }
+    // Settings page: ▲▼ between the member block and Sign Out.
+    if (settingsOpenRef.current) {
+      if (dy !== 0) {
+        const nf = Math.min(Math.max(0, settingsFocusRef.current + (dy > 0 ? 1 : -1)), 1);
+        if (nf !== settingsFocusRef.current) {
+          settingsFocusRef.current = nf;
+          setSettingsFocus(nf);
+          soundManager.playNavigationSound();
+        } else soundManager.playBounceSound();
+      } else soundManager.playBounceSound();
+      return;
+    }
+    // Switch Profile page: ◀▶ across profiles, ▲▼ between pick / edit.
+    if (switchOpenRef.current) {
+      let { col, row } = switchNavRef.current;
+      if (dx !== 0) {
+        const nc = col + (dx > 0 ? 1 : -1);
+        if (nc < 0 || nc >= 4) {
+          soundManager.playBounceSound();
+          return;
+        }
+        col = nc;
+      } else if (dy !== 0) {
+        const nr = row + (dy > 0 ? 1 : -1);
+        if (nr < 0 || nr > 1) {
+          soundManager.playBounceSound();
+          return;
+        }
+        row = nr as 0 | 1;
+      }
+      switchNavRef.current = { col, row };
+      setSwitchNav({ col, row });
+      soundManager.playNavigationSound();
+      return;
+    }
+    // Profile dropdown: ▲▼ between items.
+    if (profileMenuRef.current !== null) {
+      if (dy !== 0) {
+        const nf = Math.min(Math.max(0, profileMenuRef.current + (dy > 0 ? 1 : -1)), PROFILE_MENU.length - 1);
+        if (nf !== profileMenuRef.current) {
+          profileMenuRef.current = nf;
+          setProfileMenu(nf);
+          soundManager.playNavigationSound();
+        } else soundManager.playBounceSound();
+      } else soundManager.playBounceSound();
+      return;
+    }
+
     // While the panel is open, ▲▼ move between its actions.
     const p = panelRef.current;
     if (p.game) {
@@ -659,10 +899,11 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       return;
     }
 
-    // Top nav zone: ◀▶ switch tab, ▼ enters the page content.
+    // Top nav zone: ◀▶ move across tabs + the profile button, ▼ enters content.
     if (navFocusRef.current) {
       if (dx !== 0) {
-        const nc = Math.min(Math.max(0, navColRef.current + (dx > 0 ? 1 : -1)), TOP_NAV.length - 1);
+        // Index TOP_NAV.length is the profile / sign-in button on the right.
+        const nc = Math.min(Math.max(0, navColRef.current + (dx > 0 ? 1 : -1)), TOP_NAV.length);
         if (nc !== navColRef.current) {
           navColRef.current = nc;
           setNavCol(nc);
@@ -816,7 +1057,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       navRef.current = next;
       setNav(next);
     }
-  }, [toNav, enterContent]);
+  }, [toNav, enterContent]); // profile-overlay branches use refs + stable setters only
 
   const navigate = useCallback(
     (direction: NavigationDirection) => {
@@ -857,6 +1098,37 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
 
   const doAction = useCallback(
     (action: NavigationAction) => {
+      // ── Profile overlays (highest priority) ──
+      if (signOutConfirmRef.current) {
+        if (action === 'back') closeSignOutConfirm();
+        else if (action === 'ok') (signOutFocusRef.current === 1 ? doSignOut : closeSignOutConfirm)();
+        return;
+      }
+      if (editingProfileRef.current !== null) {
+        if (action === 'back') commitEdit();
+        else if (action === 'ok') applyEditKey(KB_GRID[editKbRef.current.r][editKbRef.current.c]);
+        return;
+      }
+      if (settingsOpenRef.current) {
+        if (action === 'back') closeSettings();
+        else if (action === 'ok' && settingsFocusRef.current === 1) openSignOutConfirm();
+        return;
+      }
+      if (switchOpenRef.current) {
+        if (action === 'back') closeSwitch();
+        else if (action === 'ok') {
+          const { col, row } = switchNavRef.current;
+          if (row === 0) selectProfile(col);
+          else startEdit(col);
+        }
+        return;
+      }
+      if (profileMenuRef.current !== null) {
+        if (action === 'back') closeProfileMenu();
+        else if (action === 'ok') (profileMenuRef.current === 0 ? openSettings : openSwitch)();
+        return;
+      }
+
       const p = panelRef.current;
       if (p.game) {
         if (action === 'back') {
@@ -893,10 +1165,14 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
         }
         return;
       }
-      // Top nav focused: OK switches page. Back is not consumed here (the
-      // caller opens the exit menu / returns to the gallery).
+      // Top nav focused: OK switches page, or opens the profile button's action
+      // (dropdown when signed in, sign-in upsell when signed out). Back is not
+      // consumed here (the caller opens the exit menu / returns to the gallery).
       if (navFocusRef.current) {
-        if (action === 'ok') goToPage(TOP_NAV[navColRef.current].key);
+        if (action === 'ok') {
+          if (navColRef.current >= TOP_NAV.length) openProfile();
+          else goToPage(TOP_NAV[navColRef.current].key);
+        }
         return;
       }
 
@@ -960,7 +1236,11 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
         else openPanel(g);
       }
     },
-    [closePanel, closeAllGames, closeUpsell, openAllGames, launchGame, toggleFavorite, launch, openPanel, goToPage, applyKey, toNav]
+    [
+      closePanel, closeAllGames, closeUpsell, openAllGames, launchGame, toggleFavorite, launch, openPanel,
+      goToPage, applyKey, toNav, openProfile, closeProfileMenu, openSettings, closeSettings, openSwitch,
+      closeSwitch, selectProfile, startEdit, commitEdit, applyEditKey, openSignOutConfirm, closeSignOutConfirm, doSignOut,
+    ]
   );
 
   useImperativeHandle(
@@ -978,6 +1258,11 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
         panelRef.current.game !== null ||
         allGamesOpenRef.current ||
         upsellOpenRef.current ||
+        profileMenuRef.current !== null ||
+        settingsOpenRef.current ||
+        switchOpenRef.current ||
+        signOutConfirmRef.current ||
+        editingProfileRef.current !== null ||
         (hasTopNavRef.current && !navFocusRef.current),
     }),
     [navigate, doAction, focusGame]
@@ -1014,6 +1299,22 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     const t = setInterval(() => setPanelShot((s) => (s + 1) % SHOT_VARIANTS.length), 1800);
     return () => clearInterval(t);
   }, [panel.game]);
+
+  // Prototype: pressing "s" on the sign-in upsell simulates a successful sign-in
+  // — flip the QR to a checked state and play the success sound.
+  useEffect(() => {
+    if (!upsellOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.key === 's' || e.key === 'S') && !signedInRef.current) {
+        signedInRef.current = true;
+        setSignedIn(true);
+        setSignInDone(true);
+        soundManager.playSuccessSound();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [upsellOpen]);
 
   // Favorites changed: keep hub focus on the same row when the Favorites row
   // appears/disappears at the top, and clamp the column if that row shrank.
@@ -1510,7 +1811,20 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
         </div>
 
         {/* ── Top navigation bar (phase 1) — persistent over the page ── */}
-        {hasTopNav && <TopNav page={page} navFocus={navFocus} navCol={navCol} onTab={goToPage} />}
+        {hasTopNav && (
+          <TopNav
+            page={page}
+            navFocus={navFocus}
+            navCol={navCol}
+            signedIn={signedIn}
+            profileIdx={profileIdx}
+            profileName={profileNames[profileIdx]}
+            profileMenu={profileMenu}
+            onTab={goToPage}
+            onProfile={openProfile}
+            onMenuPick={(i) => (i === 0 ? openSettings() : openSwitch())}
+          />
+        )}
 
         {/* ── All Games page (opened from the "See all games" tile) ── */}
         {allGamesOpen && (
@@ -1605,8 +1919,39 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
             </div>
             {/* QR + scan hint */}
             <div style={{ position: 'absolute', left: 140, top: 600, display: 'flex', alignItems: 'flex-start', gap: 36 }}>
-              <div style={{ background: '#fff', padding: 24, borderRadius: 24, lineHeight: 0, boxShadow: '0 30px 80px rgba(0,0,0,0.85), 0 8px 24px rgba(0,0,0,0.6)' }}>
-                <QRCodeSVG value={mobileUrl} size={300} level="M" includeMargin={false} />
+              <div
+                style={{
+                  position: 'relative',
+                  width: 348,
+                  height: 348,
+                  background: '#fff',
+                  padding: 24,
+                  borderRadius: 24,
+                  lineHeight: 0,
+                  boxShadow: '0 30px 80px rgba(0,0,0,0.85), 0 8px 24px rgba(0,0,0,0.6)',
+                  boxSizing: 'border-box',
+                }}
+              >
+                <div style={{ opacity: signInDone ? 0 : 1, transition: 'opacity 400ms ease' }}>
+                  <QRCodeSVG value={mobileUrl} size={300} level="M" includeMargin={false} />
+                </div>
+                {/* Checked state after a simulated sign-in. */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'grid',
+                    placeItems: 'center',
+                    opacity: signInDone ? 1 : 0,
+                    transform: signInDone ? 'scale(1)' : 'scale(0.8)',
+                    transition: 'opacity 400ms ease, transform 400ms cubic-bezier(.22,.61,.36,1)',
+                  }}
+                >
+                  <svg width={160} height={160} viewBox="0 0 24 24" fill="none" stroke="#0a0b0d" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M8 12.5l2.5 2.5L16 9.5" />
+                  </svg>
+                </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 40, paddingTop: 12 }}>
                 <div
@@ -1654,7 +1999,240 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
             </div>
             {/* Back hint */}
             <div style={{ position: 'absolute', left: 140, bottom: 44, fontSize: 18, color: '#8a8a9a' }}>
+              Press Back to return{!signedIn && ' · press S to simulate sign-in'}
+            </div>
+          </div>
+        )}
+
+        {/* ── Settings page ─────────────────────────────────────────── */}
+        {settingsOpen && (
+          <div style={{ position: 'absolute', inset: 0, background: STAGE_BG, zIndex: 9, overflow: 'hidden', fontFamily: FONT }}>
+            <div style={{ padding: `72px ${SHELF_PAD}px 0` }}>
+              <h1 style={{ margin: 0, fontSize: 54, fontWeight: 800, letterSpacing: '-0.03em', color: INK }}>Settings</h1>
+              <div style={{ marginTop: 44, display: 'flex', flexDirection: 'column', gap: 28, maxWidth: 900 }}>
+                {/* Membership block (default focus) */}
+                <div
+                  style={{
+                    padding: '30px 34px',
+                    borderRadius: 18,
+                    background: '#141518',
+                    border: `1px solid ${settingsFocus === 0 ? '#fff' : '#2b2c30'}`,
+                    boxShadow: settingsFocus === 0 ? '0 0 0 3px #fff' : 'none',
+                    transition: 'box-shadow 160ms ease, border-color 160ms ease',
+                  }}
+                >
+                  <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#8a8a9a' }}>
+                    Membership
+                  </div>
+                  <div style={{ marginTop: 10, fontSize: 34, fontWeight: 800, letterSpacing: '-0.01em', color: INK }}>
+                    Free Trial
+                  </div>
+                  <div style={{ marginTop: 10, fontSize: 19, color: 'rgba(243,244,241,0.7)' }}>
+                    Manage your subscription on account.weekend.com
+                  </div>
+                </div>
+                {/* Sign out */}
+                <button
+                  onClick={openSignOutConfirm}
+                  style={{
+                    appearance: 'none',
+                    alignSelf: 'flex-start',
+                    cursor: 'pointer',
+                    padding: '16px 30px',
+                    borderRadius: 9999,
+                    fontFamily: FONT,
+                    fontSize: 20,
+                    fontWeight: 700,
+                    color: settingsFocus === 1 ? '#000' : INK,
+                    background: settingsFocus === 1 ? INK : '#17181c',
+                    border: `1px solid ${settingsFocus === 1 ? '#fff' : '#3a3b3f'}`,
+                    boxShadow: settingsFocus === 1 ? '0 0 0 4px #fff' : 'none',
+                    transition: 'all 160ms ease',
+                  }}
+                >
+                  Sign Out from the TV
+                </button>
+              </div>
+              {/* Support QR */}
+              <div style={{ marginTop: 64, display: 'flex', alignItems: 'center', gap: 26 }}>
+                <div style={{ background: '#fff', padding: 14, borderRadius: 16, lineHeight: 0 }}>
+                  <QRCodeSVG value="https://support.weekend.com" size={120} level="M" includeMargin={false} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: INK }}>Need help?</div>
+                  <div style={{ marginTop: 8, fontSize: 19, color: 'rgba(243,244,241,0.7)' }}>
+                    Scan the QR code to get support.
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style={{ position: 'absolute', left: SHELF_PAD, bottom: 44, fontSize: 18, color: '#8a8a9a' }}>
               Press Back to return
+            </div>
+          </div>
+        )}
+
+        {/* ── Switch Profile page ───────────────────────────────────── */}
+        {switchOpen && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: STAGE_BG,
+              zIndex: 9,
+              overflow: 'hidden',
+              fontFamily: FONT,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 56,
+            }}
+          >
+            <h1 style={{ margin: 0, fontSize: 54, fontWeight: 800, letterSpacing: '-0.03em', color: INK }}>Who’s playing?</h1>
+            <div style={{ display: 'flex', gap: 56 }}>
+              {profileNames.map((name, i) => {
+                const active = i === profileIdx;
+                const pickFocused = switchNav.col === i && switchNav.row === 0;
+                const editFocused = switchNav.col === i && switchNav.row === 1;
+                return (
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
+                    <button
+                      onClick={() => selectProfile(i)}
+                      style={{
+                        appearance: 'none',
+                        cursor: 'pointer',
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        borderRadius: '50%',
+                        transform: pickFocused ? 'scale(1.06)' : 'scale(1)',
+                        boxShadow: pickFocused ? '0 0 0 5px #fff' : active ? '0 0 0 3px rgba(255,255,255,0.4)' : 'none',
+                        transition: 'transform 180ms ease, box-shadow 180ms ease',
+                      }}
+                    >
+                      <Avatar index={i} size={180} />
+                    </button>
+                    <div style={{ fontSize: 26, fontWeight: 700, color: INK }}>{name}</div>
+                    <button
+                      onClick={() => startEdit(i)}
+                      style={{
+                        appearance: 'none',
+                        cursor: 'pointer',
+                        padding: '8px 18px',
+                        borderRadius: 9999,
+                        fontFamily: FONT,
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: editFocused ? '#000' : '#b9babe',
+                        background: editFocused ? INK : 'transparent',
+                        border: `1px solid ${editFocused ? '#fff' : '#3a3b3f'}`,
+                        boxShadow: editFocused ? '0 0 0 3px #fff' : 'none',
+                        transition: 'all 160ms ease',
+                      }}
+                    >
+                      Edit name
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ position: 'absolute', bottom: 44, fontSize: 18, color: '#8a8a9a' }}>Press Back to return</div>
+          </div>
+        )}
+
+        {/* ── Profile name editor (over Switch Profile) ─────────────── */}
+        {editingProfile !== null && (
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(6,7,9,0.92)', zIndex: 14, display: 'grid', placeItems: 'center', fontFamily: FONT }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28, width: 620 }}>
+              <Avatar index={editingProfile} size={120} />
+              <div
+                style={{
+                  minWidth: 380,
+                  textAlign: 'center',
+                  paddingBottom: 10,
+                  borderBottom: '2px solid #3a3b3f',
+                  fontSize: 44,
+                  fontWeight: 800,
+                  color: editName ? INK : '#5c5d63',
+                }}
+              >
+                {editName || 'Name'}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {KB_GRID.map((rowKeys, r) => (
+                  <div key={r} style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+                    {rowKeys.map((k, c) => {
+                      const focused = editKb.r === r && editKb.c === c;
+                      const wide = k.length > 1;
+                      return (
+                        <button
+                          key={k}
+                          onClick={() => applyEditKey(k)}
+                          style={{
+                            appearance: 'none',
+                            cursor: 'pointer',
+                            height: 54,
+                            minWidth: wide ? 128 : 54,
+                            padding: wide ? '0 16px' : 0,
+                            borderRadius: 11,
+                            fontFamily: FONT,
+                            fontSize: wide ? 15 : 22,
+                            fontWeight: 700,
+                            color: focused ? '#000' : INK,
+                            background: focused ? INK : '#17181c',
+                            border: `1px solid ${focused ? '#fff' : '#2b2c30'}`,
+                            boxShadow: focused ? '0 0 0 4px #fff' : 'none',
+                            transition: 'all 140ms ease',
+                          }}
+                        >
+                          {k === 'SPACE' ? 'SPACE' : k === 'DELETE' ? '⌫ DEL' : k === 'CLEAR' ? 'CLEAR' : k}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: 17, color: '#8a8a9a' }}>Press Back to save</div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Sign-out confirmation ─────────────────────────────────── */}
+        {signOutConfirm && (
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(6,7,9,0.9)', zIndex: 14, display: 'grid', placeItems: 'center', fontFamily: FONT }}>
+            <div style={{ width: 640, padding: '44px 48px', borderRadius: 24, background: '#0d0e10', border: '1px solid #26272b', textAlign: 'center' }}>
+              <h2 style={{ margin: 0, fontSize: 36, fontWeight: 800, letterSpacing: '-0.01em', color: INK }}>Sign out from this TV?</h2>
+              <p style={{ margin: '14px 0 0', fontSize: 20, color: 'rgba(243,244,241,0.7)' }}>
+                You’ll need to sign in again to play.
+              </p>
+              <div style={{ marginTop: 32, display: 'flex', gap: 16, justifyContent: 'center' }}>
+                {['Cancel', 'Sign Out'].map((label, i) => {
+                  const focused = signOutFocus === i;
+                  return (
+                    <button
+                      key={label}
+                      onClick={() => (i === 1 ? doSignOut() : closeSignOutConfirm())}
+                      style={{
+                        appearance: 'none',
+                        cursor: 'pointer',
+                        padding: '16px 34px',
+                        borderRadius: 9999,
+                        fontFamily: FONT,
+                        fontSize: 20,
+                        fontWeight: 700,
+                        color: focused ? '#000' : INK,
+                        background: focused ? INK : '#17181c',
+                        border: `1px solid ${focused ? '#fff' : '#3a3b3f'}`,
+                        boxShadow: focused ? '0 0 0 4px #fff' : 'none',
+                        transition: 'all 160ms ease',
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
@@ -2501,13 +3079,26 @@ function TopNav({
   page,
   navFocus,
   navCol,
+  signedIn,
+  profileIdx,
+  profileName,
+  profileMenu,
   onTab,
+  onProfile,
+  onMenuPick,
 }: {
   page: Page;
   navFocus: boolean;
   navCol: number;
+  signedIn: boolean;
+  profileIdx: number;
+  profileName: string;
+  profileMenu: number | null;
   onTab: (p: Page) => void;
+  onProfile: () => void;
+  onMenuPick: (i: number) => void;
 }) {
+  const profileFocused = navFocus && navCol === TOP_NAV.length;
   return (
     <div
       style={{
@@ -2589,6 +3180,128 @@ function TopNav({
           );
         })}
       </div>
+
+      {/* Profile / sign-in button (right), with its dropdown. */}
+      <div
+        style={{
+          position: 'absolute',
+          right: SHELF_PAD,
+          top: 0,
+          height: NAV_BAR_H,
+          display: 'flex',
+          alignItems: 'center',
+          transform: navFocus ? 'scale(1)' : 'scale(0.9)',
+          transformOrigin: 'right center',
+          transition: 'transform 240ms ease',
+        }}
+      >
+        <button
+          onClick={onProfile}
+          style={{
+            appearance: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            height: 56,
+            padding: signedIn ? '0 6px' : '0 24px',
+            paddingRight: signedIn && profileFocused ? 22 : 6,
+            borderRadius: 9999,
+            fontFamily: FONT,
+            fontSize: 20,
+            fontWeight: 700,
+            color: profileFocused && !signedIn ? '#000' : INK,
+            background: profileFocused ? (signedIn ? 'rgba(255,255,255,0.16)' : INK) : 'transparent',
+            border: `1px solid ${profileFocused || !signedIn ? 'rgba(255,255,255,0.32)' : 'transparent'}`,
+            boxShadow: profileFocused ? '0 0 0 4px #fff, 0 12px 30px rgba(0,0,0,0.5)' : 'none',
+            transition: 'background 200ms ease, box-shadow 200ms ease, padding 200ms ease',
+          }}
+        >
+          {signedIn ? (
+            <>
+              <Avatar index={profileIdx} size={44} />
+              {profileFocused && <span style={{ color: INK }}>{profileName}</span>}
+            </>
+          ) : (
+            'Sign In'
+          )}
+        </button>
+
+        {/* Dropdown */}
+        {profileMenu !== null && (
+          <div
+            style={{
+              position: 'absolute',
+              top: NAV_BAR_H - 8,
+              right: 0,
+              minWidth: 240,
+              padding: 8,
+              borderRadius: 16,
+              background: '#0d0e10',
+              border: '1px solid #26272b',
+              boxShadow: '0 30px 70px rgba(0,0,0,0.7)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4,
+            }}
+          >
+            {PROFILE_MENU.map((label, i) => {
+              const focused = profileMenu === i;
+              return (
+                <button
+                  key={label}
+                  onClick={() => onMenuPick(i)}
+                  style={{
+                    appearance: 'none',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    padding: '16px 18px',
+                    borderRadius: 11,
+                    fontFamily: FONT,
+                    fontSize: 20,
+                    fontWeight: 700,
+                    color: focused ? '#000' : INK,
+                    background: focused ? INK : 'transparent',
+                    border: 'none',
+                    transition: 'background 140ms ease, color 140ms ease',
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Circular profile avatar (prototype: deterministic B&W portrait) ───────────
+function Avatar({ index, size = 52 }: { index: number; size?: number }) {
+  const grads = [
+    'linear-gradient(135deg,#e9eaec,#8a8b90)',
+    'linear-gradient(135deg,#c7c8cc,#5c5d63)',
+    'linear-gradient(135deg,#b6b7bc,#3a3b40)',
+    'linear-gradient(135deg,#d9dade,#6f7076)',
+  ];
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        background: grads[index % grads.length],
+        display: 'grid',
+        placeItems: 'center',
+        overflow: 'hidden',
+        flex: '0 0 auto',
+      }}
+    >
+      <svg width={size * 0.66} height={size * 0.66} viewBox="0 0 24 24" fill="rgba(18,19,22,0.72)">
+        <circle cx="12" cy="8.2" r="4.2" />
+        <path d="M12 13.6c-4.3 0-7.6 2.7-7.6 6.2 0 .3.2.5.5.5h14.2c.3 0 .5-.2.5-.5 0-3.5-3.3-6.2-7.6-6.2Z" />
+      </svg>
     </div>
   );
 }

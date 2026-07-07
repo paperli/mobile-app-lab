@@ -12,6 +12,7 @@ class SoundManager {
     navigation: '/audio/navigation.mp3',
     selection: '/audio/selection.mp3',
     bounce: '/audio/bounce.mp3',
+    success: '/audio/success.m4a',
   };
 
   /**
@@ -112,6 +113,11 @@ class SoundManager {
   // Play a bounce sound (when hitting boundaries)
   playBounceSound() {
     this.playSound('bounce');
+  }
+
+  // Play a success sound (e.g. sign-in confirmation)
+  playSuccessSound() {
+    this.playSound('success');
   }
 }
 
