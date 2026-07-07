@@ -205,7 +205,10 @@ function PrototypeGroup({ title, options }: { title: string; options: LayoutOpti
         style={{
           marginTop: 20,
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          // Cap columns at a 1/3-width slot so a lone tile doesn't stretch to
+          // fill the row; the max matches (content − gaps) / 3.
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 377px))',
+          justifyContent: 'start',
           gap: 24,
         }}
       >
