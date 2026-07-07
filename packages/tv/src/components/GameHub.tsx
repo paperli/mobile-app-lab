@@ -1229,6 +1229,10 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           return;
         }
         const row = navRowsRef.current[cur.sec - 1];
+        if (row?.banner) {
+          openUpsell(); // the free-trial banner opens the full-page upsell
+          return;
+        }
         if (row?.seeAll && cur.col >= row.games.length) {
           openAllGames(); // the trailing "See all games" tile
           return;
@@ -1240,7 +1244,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       }
     },
     [
-      closePanel, closeAllGames, closeUpsell, openAllGames, launchGame, toggleFavorite, launch, openPanel,
+      closePanel, closeAllGames, closeUpsell, openUpsell, openAllGames, launchGame, toggleFavorite, launch, openPanel,
       goToPage, applyKey, toNav, openProfile, closeProfileMenu, openSettings, closeSettings, openSwitch,
       closeSwitch, selectProfile, startEdit, commitEdit, applyEditKey, openSignOutConfirm, closeSignOutConfirm, doSignOut,
     ]
@@ -1432,7 +1436,10 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
               style={{ padding: `0 ${SHELF_PAD}px`, marginTop: 44 }}
             >
               <button
-                onClick={() => focusSection(sectionIndex, 0)}
+                onClick={() => {
+                  focusSection(sectionIndex, 0);
+                  openUpsell();
+                }}
                 style={{
                   appearance: 'none',
                   width: '100%',
@@ -3094,6 +3101,17 @@ function IconHeart({ size = 22, color = INK }: { size?: number; color?: string }
     </svg>
   );
 }
+function IconGift({ size = 22, color = INK }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="8" width="18" height="4" rx="1" />
+      <path d="M5 12v8h14v-8" />
+      <line x1="12" y1="8" x2="12" y2="20" />
+      <path d="M12 8S10.5 4 8 4a2 2 0 0 0 0 4h4Z" />
+      <path d="M12 8s1.5-4 4-4a2 2 0 0 1 0 4h-4Z" />
+    </svg>
+  );
+}
 const NAV_ICONS: Record<Page, (p: { size?: number; color?: string }) => JSX.Element> = {
   search: IconSearch,
   home: IconHome,
@@ -3229,8 +3247,9 @@ function TopNav({
             alignItems: 'center',
             gap: 12,
             height: 56,
-            padding: signedIn ? '0 6px' : '0 24px',
-            paddingRight: signedIn && profileFocused ? 22 : 6,
+            // Signed in: tight around the avatar (expand right for the name when
+            // focused). Signed out: even padding on both sides.
+            padding: signedIn ? (profileFocused ? '0 22px 0 6px' : '0 6px') : '0 26px',
             borderRadius: 9999,
             fontFamily: FONT,
             fontSize: 20,
@@ -3248,7 +3267,10 @@ function TopNav({
               {profileFocused && <span style={{ color: INK }}>{profileName}</span>}
             </>
           ) : (
-            'Sign In'
+            <>
+              <IconGift size={22} color={profileFocused ? '#000' : INK} />
+              <span>Claim Your Free Trial</span>
+            </>
           )}
         </button>
 
