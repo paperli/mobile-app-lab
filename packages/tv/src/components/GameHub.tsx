@@ -2070,6 +2070,9 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                     appearance: 'none',
                     alignSelf: 'flex-start',
                     cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 10,
                     padding: '16px 30px',
                     borderRadius: 9999,
                     fontFamily: FONT,
@@ -2082,6 +2085,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                     transition: 'all 160ms ease',
                   }}
                 >
+                  <IconX size={20} color={settingsFocus === 1 ? '#000' : INK} />
                   Sign Out from the TV
                 </button>
               </div>
@@ -2092,7 +2096,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                 position: 'absolute',
                 left: '50%',
                 right: 0,
-                top: 150,
+                top: 260,
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
@@ -3109,6 +3113,14 @@ function IconHeart({ size = 22, color = INK }: { size?: number; color?: string }
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 20s-7-4.6-9.2-9C1.3 8 2.6 5 5.6 5 7.6 5 9 6.3 12 9c3-2.7 4.4-4 6.4-4 3 0 4.3 3 2.8 6-2.2 4.4-9.2 9-9.2 9Z" />
+    </svg>
+  );
+}
+function IconX({ size = 20, color = INK }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+      <line x1="6" y1="6" x2="18" y2="18" />
+      <line x1="18" y1="6" x2="6" y2="18" />
     </svg>
   );
 }
