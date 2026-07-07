@@ -1378,12 +1378,15 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
             boxSizing: 'border-box',
             borderRadius: FRAME_BEZEL + 14,
             background: 'linear-gradient(160deg, #2a2b2e 0%, #151517 42%, #0c0c0e 100%)',
+            // Hairline outline on the frame's outer edge separates it from the page.
+            border: '1px solid rgba(255,255,255,0.10)',
             boxShadow:
               '0 2px 0 rgba(255,255,255,0.06) inset, 0 -2px 0 rgba(0,0,0,0.6) inset, 0 40px 90px rgba(0,0,0,0.7), 0 8px 24px rgba(0,0,0,0.55)',
             position: 'relative',
           }}
         >
-          {/* The screen: clips the scaled stage to rounded corners. */}
+          {/* The screen: clips the scaled stage to rounded corners. A hairline
+              ring (light outer, dark inner) delineates it from the bezel. */}
           <div
             style={{
               width: STAGE_W * scale,
@@ -1391,6 +1394,8 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
               overflow: 'hidden',
               borderRadius: 6,
               background: '#000',
+              boxShadow:
+                '0 0 0 1px rgba(0,0,0,0.85), 0 0 0 2px rgba(255,255,255,0.12), 0 6px 20px rgba(0,0,0,0.55)',
             }}
           >
             {stageEl}
