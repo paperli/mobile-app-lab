@@ -1026,12 +1026,21 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
         // cycle slides. Promo slides have a single CTA (maxCol 0).
         const count = heroSlideCountRef.current;
         const maxCol = isPromoSlideRef.current(prev.heroSlide) ? 0 : 1;
+        // When cycling to an adjacent slide, keep the same CTA focused (clamped
+        // to that slide's CTAs — the promo slide only has one).
+        const slideCol = (ns: number) => Math.min(prev.col, isPromoSlideRef.current(ns) ? 0 : 1);
         if (dx > 0) {
           if (prev.col < maxCol) next = { ...prev, col: prev.col + 1 };
-          else next = { ...prev, heroSlide: (prev.heroSlide + 1) % count, col: 0 };
+          else {
+            const ns = (prev.heroSlide + 1) % count;
+            next = { ...prev, heroSlide: ns, col: slideCol(ns) };
+          }
         } else {
           if (prev.col > 0) next = { ...prev, col: prev.col - 1 };
-          else next = { ...prev, heroSlide: (prev.heroSlide - 1 + count) % count, col: 0 };
+          else {
+            const ns = (prev.heroSlide - 1 + count) % count;
+            next = { ...prev, heroSlide: ns, col: slideCol(ns) };
+          }
         }
         sound = 'nav';
       } else if (rows[prev.sec - 1]?.banner) {
