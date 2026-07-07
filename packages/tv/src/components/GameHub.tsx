@@ -2523,16 +2523,33 @@ function TopNav({
         padding: `0 ${SHELF_PAD}px`,
         background: 'linear-gradient(to bottom, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.4) 55%, transparent 100%)',
         fontFamily: FONT,
+        // Recede when focus is in the page content: smaller + dimmer.
+        opacity: navFocus ? 1 : 0.8,
+        transition: 'opacity 240ms ease',
       }}
     >
-      <div style={{ fontWeight: 800, fontSize: 34, letterSpacing: '-0.02em', color: INK, marginRight: 6 }}>weekend</div>
+      <div
+        style={{
+          fontWeight: 800,
+          fontSize: 34,
+          letterSpacing: '-0.02em',
+          color: INK,
+          marginRight: 6,
+          transform: navFocus ? 'scale(1)' : 'scale(0.9)',
+          transformOrigin: 'left center',
+          transition: 'transform 240ms ease',
+        }}
+      >
+        weekend
+      </div>
       <div
         style={{
           position: 'absolute',
           left: '50%',
           top: 0,
           height: NAV_BAR_H,
-          transform: 'translateX(-50%)',
+          transform: navFocus ? 'translateX(-50%) scale(1)' : 'translateX(-50%) scale(0.9)',
+          transition: 'transform 240ms ease',
           display: 'flex',
           alignItems: 'center',
           gap: 14,
