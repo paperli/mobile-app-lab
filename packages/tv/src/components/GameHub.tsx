@@ -136,6 +136,9 @@ const TOP_NAV: { key: Page; label: string }[] = [
 ];
 const HOME_TAB = TOP_NAV.findIndex((t) => t.key === 'home'); // default focus
 
+// Games featured in the My Games empty state (a nudge to start playing).
+const MYGAMES_EMPTY_IDS = ['jeopardy', 'song-quiz', 'wits-end'];
+
 // On-screen alphabet keyboard for the Search page (TV-style, not QWERTY). Rows
 // of letters plus an action row; navigation clamps the column per row.
 const KB_GRID: string[][] = [
@@ -359,6 +362,11 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const jumpBackGames = recentPlays
     .map((id) => HUB_CATALOG.find((g) => g.id === id))
     .filter((g): g is HubGame => !!g);
+  // My Games empty state: nothing played and nothing favorited yet.
+  const myGamesEmpty = jumpBackGames.length === 0 && favoriteGames.length === 0;
+  const recommendedGames = MYGAMES_EMPTY_IDS.map((id) => HUB_CATALOG.find((g) => g.id === id)).filter(
+    (g): g is HubGame => !!g
+  );
   // Favorites now live on the My Games page, so the Home Favorites row is hidden.
   const showFavRow = false;
 
@@ -380,15 +388,23 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   if (page === 'search') {
     // Search renders its own body (keyboard + results) — no scrolling sections.
   } else if (page === 'mygames') {
-    if (jumpBackGames.length) {
+    if (myGamesEmpty) {
+      // The empty state's featured tiles are a navigable (large) row.
       sections.push({
         kind: 'shelf',
-        row: { key: 'jumpback', title: 'Jump Back On', variant: 'sm', slideshow: false, games: jumpBackGames },
+        row: { key: 'recommended', title: '', variant: 'lg', slideshow: false, games: recommendedGames },
       });
+    } else {
+      if (jumpBackGames.length) {
+        sections.push({
+          kind: 'shelf',
+          row: { key: 'jumpback', title: 'Jump Back On', variant: 'sm', slideshow: false, games: jumpBackGames },
+        });
+      }
+      chunk(favoriteGames, GRID_COLS).forEach((games, gridIndex) =>
+        sections.push({ kind: 'grid', games, gridIndex, gridTitle: 'Favorites' })
+      );
     }
-    chunk(favoriteGames, GRID_COLS).forEach((games, gridIndex) =>
-      sections.push({ kind: 'grid', games, gridIndex, gridTitle: 'Favorites' })
-    );
   } else if (isPhase0) {
     gridChunks.forEach((games, gridIndex) => sections.push({ kind: 'grid', games, gridIndex }));
     sections.push({ kind: 'banner' });
@@ -1277,15 +1293,49 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
             transition: 'transform 460ms cubic-bezier(.22,.61,.36,1)',
           }}
         >
-          {/* My Games header (no hero on this page). */}
-          {page === 'mygames' && (
+          {/* My Games — empty state: a centered nudge with featured game tiles. */}
+          {page === 'mygames' && myGamesEmpty && (
+            <div
+              style={{
+                height: STAGE_H,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 44,
+                padding: `${NAV_BAR_H}px 60px 0`,
+                boxSizing: 'border-box',
+              }}
+            >
+              <div style={{ textAlign: 'center' }}>
+                <h1 style={{ margin: 0, fontSize: 60, fontWeight: 800, letterSpacing: '-0.03em', color: INK }}>
+                  Let’s play some games!
+                </h1>
+                <p style={{ margin: '16px 0 0', fontSize: 24, color: '#8a8a9a' }}>
+                  Or find a game on Home and add it to your favorites.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: TILE.lg.gap, transform: 'scale(0.9)', transformOrigin: 'center' }}>
+                {recommendedGames.map((g, i) => (
+                  <Tile
+                    key={g.id}
+                    game={g}
+                    variant="lg"
+                    focused={!navFocus && nav.sec === 1 && nav.col === i}
+                    pressing={pressing && !navFocus && nav.sec === 1 && nav.col === i}
+                    slideshow={false}
+                    shot={0}
+                    onClick={() => selectTile(1, i, g)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* My Games header (populated state; no hero on this page). */}
+          {page === 'mygames' && !myGamesEmpty && (
             <div style={{ padding: `${NAV_BAR_H + 44}px ${SHELF_PAD}px 4px` }}>
               <h1 style={{ margin: 0, fontSize: 54, fontWeight: 800, letterSpacing: '-0.03em', color: INK }}>My Games</h1>
-              {jumpBackGames.length === 0 && favoriteGames.length === 0 && (
-                <p style={{ margin: '14px 0 0', fontSize: 20, color: '#8a8a9a' }}>
-                  Play a game to see it under Jump Back On, or favorite one to keep it here.
-                </p>
-              )}
             </div>
           )}
 
@@ -1446,7 +1496,17 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           </>
           )}
 
-          {(page === 'home' || page === 'mygames') && rowsContent}
+          {(page === 'home' || (page === 'mygames' && !myGamesEmpty)) && rowsContent}
+
+          {/* My Games: favorites not started yet (but there is play history). */}
+          {page === 'mygames' && !myGamesEmpty && favoriteGames.length === 0 && (
+            <div style={{ padding: `40px ${SHELF_PAD}px 0` }}>
+              <h2 style={{ margin: 0, fontSize: 32, fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>Favorites</h2>
+              <p style={{ margin: '12px 0 0', fontSize: 20, color: '#8a8a9a' }}>
+                Find a game and add it to your favorites to keep it here.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* ── Top navigation bar (phase 1) — persistent over the page ── */}
