@@ -136,9 +136,6 @@ const TOP_NAV: { key: Page; label: string }[] = [
 ];
 const HOME_TAB = TOP_NAV.findIndex((t) => t.key === 'home'); // default focus
 
-// My Games page content: a "Jump Back On" shelf + a Favorites grid.
-const JUMPBACK_GAMES = pick(1, 7, 12);
-
 // On-screen alphabet keyboard for the Search page (TV-style, not QWERTY). Rows
 // of letters plus an action row; navigation clamps the column per row.
 const KB_GRID: string[][] = [
@@ -289,6 +286,9 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const [panel, setPanel] = useState<{ game: HubGame | null; focus: number }>({ game: null, focus: 0 });
   const [panelShot, setPanelShot] = useState(0);
   const [favorites, setFavorites] = useState<ReadonlySet<string>>(() => new Set());
+  // Recently-played game ids (most recent first, capped at 10) — the source for
+  // the "Jump Back On" row. A play is recorded whenever a game is launched.
+  const [recentPlays, setRecentPlays] = useState<string[]>([]);
   // "See all games" page (opened from the New on Weekend row in v1/phase 1).
   const [allGamesOpen, setAllGamesOpen] = useState(false);
   const [agNav, setAgNav] = useState({ row: 0, col: 0 });
@@ -355,6 +355,10 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // Real favorites (v1/v2 only): the panel's Add/Remove toggles this set, which
   // populates a "Favorites" row at the top of the hub.
   const favoriteGames = HUB_CATALOG.filter((g) => favorites.has(g.id));
+  // "Jump Back On" = recently-played games, most recent first (from recentPlays).
+  const jumpBackGames = recentPlays
+    .map((id) => HUB_CATALOG.find((g) => g.id === id))
+    .filter((g): g is HubGame => !!g);
   // Favorites now live on the My Games page, so the Home Favorites row is hidden.
   const showFavRow = false;
 
@@ -376,10 +380,12 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   if (page === 'search') {
     // Search renders its own body (keyboard + results) — no scrolling sections.
   } else if (page === 'mygames') {
-    sections.push({
-      kind: 'shelf',
-      row: { key: 'jumpback', title: 'Jump Back On', variant: 'sm', slideshow: false, games: JUMPBACK_GAMES },
-    });
+    if (jumpBackGames.length) {
+      sections.push({
+        kind: 'shelf',
+        row: { key: 'jumpback', title: 'Jump Back On', variant: 'sm', slideshow: false, games: jumpBackGames },
+      });
+    }
     chunk(favoriteGames, GRID_COLS).forEach((games, gridIndex) =>
       sections.push({ kind: 'grid', games, gridIndex, gridTitle: 'Favorites' })
     );
@@ -424,6 +430,8 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       setPressing(true);
       setTimeout(() => setPressing(false), 150);
       soundManager.playSelectionSound();
+      // Record the play for "Jump Back On" (most recent first, deduped, max 10).
+      setRecentPlays((prev) => [game.id, ...prev.filter((id) => id !== game.id)].slice(0, 10));
       setTimeout(() => onLaunch(game), autoDelay);
     },
     [onLaunch]
@@ -1273,9 +1281,9 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           {page === 'mygames' && (
             <div style={{ padding: `${NAV_BAR_H + 44}px ${SHELF_PAD}px 4px` }}>
               <h1 style={{ margin: 0, fontSize: 54, fontWeight: 800, letterSpacing: '-0.03em', color: INK }}>My Games</h1>
-              {favoriteGames.length === 0 && (
+              {jumpBackGames.length === 0 && favoriteGames.length === 0 && (
                 <p style={{ margin: '14px 0 0', fontSize: 20, color: '#8a8a9a' }}>
-                  Favorite a game (its ♥ on the game page) to see it here.
+                  Play a game to see it under Jump Back On, or favorite one to keep it here.
                 </p>
               )}
             </div>
