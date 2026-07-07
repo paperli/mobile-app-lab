@@ -113,6 +113,7 @@ function HubView({ phase, variation, pairing }: { phase: number; variation: numb
         showPairing={pairing}
         phase={phase}
         variation={variation}
+        frame
         onLaunch={(g: HubGame) => {
           setLaunching(g.title);
           window.setTimeout(() => setLaunching(null), 1400);

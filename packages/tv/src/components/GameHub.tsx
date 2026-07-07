@@ -35,6 +35,10 @@ import { getMobileUrl } from '../utils/getMobileUrl';
 // ── Design space ───────────────────────────────────────────────────────────
 const STAGE_W = 1920;
 const STAGE_H = 1080;
+// TV bezel (screen px) used when `frame` is on and the viewport is sub-native.
+const FRAME_MARGIN = 28; // breathing room between the TV and the viewport edge
+const FRAME_BEZEL = 18; // frame thickness on top / left / right
+const FRAME_CHIN = 16; // extra thickness on the bottom edge (for the brand/LED)
 const FONT = "'Weekend Repro', ui-sans-serif, system-ui, sans-serif";
 const INK = '#F3F4F1';
 const INK_DIM = '#c9cacc';
@@ -182,6 +186,12 @@ interface GameHubProps {
   phase?: number;
   /** Layout variation (?variation=N). Falls back to 1 for unknown values. */
   variation?: number;
+  /**
+   * Wrap the 1920×1080 stage in a TV bezel when the viewport is smaller than
+   * native, so the whole thing fits without overscroll. Off by default (a real
+   * TV renders full-bleed); the static demo turns it on.
+   */
+  frame?: boolean;
 }
 
 interface NavState {
@@ -190,21 +200,33 @@ interface NavState {
   heroSlide: number;
 }
 
-/** Scale a 1920×1080 stage to fill the viewport (letterbox on mismatch). */
-function useFitScale() {
-  const [scale, setScale] = useState(1);
+/**
+ * Scale a 1920×1080 stage to fill the viewport (letterbox on mismatch). When
+ * `framed` is requested and the viewport is smaller than native, reserve room
+ * for the TV bezel + outer margin so the framed set fits without overscroll.
+ */
+function useFitScale(framed: boolean) {
+  const [fit, setFit] = useState({ scale: 1, framed: false });
   useLayoutEffect(() => {
-    const update = () =>
-      setScale(Math.min(window.innerWidth / STAGE_W, window.innerHeight / STAGE_H));
+    const update = () => {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const showFrame = framed && (vw < STAGE_W || vh < STAGE_H);
+      // Bezel + margin eats into the space available for the stage itself.
+      const reserveW = showFrame ? 2 * (FRAME_MARGIN + FRAME_BEZEL) : 0;
+      const reserveH = showFrame ? 2 * FRAME_MARGIN + 2 * FRAME_BEZEL + FRAME_CHIN : 0;
+      const scale = Math.min((vw - reserveW) / STAGE_W, (vh - reserveH) / STAGE_H);
+      setFit({ scale, framed: showFrame });
+    };
     update();
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
-  }, []);
-  return scale;
+  }, [framed]);
+  return fit;
 }
 
 export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
-  { roomCode, onLaunch, showPairing = false, phase = 1, variation = 1 },
+  { roomCode, onLaunch, showPairing = false, phase = 1, variation = 1, frame = false },
   ref
 ) {
   // Unknown values fall back to 1. Future phases/variations branch on these.
@@ -232,7 +254,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const heroSlideCountRef = useRef(heroSlideCount);
   heroSlideCountRef.current = heroSlideCount;
 
-  const scale = useFitScale();
+  const { scale, framed } = useFitScale(frame);
   const [nav, setNav] = useState<NavState>({ sec: 0, col: 0, heroSlide: 0 });
   const [pressing, setPressing] = useState(false);
   const [shot, setShot] = useState(0);
@@ -898,17 +920,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     </>
   );
 
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        display: 'grid',
-        placeItems: 'center',
-        background: '#000',
-        overflow: 'hidden',
-      }}
-    >
+  const stageEl = (
       <div
         data-hub-phase={resolvedPhase}
         data-hub-variation={resolvedVariation}
@@ -919,7 +931,9 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           overflow: 'hidden',
           background: STAGE_BG,
           transform: `scale(${scale})`,
-          transformOrigin: 'center center',
+          // Framed: anchor to the clip box's top-left so the scaled stage fills
+          // it exactly. Full-bleed: scale about the centre and letterbox.
+          transformOrigin: framed ? 'top left' : 'center center',
           filter: 'grayscale(1) contrast(1.03)', // B&W guarantee
           fontFamily: FONT,
         }}
@@ -1340,6 +1354,65 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           </div>
         )}
       </div>
+  );
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        display: 'grid',
+        placeItems: 'center',
+        background: framed ? '#050506' : '#000',
+        overflow: 'hidden',
+      }}
+    >
+      {framed ? (
+        // Sub-native viewport: seat the scaled stage inside a TV bezel that is
+        // itself sized to fit, so nothing overscrolls.
+        <div
+          style={{
+            width: STAGE_W * scale + 2 * FRAME_BEZEL,
+            height: STAGE_H * scale + 2 * FRAME_BEZEL + FRAME_CHIN,
+            padding: `${FRAME_BEZEL}px ${FRAME_BEZEL}px ${FRAME_BEZEL + FRAME_CHIN}px`,
+            boxSizing: 'border-box',
+            borderRadius: FRAME_BEZEL + 14,
+            background: 'linear-gradient(160deg, #2a2b2e 0%, #151517 42%, #0c0c0e 100%)',
+            boxShadow:
+              '0 2px 0 rgba(255,255,255,0.06) inset, 0 -2px 0 rgba(0,0,0,0.6) inset, 0 40px 90px rgba(0,0,0,0.7), 0 8px 24px rgba(0,0,0,0.55)',
+            position: 'relative',
+          }}
+        >
+          {/* The screen: clips the scaled stage to rounded corners. */}
+          <div
+            style={{
+              width: STAGE_W * scale,
+              height: STAGE_H * scale,
+              overflow: 'hidden',
+              borderRadius: 6,
+              background: '#000',
+            }}
+          >
+            {stageEl}
+          </div>
+          {/* Power LED on the bottom chin. */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: (FRAME_BEZEL + FRAME_CHIN) / 2 - 3,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: 'radial-gradient(circle at 40% 35%, #d8d8dc, #6a6a70)',
+              boxShadow: '0 0 6px rgba(220,220,225,0.5)',
+            }}
+          />
+        </div>
+      ) : (
+        stageEl
+      )}
     </div>
   );
 });
