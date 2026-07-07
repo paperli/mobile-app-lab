@@ -47,6 +47,31 @@ const OPTIONS: LayoutOption[] = [
 
 const FONT = "'Weekend Repro', ui-sans-serif, system-ui, sans-serif";
 
+// Canonical user-story form: As a [role], I want [goal], so that [benefit].
+interface UserStory {
+  role: string;
+  want: string;
+  benefit: string;
+}
+
+const USER_STORIES: UserStory[] = [
+  {
+    role: 'new user',
+    want: 'explore the games available on Weekend',
+    benefit: 'I can quickly find something worth playing',
+  },
+  {
+    role: 'returning user',
+    want: 'find and resume the games I’ve played before',
+    benefit: 'I can jump straight back in without searching',
+  },
+  {
+    role: 'returning user',
+    want: 'discover games that are new to me',
+    benefit: 'I keep finding fresh things to play',
+  },
+];
+
 function optionHref(o: LayoutOption): string {
   const p = new URLSearchParams();
   if (o.phase !== 1) p.set('phase', String(o.phase));
@@ -180,9 +205,64 @@ function Gallery() {
           to explore it — <b>arrow keys</b> navigate, <b>Enter</b> selects, <b>Esc</b> goes back.
         </p>
 
+        {/* User stories — the jobs these layouts are designed to serve. */}
+        <section style={{ marginTop: 56 }}>
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 700,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              color: '#8a8a9a',
+            }}
+          >
+            Designing for
+          </div>
+          <div
+            style={{
+              marginTop: 20,
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: 20,
+            }}
+          >
+            {USER_STORIES.map((s, i) => (
+              <div
+                key={i}
+                style={{
+                  background: '#101114',
+                  border: '1px solid #26272b',
+                  borderRadius: 16,
+                  padding: '22px 24px',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'inline-block',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    color: '#0b0c0e',
+                    background: '#e9eaec',
+                    borderRadius: 999,
+                    padding: '4px 11px',
+                  }}
+                >
+                  {s.role}
+                </div>
+                <p style={{ margin: '16px 0 0', fontSize: 17, lineHeight: 1.55, color: 'rgba(243,244,241,0.9)' }}>
+                  As a {s.role}, I want to <b style={{ fontWeight: 700, color: '#f3f4f1' }}>{s.want}</b>, so that{' '}
+                  {s.benefit}.
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
         <div
           style={{
-            marginTop: 48,
+            marginTop: 56,
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
             gap: 24,
