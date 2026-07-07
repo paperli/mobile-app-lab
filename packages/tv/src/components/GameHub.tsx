@@ -323,6 +323,15 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const [signedIn, setSignedIn] = useState(true);
   const [profileIdx, setProfileIdx] = useState(0);
   const [profileNames, setProfileNames] = useState<string[]>(PROFILE_NAMES_DEFAULT);
+  // Randomly assign a distinct mock avatar to each profile at launch.
+  const [profileAvatars] = useState<number[]>(() => {
+    const idx = Array.from({ length: AVATAR_COUNT }, (_, i) => i);
+    for (let i = idx.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [idx[i], idx[j]] = [idx[j], idx[i]];
+    }
+    return idx.slice(0, PROFILE_NAMES_DEFAULT.length);
+  });
   const [profileMenu, setProfileMenu] = useState<number | null>(null); // dropdown focus (null = closed)
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsFocus, setSettingsFocus] = useState(0); // 0 = member block, 1 = Sign Out
@@ -1852,7 +1861,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
             navFocus={navFocus}
             navCol={navCol}
             signedIn={signedIn}
-            profileIdx={profileIdx}
+            profileAvatar={profileAvatars[profileIdx]}
             profileName={profileNames[profileIdx]}
             profileMenu={profileMenu}
             onTab={goToPage}
@@ -2171,7 +2180,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                         transition: 'transform 180ms ease, box-shadow 180ms ease',
                       }}
                     >
-                      <Avatar index={i} size={180} />
+                      <Avatar variant={profileAvatars[i]} size={180} />
                     </button>
                     <div style={{ fontSize: 26, fontWeight: 700, color: INK }}>{name}</div>
                     <button
@@ -2205,7 +2214,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
         {editingProfile !== null && (
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(6,7,9,0.92)', zIndex: 14, display: 'grid', placeItems: 'center', fontFamily: FONT }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28, width: 620 }}>
-              <Avatar index={editingProfile} size={120} />
+              <Avatar variant={profileAvatars[editingProfile]} size={120} />
               <div
                 style={{
                   minWidth: 380,
@@ -3161,7 +3170,7 @@ function TopNav({
   navFocus,
   navCol,
   signedIn,
-  profileIdx,
+  profileAvatar,
   profileName,
   profileMenu,
   onTab,
@@ -3172,7 +3181,7 @@ function TopNav({
   navFocus: boolean;
   navCol: number;
   signedIn: boolean;
-  profileIdx: number;
+  profileAvatar: number;
   profileName: string;
   profileMenu: number | null;
   onTab: (p: Page) => void;
@@ -3301,7 +3310,7 @@ function TopNav({
         >
           {signedIn ? (
             <>
-              <Avatar index={profileIdx} size={44} />
+              <Avatar variant={profileAvatar} size={44} />
               {profileFocused && <span style={{ color: INK }}>{profileName}</span>}
             </>
           ) : (
@@ -3362,30 +3371,89 @@ function TopNav({
   );
 }
 
-// ── Circular profile avatar (prototype: deterministic B&W portrait) ───────────
-function Avatar({ index, size = 52 }: { index: number; size?: number }) {
-  const grads = [
-    'linear-gradient(135deg,#e9eaec,#8a8b90)',
-    'linear-gradient(135deg,#c7c8cc,#5c5d63)',
-    'linear-gradient(135deg,#b6b7bc,#3a3b40)',
-    'linear-gradient(135deg,#d9dade,#6f7076)',
-  ];
+// ── Circular profile avatar (prototype: mock character portraits) ─────────────
+// A set of distinct playful faces, each on its own gradient. `variant` selects
+// which one (profiles get a random variant assigned at launch).
+const AVATAR_GRADS = [
+  'linear-gradient(135deg,#e9eaec,#8a8b90)',
+  'linear-gradient(135deg,#c7c8cc,#4f5056)',
+  'linear-gradient(135deg,#b6b7bc,#3a3b40)',
+  'linear-gradient(135deg,#dcdde1,#6f7076)',
+  'linear-gradient(135deg,#f1f2f4,#9a9ba0)',
+  'linear-gradient(135deg,#a9aab0,#2c2d32)',
+];
+const AVATAR_COUNT = 6;
+const INK_DK = 'rgba(16,17,20,0.85)';
+
+function avatarGlyph(variant: number) {
+  switch (variant % AVATAR_COUNT) {
+    case 0: // smiley
+      return (
+        <>
+          <circle cx="9" cy="10" r="1.2" fill={INK_DK} />
+          <circle cx="15" cy="10" r="1.2" fill={INK_DK} />
+          <path d="M8 13.4c1.2 1.9 6.8 1.9 8 0" fill="none" stroke={INK_DK} strokeWidth="1.8" strokeLinecap="round" />
+        </>
+      );
+    case 1: // cool (sunglasses)
+      return (
+        <>
+          <path d="M4.5 9.5h15" stroke={INK_DK} strokeWidth="1.6" strokeLinecap="round" />
+          <rect x="6" y="9.3" width="4.6" height="3.8" rx="1.6" fill={INK_DK} />
+          <rect x="13.4" y="9.3" width="4.6" height="3.8" rx="1.6" fill={INK_DK} />
+          <path d="M9 15.6c1.2 1 4.8 1 6 0" fill="none" stroke={INK_DK} strokeWidth="1.6" strokeLinecap="round" />
+        </>
+      );
+    case 2: // robot
+      return (
+        <>
+          <line x1="12" y1="3.2" x2="12" y2="5.6" stroke={INK_DK} strokeWidth="1.6" strokeLinecap="round" />
+          <circle cx="12" cy="2.8" r="1" fill={INK_DK} />
+          <rect x="6" y="5.8" width="12" height="11" rx="2.6" fill="none" stroke={INK_DK} strokeWidth="1.8" />
+          <circle cx="9.5" cy="10.4" r="1.2" fill={INK_DK} />
+          <circle cx="14.5" cy="10.4" r="1.2" fill={INK_DK} />
+          <path d="M9.5 13.8h5" stroke={INK_DK} strokeWidth="1.6" strokeLinecap="round" />
+        </>
+      );
+    case 3: // cat
+      return (
+        <>
+          <path d="M6.6 6l2 3.6M17.4 6l-2 3.6" fill="none" stroke={INK_DK} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="12" cy="13" r="5.6" fill="none" stroke={INK_DK} strokeWidth="1.8" />
+          <circle cx="10" cy="12.4" r="1" fill={INK_DK} />
+          <circle cx="14" cy="12.4" r="1" fill={INK_DK} />
+          <path d="M12 14.4v.9" stroke={INK_DK} strokeWidth="1.4" strokeLinecap="round" />
+        </>
+      );
+    case 4: // ghost
+      return (
+        <>
+          <path d="M6 18.5V11a6 6 0 0 1 12 0v7.5l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4Z" fill={INK_DK} />
+          <circle cx="10" cy="11" r="1.15" fill="#f3f4f1" />
+          <circle cx="14" cy="11" r="1.15" fill="#f3f4f1" />
+        </>
+      );
+    default: // star
+      return <path d="M12 3.8l2.5 5 5.5.8-4 3.9.95 5.5L12 16.4 7.05 19l.95-5.5-4-3.9 5.5-.8Z" fill={INK_DK} />;
+  }
+}
+
+function Avatar({ variant, size = 52 }: { variant: number; size?: number }) {
   return (
     <div
       style={{
         width: size,
         height: size,
         borderRadius: '50%',
-        background: grads[index % grads.length],
+        background: AVATAR_GRADS[variant % AVATAR_COUNT],
         display: 'grid',
         placeItems: 'center',
         overflow: 'hidden',
         flex: '0 0 auto',
       }}
     >
-      <svg width={size * 0.66} height={size * 0.66} viewBox="0 0 24 24" fill="rgba(18,19,22,0.72)">
-        <circle cx="12" cy="8.2" r="4.2" />
-        <path d="M12 13.6c-4.3 0-7.6 2.7-7.6 6.2 0 .3.2.5.5.5h14.2c.3 0 .5-.2.5-.5 0-3.5-3.3-6.2-7.6-6.2Z" />
+      <svg width={size * 0.7} height={size * 0.7} viewBox="0 0 24 24">
+        {avatarGlyph(variant)}
       </svg>
     </div>
   );
