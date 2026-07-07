@@ -5,7 +5,7 @@ name: Deploy Hub Demo to Pages
 
 on:
   push:
-    branches: [main, feature/hub-layout-prototype-v1]
+    branches: [main, gh-pages]
     paths:
       - 'packages/tv/**'
       - 'packages/ui-weekend/**'
