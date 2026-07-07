@@ -187,7 +187,13 @@ function Gallery() {
   return (
     <div
       style={{
-        minHeight: '100vh',
+        // #root is locked to overflow:hidden/position:fixed for the TV stage, so
+        // the gallery makes itself its own scroll region (scoped here — the TV
+        // pages render GameHub, not Gallery, so they're unaffected).
+        position: 'absolute',
+        inset: 0,
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
         background: 'radial-gradient(120% 90% at 50% -10%, #101114 0%, #08090a 60%)',
         color: '#f3f4f1',
         fontFamily: FONT,
