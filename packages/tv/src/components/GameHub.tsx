@@ -302,6 +302,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const [agScrollY, setAgScrollY] = useState(0);
   // Full-screen upsell page (opened via MORE INFO on the free-trial slide).
   const [upsellOpen, setUpsellOpen] = useState(false);
+  const [upsellFading, setUpsellFading] = useState(false); // fade-out on auto-dismiss
 
   // Top navigation (phase 1 only): Search / Home / My Games. `navFocus` = focus
   // is on the top nav bar; default focus is the Home tab.
@@ -502,6 +503,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const openUpsell = useCallback(() => {
     upsellOpenRef.current = true;
     setUpsellOpen(true);
+    setUpsellFading(false);
     setSignInDone(false); // fresh QR each time the sign-in/upsell opens
     soundManager.playSelectionSound();
   }, []);
@@ -509,6 +511,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const closeUpsell = useCallback(() => {
     upsellOpenRef.current = false;
     setUpsellOpen(false);
+    setUpsellFading(false);
     soundManager.playNavigationSound();
   }, []);
 
@@ -1304,21 +1307,27 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // — flip the QR to a checked state and play the success sound.
   useEffect(() => {
     if (!upsellOpen) return;
-    let dismiss: ReturnType<typeof setTimeout> | undefined;
+    let holdT: ReturnType<typeof setTimeout> | undefined;
+    let fadeT: ReturnType<typeof setTimeout> | undefined;
     const onKey = (e: KeyboardEvent) => {
       if ((e.key === 's' || e.key === 'S') && !signedInRef.current) {
         signedInRef.current = true;
         setSignedIn(true);
         setSignInDone(true);
         soundManager.playSuccessSound();
-        // Let the success confirmation land, then auto-dismiss the upsell.
-        dismiss = setTimeout(() => closeUpsell(), 1000);
+        // Hold the success checkmark ~1s, then fade the page out over 1.2s
+        // before unmounting it.
+        holdT = setTimeout(() => {
+          setUpsellFading(true);
+          fadeT = setTimeout(() => closeUpsell(), 1200);
+        }, 1000);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('keydown', onKey);
-      if (dismiss) clearTimeout(dismiss);
+      if (holdT) clearTimeout(holdT);
+      if (fadeT) clearTimeout(fadeT);
     };
   }, [upsellOpen, closeUpsell]);
 
@@ -1889,7 +1898,17 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
 
         {/* ── Upsell page (MORE INFO on the free-trial slide) ──────── */}
         {upsellOpen && (
-          <div style={{ position: 'absolute', inset: 0, background: STAGE_BG, zIndex: 8, overflow: 'hidden' }}>
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: STAGE_BG,
+              zIndex: 8,
+              overflow: 'hidden',
+              opacity: upsellFading ? 0 : 1,
+              transition: 'opacity 1200ms ease',
+            }}
+          >
             <TileMontage games={HUB_CATALOG} />
             <div
               aria-hidden
