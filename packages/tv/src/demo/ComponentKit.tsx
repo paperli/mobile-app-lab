@@ -1,0 +1,279 @@
+// Reusable showcase versions of the hub's shelf / grid building blocks, used by
+// the components Playground. These mirror the geometry, focus treatment and art
+// primitives used inside GameHub (Tile / category shelf / All-Games grid / promo
+// banner / hero) so the playground documents the *real* component types.
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
+import { HUB_GAMES, type HubGame } from '../prototype/hub/games';
+import { GameArt } from '../prototype/hub/GameArt';
+import { GameLogo } from '../prototype/hub/GameLogo';
+import { GameMetaPills } from '../prototype/hub/MetadataPill';
+import { Screenshot, SHOT_VARIANTS } from '../prototype/hub/Screenshot';
+
+const FONT = "'Weekend Repro', ui-sans-serif, system-ui, sans-serif";
+const INK = '#F3F4F1';
+const INK_DIM = '#c9cacc';
+const STAGE_BG = '#0a0b0d';
+const SHELF_PAD = 80;
+const GRID_COLS = 5;
+
+type TileVariant = 'sm' | 'lg' | 'grid';
+const TILE = {
+  sm: { w: 340, h: (340 * 9) / 16, r: 14, gap: 40 },
+  lg: { w: 620, h: (620 * 9) / 16, r: 16, gap: 28 },
+  grid: { w: 332, h: (332 * 9) / 16, r: 12, gap: 24 },
+} as const;
+
+// ── Fit-to-container stage ────────────────────────────────────────────────────
+// The hub renders at a fixed 1920-px design width; here each example declares its
+// own design box and is scaled down to the card width (grayscaled to match the
+// hub's B&W mockup treatment).
+function useElementWidth<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  const [w, setW] = useState(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setW(el.clientWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, w] as const;
+}
+
+function ScaledStage({ designW, designH, children }: { designW: number; designH: number; children: ReactNode }) {
+  const [ref, w] = useElementWidth<HTMLDivElement>();
+  const scale = w > 0 ? w / designW : 0;
+  return (
+    <div ref={ref} style={{ width: '100%', height: designH * scale, overflow: 'hidden', background: STAGE_BG }}>
+      <div
+        style={{
+          width: designW,
+          height: designH,
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          filter: 'grayscale(1) contrast(1.03)',
+          fontFamily: FONT,
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ── Tile (matches GameHub's Tile) ─────────────────────────────────────────────
+function KitTile({
+  game,
+  variant,
+  focused,
+  slideshow = false,
+}: {
+  game: HubGame;
+  variant: TileVariant;
+  focused?: boolean;
+  slideshow?: boolean;
+}) {
+  const t = TILE[variant];
+  const [shot, setShot] = useState(0);
+  const showShots = slideshow && !!focused;
+  useEffect(() => {
+    if (!showShots) return;
+    const id = setInterval(() => setShot((s) => (s + 1) % SHOT_VARIANTS.length), 1300);
+    return () => clearInterval(id);
+  }, [showShots]);
+
+  return (
+    <div
+      style={{
+        position: 'relative',
+        flex: '0 0 auto',
+        width: t.w,
+        height: t.h,
+        borderRadius: t.r,
+        overflow: 'hidden',
+        background: '#141518',
+        transform: focused ? 'scale(1.06)' : 'scale(1)',
+        boxShadow: focused ? '0 0 0 4px #fff, 0 26px 60px rgba(0,0,0,0.7)' : 'none',
+        zIndex: focused ? 3 : 1,
+      }}
+    >
+      <GameArt
+        game={game}
+        variant="tile"
+        hideMotif
+        style={{ position: 'absolute', inset: 0, opacity: showShots ? 0 : 1, transition: 'opacity 500ms ease' }}
+      >
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 10%' }}>
+          <GameLogo
+            title={game.title}
+            theme={game.theme}
+            style={{ fontSize: variant === 'lg' ? '15cqh' : '18cqh', maxWidth: '86%', whiteSpace: 'normal', textAlign: 'center', lineHeight: 1 }}
+          />
+        </div>
+      </GameArt>
+
+      {slideshow &&
+        SHOT_VARIANTS.map((v, i) => (
+          <Screenshot
+            key={v}
+            game={game}
+            variant={v}
+            style={{ position: 'absolute', inset: 0, opacity: showShots && i === shot ? 1 : 0, transition: 'opacity 700ms ease' }}
+          />
+        ))}
+
+      <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(0deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0) 55%)' }} />
+
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: variant === 'lg' ? 22 : variant === 'grid' ? 14 : 18 }}>
+        <span style={{ display: 'flex', gap: 10, alignItems: 'center', color: INK_DIM, fontSize: variant === 'lg' ? 20 : variant === 'grid' ? 14 : 15 }}>
+          <span style={{ fontVariantNumeric: 'tabular-nums' }}>{game.players}</span>
+          {variant === 'lg' && <span style={{ color: '#8a8a9a' }}>• {game.description}</span>}
+        </span>
+      </div>
+
+      {showShots && (
+        <div
+          style={{
+            position: 'absolute', top: 14, left: 14, display: 'flex', alignItems: 'center', gap: 7,
+            padding: '5px 10px', borderRadius: 9999, background: 'rgba(0,0,0,0.55)', border: '1px solid rgba(255,255,255,0.28)',
+            fontFamily: FONT, fontSize: 12, fontWeight: 700, letterSpacing: '0.1em', color: INK,
+          }}
+        >
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff' }} />
+          PLAYING
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ShelfTitle({ title, sub }: { title: string; sub?: string }) {
+  return (
+    <div style={{ padding: `0 ${SHELF_PAD}px`, marginBottom: 22 }}>
+      <h2 style={{ margin: 0, fontSize: 32, fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>{title}</h2>
+      {sub && <p style={{ margin: '10px 0 0', fontSize: 21, color: '#8a8a9a' }}>{sub}</p>}
+    </div>
+  );
+}
+
+// ── Regular (small) game row ──────────────────────────────────────────────────
+export function SmallGameRow() {
+  const games = HUB_GAMES.slice(0, 5);
+  return (
+    <ScaledStage designW={1560} designH={330}>
+      <div style={{ paddingTop: 28 }}>
+        <ShelfTitle title="Party Starters" />
+        <div style={{ display: 'flex', gap: TILE.sm.gap, paddingLeft: SHELF_PAD }}>
+          {games.map((g, i) => (
+            <KitTile key={g.id} game={g} variant="sm" focused={i === 1} />
+          ))}
+        </div>
+      </div>
+    </ScaledStage>
+  );
+}
+
+// ── Large game row (slideshow on focus) ───────────────────────────────────────
+export function LargeGameRow() {
+  const games = HUB_GAMES.slice(8, 11);
+  return (
+    <ScaledStage designW={1440} designH={510}>
+      <div style={{ paddingTop: 28 }}>
+        <ShelfTitle title="Games That Go Viral" sub="The games everyone’s talking about right now" />
+        <div style={{ display: 'flex', gap: TILE.lg.gap, paddingLeft: SHELF_PAD }}>
+          {games.map((g, i) => (
+            <KitTile key={g.id} game={g} variant="lg" focused={i === 0} slideshow />
+          ))}
+        </div>
+      </div>
+    </ScaledStage>
+  );
+}
+
+// ── All Games grid ────────────────────────────────────────────────────────────
+export function GameGridKit() {
+  const rows = [HUB_GAMES.slice(0, GRID_COLS), HUB_GAMES.slice(GRID_COLS, GRID_COLS * 2)];
+  return (
+    <ScaledStage designW={1920} designH={560}>
+      <div style={{ paddingTop: 28 }}>
+        <ShelfTitle title="All Games" />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: TILE.grid.gap, padding: `0 ${SHELF_PAD}px` }}>
+          {rows.map((r, ri) => (
+            <div key={ri} style={{ display: 'flex', gap: TILE.grid.gap }}>
+              {r.map((g, ci) => (
+                <KitTile key={g.id} game={g} variant="grid" focused={ri === 0 && ci === 2} />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </ScaledStage>
+  );
+}
+
+// ── Promo banner ──────────────────────────────────────────────────────────────
+export function PromoBanner() {
+  return (
+    <ScaledStage designW={1920} designH={240}>
+      <div style={{ padding: `28px ${SHELF_PAD}px` }}>
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 40,
+            padding: '40px 56px', borderRadius: 24, color: INK, fontFamily: FONT,
+            background: 'linear-gradient(100deg, #17181c 0%, #26272d 58%, #35363d 100%)', border: '1px solid #3a3b3f',
+          }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 1100 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.14em', color: '#b9babe' }}>WEEKEND PREMIUM</span>
+            <span style={{ fontSize: 46, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.05 }}>Start your 7-day free trial</span>
+            <span style={{ fontSize: 22, color: 'rgba(243,244,241,0.72)' }}>Unlimited access to every game. Cancel anytime.</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 22, flex: '0 0 auto' }}>
+            <span style={{ fontSize: 18, fontWeight: 600, color: '#cfd0d3' }}>Scan to start →</span>
+            <div style={{ background: '#fff', padding: 12, borderRadius: 14, lineHeight: 0 }}>
+              <QRCodeSVG value="https://weekend.tv/free-trial" size={124} level="M" includeMargin={false} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </ScaledStage>
+  );
+}
+
+// ── Hero ──────────────────────────────────────────────────────────────────────
+export function HeroExample() {
+  const game = HUB_GAMES[2]; // a light-brand game to show the onDark title handling
+  const textCol: CSSProperties = {
+    position: 'absolute', left: SHELF_PAD, bottom: 96, width: 900,
+    display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 24,
+  };
+  return (
+    <ScaledStage designW={1920} designH={620}>
+      <div style={{ position: 'relative', width: 1920, height: 620 }}>
+        <GameArt game={game} variant="hero" style={{ position: 'absolute', top: 0, left: 0, width: 1920, height: 560 }} />
+        <div aria-hidden style={{ position: 'absolute', inset: 0, background: `linear-gradient(to right, ${STAGE_BG} 0%, ${STAGE_BG} 24%, transparent 56%)` }} />
+        <div aria-hidden style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 560, background: `linear-gradient(to top, ${STAGE_BG} 2%, transparent 46%)` }} />
+        <div style={textCol}>
+          <div style={{ maxWidth: 640 }}>
+            <GameLogo title={game.title} theme={game.theme} onDark style={{ fontSize: 88, whiteSpace: 'normal' }} />
+          </div>
+          <p style={{ margin: 0, maxWidth: 620, fontSize: 26, lineHeight: 1.35, color: 'rgba(243,244,241,0.82)' }}>{game.description}</p>
+          <GameMetaPills players={game.players} interaction={game.interaction} size={42} />
+          <div
+            style={{
+              marginTop: 6, minWidth: 220, height: 56, padding: '0 34px', borderRadius: 9999,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              fontFamily: FONT, fontSize: 20, fontWeight: 600, letterSpacing: '0.02em',
+              background: INK, color: '#000', border: '1px solid #fff', boxShadow: '0 0 0 4px #fff, 0 12px 30px rgba(0,0,0,0.6)',
+            }}
+          >
+            PLAY NOW
+          </div>
+        </div>
+      </div>
+    </ScaledStage>
+  );
+}

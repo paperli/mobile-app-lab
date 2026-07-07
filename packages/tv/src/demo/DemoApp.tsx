@@ -2,9 +2,10 @@
 // without a WebSocket server: pairing is mocked, launching shows a toast, and
 // the D-pad is driven from the keyboard. `?phase=&variation=` selects a layout;
 // with no params it shows a gallery of the options.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { GameHub, type HubHandle } from '../components/GameHub';
 import type { HubGame } from '../prototype/hub/games';
+import { HeroExample, SmallGameRow, LargeGameRow, PromoBanner, GameGridKit } from './ComponentKit';
 
 interface LayoutOption {
   phase: number;
@@ -81,6 +82,7 @@ function optionHref(o: LayoutOption): string {
 
 export default function DemoApp() {
   const params = new URLSearchParams(window.location.search);
+  if (params.get('view') === 'components') return <Playground />;
   if (!params.has('variation') && !params.has('phase')) return <Gallery />;
   const phase = params.has('phase') ? Number(params.get('phase')) : 1;
   const variation = params.has('variation') ? Number(params.get('variation')) : 1;
@@ -211,6 +213,25 @@ function Gallery() {
           to explore it — <b>arrow keys</b> navigate, <b>Enter</b> selects, <b>Esc</b> goes back.
         </p>
 
+        <a
+          href="?view=components"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 10,
+            marginTop: 26,
+            padding: '12px 20px',
+            borderRadius: 999,
+            textDecoration: 'none',
+            fontSize: 15,
+            fontWeight: 700,
+            color: '#0b0c0e',
+            background: '#e9eaec',
+          }}
+        >
+          Component kit — the row &amp; grid types →
+        </a>
+
         {/* User stories — the jobs these layouts are designed to serve. */}
         <section style={{ marginTop: 56 }}>
           <div
@@ -324,6 +345,151 @@ function Gallery() {
         <p style={{ marginTop: 44, fontSize: 14, color: '#6b6c71' }}>
           Tip: append <code style={{ color: '#b9babe' }}>&amp;pairing=true</code> to any layout to show the QR pairing panel.
         </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Components playground ─────────────────────────────────────────────────────
+// Usage tags describe the *job* each element does in the hub.
+type UsageTag = 'promotion' | 'navigation' | 'discovery' | 'personalization';
+
+// Each usage tag gets its own hue so the jobs read apart at a glance. (The
+// example stages stay B&W; these chips are documentation chrome.)
+const TAG_COLORS: Record<UsageTag, string> = {
+  promotion: '#f4b740', // amber
+  navigation: '#5aa9ff', // blue
+  discovery: '#5ad19b', // green
+  personalization: '#c58cf5', // purple
+};
+
+interface KitEntry {
+  name: string;
+  tags: UsageTag[];
+  purpose: string;
+  example: ReactNode;
+}
+
+const KIT_ENTRIES: KitEntry[] = [
+  {
+    name: 'Hero section',
+    tags: ['promotion'],
+    purpose:
+      'The top billboard. Rotates featured slides — a promoted game, editorial content, or a campaign (e.g. the free-trial offer). Oversized art, the game’s logotype, key metadata and one primary CTA. It’s the first thing on screen, so it sets the tone and drives the main action.',
+    example: <HeroExample />,
+  },
+  {
+    name: 'Regular game row',
+    tags: ['navigation', 'personalization'],
+    purpose:
+      'The workhorse shelf: a horizontally-scrolling row of standard 16:9 tiles. Used for a category or genre, curated groupings, and personalized rows like Favorites or Jump Back On. This is the primary browse-and-select surface.',
+    example: <SmallGameRow />,
+  },
+  {
+    name: 'Large game row',
+    tags: ['promotion', 'navigation'],
+    purpose:
+      'A higher-impact shelf with oversized tiles. When a tile is highlighted it plays a looping screenshot slideshow to preview gameplay — used to spotlight promoted or editorially featured games (e.g. “Games That Go Viral”).',
+    example: <LargeGameRow />,
+  },
+  {
+    name: 'Banner',
+    tags: ['promotion'],
+    purpose:
+      'A full-width, single-focus panel carrying one message — a promoted campaign or content (e.g. the 7-day free trial with a QR to scan). One item, one action; it breaks up the shelves to elevate a promotion.',
+    example: <PromoBanner />,
+  },
+  {
+    name: 'Grid',
+    tags: ['navigation', 'discovery'],
+    purpose:
+      'A multi-row grid (5 across) that shows many games at once. Best for exhaustive browse / scan-everything moments like the All Games page, where coverage matters more than curation.',
+    example: <GameGridKit />,
+  },
+];
+
+function Tag({ tag }: { tag: UsageTag }) {
+  const c = TAG_COLORS[tag];
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        fontSize: 12,
+        fontWeight: 700,
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        borderRadius: 999,
+        padding: '4px 11px',
+        color: c,
+        background: `${c}22`, // ~13% tint
+        border: `1px solid ${c}66`, // ~40% outline
+      }}
+    >
+      {tag}
+    </span>
+  );
+}
+
+function Playground() {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        background: 'radial-gradient(120% 90% at 50% -10%, #101114 0%, #08090a 60%)',
+        color: '#f3f4f1',
+        fontFamily: FONT,
+        padding: '72px 6vw 120px',
+        boxSizing: 'border-box',
+      }}
+    >
+      <div style={{ maxWidth: 1180, margin: '0 auto' }}>
+        <a href="?" style={{ fontSize: 15, fontWeight: 700, color: '#8a8a9a', textDecoration: 'none' }}>
+          ← Back to layouts
+        </a>
+        <h1 style={{ margin: '22px 0 0', fontSize: 52, fontWeight: 800, letterSpacing: '-0.03em', textWrap: 'balance' }}>
+          Component kit — rows &amp; grids
+        </h1>
+        <p style={{ margin: '16px 0 0', fontSize: 20, lineHeight: 1.5, color: 'rgba(243,244,241,0.72)', maxWidth: 760 }}>
+          The building blocks the hub is assembled from. Each element is tagged by the job it does —{' '}
+          <b style={{ color: TAG_COLORS.promotion }}>promotion</b> vs <b style={{ color: TAG_COLORS.navigation }}>navigation</b>,
+          plus <b style={{ color: TAG_COLORS.discovery }}>discovery</b> and{' '}
+          <b style={{ color: TAG_COLORS.personalization }}>personalization</b> — with a live example rendered at hub fidelity.
+        </p>
+
+        <div style={{ marginTop: 56, display: 'flex', flexDirection: 'column', gap: 56 }}>
+          {KIT_ENTRIES.map((e, i) => (
+            <section key={e.name}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: '#6b6c71', fontVariantNumeric: 'tabular-nums' }}>
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <h2 style={{ margin: 0, fontSize: 30, fontWeight: 800, letterSpacing: '-0.02em' }}>{e.name}</h2>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {e.tags.map((t) => (
+                    <Tag key={t} tag={t} />
+                  ))}
+                </div>
+              </div>
+              <p style={{ margin: '14px 0 0', fontSize: 16.5, lineHeight: 1.6, color: 'rgba(243,244,241,0.78)', maxWidth: 860 }}>
+                {e.purpose}
+              </p>
+              <div
+                style={{
+                  marginTop: 22,
+                  borderRadius: 18,
+                  border: '1px solid #26272b',
+                  overflow: 'hidden',
+                  background: '#0a0b0d',
+                }}
+              >
+                {e.example}
+              </div>
+            </section>
+          ))}
+        </div>
       </div>
     </div>
   );
