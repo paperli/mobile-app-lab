@@ -319,8 +319,9 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const [searchZone, setSearchZone] = useState<'kb' | 'results'>('kb');
   const [resNav, setResNav] = useState({ row: 0, col: 0 });
 
-  // Profile / account (prototype pseudo-state).
-  const [signedIn, setSignedIn] = useState(true);
+  // Profile / account (prototype pseudo-state). Default = signed out; the state
+  // is in-memory only, so a hard refresh always returns to this logged-out state.
+  const [signedIn, setSignedIn] = useState(false);
   const [profileIdx, setProfileIdx] = useState(0);
   const [profileNames, setProfileNames] = useState<string[]>(PROFILE_NAMES_DEFAULT);
   // Randomly assign a distinct mock avatar to each profile at launch.
