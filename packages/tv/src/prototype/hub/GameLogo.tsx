@@ -14,8 +14,14 @@ const FAMILY: Record<LogoStyle, string> = {
   stencil: "'Arial Black', 'Impact', sans-serif",
 };
 
-function logoCss(theme: GameTheme): CSSProperties {
-  const ink = theme.ink ?? '#F3F4F1';
+// `onDark` = the wordmark sits on a dark backdrop (e.g. the hero, where a
+// game's art is faded to the stage colour behind the text). Light-brand games
+// carry a dark `ink` meant for their bright tile art, which vanishes there — so
+// force a light ink and treat it as a dark-background treatment.
+function logoCss(theme: GameTheme, onDark = false): CSSProperties {
+  const themeInk = theme.ink ?? '#F3F4F1';
+  const onLightBg = theme.light && !onDark; // dark-ink-on-bright-art only when not forced onto dark
+  const ink = onDark && theme.light ? '#F3F4F1' : themeInk;
   const style = theme.logo;
   const base: CSSProperties = {
     fontFamily: FAMILY[style],
@@ -35,7 +41,7 @@ function logoCss(theme: GameTheme): CSSProperties {
         textTransform: 'uppercase',
         letterSpacing: '-0.02em',
         transform: 'skewX(-6deg)',
-        textShadow: theme.light ? 'none' : `0 0.04em 0.12em rgba(0,0,0,0.6), 0 0 0.5em ${hexToRgba(theme.accent, 0.35)}`,
+        textShadow: onLightBg ? 'none' : `0 0.04em 0.12em rgba(0,0,0,0.6), 0 0 0.5em ${hexToRgba(theme.accent, 0.35)}`,
       };
     case 'serif':
       return {
@@ -44,7 +50,7 @@ function logoCss(theme: GameTheme): CSSProperties {
         textTransform: 'uppercase',
         letterSpacing: '0.015em',
         color: theme.accent,
-        textShadow: theme.light ? 'none' : '0 0.03em 0.1em rgba(0,0,0,0.7)',
+        textShadow: onLightBg ? 'none' : '0 0.03em 0.1em rgba(0,0,0,0.7)',
       };
     case 'script':
       return {
@@ -53,14 +59,14 @@ function logoCss(theme: GameTheme): CSSProperties {
         fontStyle: 'italic',
         letterSpacing: '0.01em',
         color: theme.accent,
-        textShadow: theme.light ? '0 0.02em 0.04em rgba(0,0,0,0.15)' : '0 0.03em 0.1em rgba(0,0,0,0.6)',
+        textShadow: onLightBg ? '0 0.02em 0.04em rgba(0,0,0,0.15)' : '0 0.03em 0.1em rgba(0,0,0,0.6)',
       };
     case 'rounded':
       return {
         ...base,
         fontWeight: 800,
         letterSpacing: '-0.01em',
-        textShadow: theme.light
+        textShadow: onLightBg
           ? `0 0.03em 0 ${hexToRgba(theme.accent, 0.9)}`
           : `0 0.04em 0.12em rgba(0,0,0,0.5)`,
       };
@@ -82,11 +88,13 @@ interface GameLogoProps {
   theme: GameTheme;
   className?: string;
   style?: CSSProperties;
+  /** The wordmark sits on a dark backdrop (hero/preview); force a legible ink. */
+  onDark?: boolean;
 }
 
-export function GameLogo({ title, theme, className, style }: GameLogoProps) {
+export function GameLogo({ title, theme, className, style, onDark }: GameLogoProps) {
   return (
-    <span className={className} style={{ ...logoCss(theme), ...style }}>
+    <span className={className} style={{ ...logoCss(theme, onDark), ...style }}>
       {title}
     </span>
   );

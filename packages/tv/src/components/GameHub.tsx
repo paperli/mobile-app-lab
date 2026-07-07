@@ -1620,7 +1620,7 @@ function PreviewHero({ game, showPairing, roomCode, mobileUrl }: PreviewHeroProp
         }}
       >
         <div style={{ maxWidth: 760 }}>
-          <GameLogo title={game.title} theme={game.theme} style={{ fontSize: 80, whiteSpace: 'normal' }} />
+          <GameLogo title={game.title} theme={game.theme} onDark style={{ fontSize: 80, whiteSpace: 'normal' }} />
         </div>
         <p
           style={{
@@ -1796,7 +1796,7 @@ function HeroSlide({ promo, game, promoGames = [], trialUrl = '', phase, heroFoc
           game && (
             <>
               <div style={{ maxWidth: 640 }}>
-                <GameLogo title={game.title} theme={game.theme} style={{ fontSize: 92, whiteSpace: 'normal' }} />
+                <GameLogo title={game.title} theme={game.theme} onDark style={{ fontSize: 92, whiteSpace: 'normal' }} />
               </div>
               <p
                 style={{
