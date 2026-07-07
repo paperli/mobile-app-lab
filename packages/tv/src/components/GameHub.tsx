@@ -1376,7 +1376,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
             height: STAGE_H * scale + 2 * FRAME_BEZEL + FRAME_CHIN,
             padding: `${FRAME_BEZEL}px ${FRAME_BEZEL}px ${FRAME_BEZEL + FRAME_CHIN}px`,
             boxSizing: 'border-box',
-            borderRadius: FRAME_BEZEL + 14,
+            borderRadius: 16,
             background: 'linear-gradient(160deg, #2a2b2e 0%, #151517 42%, #0c0c0e 100%)',
             // Hairline outline on the frame's outer edge separates it from the page.
             border: '1px solid rgba(255,255,255,0.10)',
