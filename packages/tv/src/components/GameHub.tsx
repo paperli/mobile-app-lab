@@ -1759,7 +1759,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                 trialUrl={trialUrl}
                 phase="out"
                 heroFocused={nav.sec === 0 && !navFocus}
-                heroCol={0}
+                heroCol={nav.col}
                 pressing={false}
                 onPlay={handleHeroPlay}
                 onMoreInfo={openHeroInfo}
