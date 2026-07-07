@@ -78,12 +78,22 @@ function KitTile({
 }) {
   const t = TILE[variant];
   const [shot, setShot] = useState(0);
-  const showShots = slideshow && !!focused;
+  const [ready, setReady] = useState(false); // 1s delay before the slideshow starts
+  const showShots = slideshow && !!focused && ready;
   useEffect(() => {
-    if (!showShots) return;
-    const id = setInterval(() => setShot((s) => (s + 1) % SHOT_VARIANTS.length), 1300);
-    return () => clearInterval(id);
-  }, [showShots]);
+    setShot(0);
+    setReady(false);
+    if (!slideshow || !focused) return;
+    let id: ReturnType<typeof setInterval> | undefined;
+    const start = setTimeout(() => {
+      setReady(true);
+      id = setInterval(() => setShot((s) => (s + 1) % SHOT_VARIANTS.length), 1300);
+    }, 1000);
+    return () => {
+      clearTimeout(start);
+      if (id) clearInterval(id);
+    };
+  }, [slideshow, focused]);
 
   return (
     <div

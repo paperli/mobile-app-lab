@@ -288,6 +288,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const [nav, setNav] = useState<NavState>({ sec: 0, col: 0, heroSlide: 0 });
   const [pressing, setPressing] = useState(false);
   const [shot, setShot] = useState(0);
+  const [slideshowReady, setSlideshowReady] = useState(false); // 1s delay before a focused tile's slideshow starts
   const [scrollY, setScrollY] = useState(0);
   // Game-info side panel: which game (null = closed) + focused action index.
   const [panel, setPanel] = useState<{ game: HubGame | null; focus: number }>({ game: null, focus: 0 });
@@ -305,10 +306,11 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const [upsellFading, setUpsellFading] = useState(false); // fade-out on auto-dismiss
 
   // Top navigation (phase 1 only): Search / Home / My Games. `navFocus` = focus
-  // is on the top nav bar; default focus is the Home tab.
+  // is on the top nav bar. On launch focus starts in the hero (content), not the
+  // nav; the Home tab is the default when the user does move up to the nav.
   const hasTopNav = !isPhase0;
   const [page, setPage] = useState<Page>('home');
-  const [navFocus, setNavFocus] = useState(hasTopNav);
+  const [navFocus, setNavFocus] = useState(false);
   const [navCol, setNavCol] = useState(HOME_TAB);
   // Search page state: query text, on-screen keyboard cursor, and which zone
   // (keyboard vs results grid) currently has focus.
@@ -439,7 +441,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       // The empty state's featured tiles are a navigable (large) row.
       sections.push({
         kind: 'shelf',
-        row: { key: 'recommended', title: '', variant: 'lg', slideshow: false, games: recommendedGames },
+        row: { key: 'recommended', title: '', variant: 'lg', slideshow: true, games: recommendedGames },
       });
     } else {
       if (jumpBackGames.length) {
@@ -1290,13 +1292,22 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     return () => clearTimeout(t);
   }, [page, nav.sec, nav.heroSlide, panel.game]);
 
-  // Slideshow: loop screenshots inside a focused tile on a slideshow row.
+  // Slideshow on a focused slideshow-tile: hold the cover art for 1s, then
+  // start looping the game's screenshots.
   useEffect(() => {
     setShot(0);
+    setSlideshowReady(false);
     if (nav.sec === 0 || reduceMotion) return;
     if (!navRowsRef.current[nav.sec - 1]?.slideshow) return;
-    const t = setInterval(() => setShot((s) => (s + 1) % SHOT_VARIANTS.length), 1500);
-    return () => clearInterval(t);
+    let interval: ReturnType<typeof setInterval> | undefined;
+    const startT = setTimeout(() => {
+      setSlideshowReady(true);
+      interval = setInterval(() => setShot((s) => (s + 1) % SHOT_VARIANTS.length), 1500);
+    }, 1000);
+    return () => {
+      clearTimeout(startT);
+      if (interval) clearInterval(interval);
+    };
   }, [nav.sec, nav.col]);
 
   // Slideshow inside the open game-info panel.
@@ -1559,6 +1570,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                   focused={focusedHere && i === col}
                   pressing={pressing && focusedHere && i === col}
                   slideshow={row.slideshow}
+                  slideshowReady={slideshowReady}
                   shot={shot}
                   onClick={() => selectTile(sectionIndex, i, row.games[i])}
                 />
@@ -1646,8 +1658,9 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                     variant="lg"
                     focused={!navFocus && nav.sec === 1 && nav.col === i}
                     pressing={pressing && !navFocus && nav.sec === 1 && nav.col === i}
-                    slideshow={false}
-                    shot={0}
+                    slideshow
+                    slideshowReady={slideshowReady}
+                    shot={shot}
                     onClick={() => selectTile(1, i, g)}
                   />
                 ))}
@@ -2955,11 +2968,13 @@ interface TileProps {
   slideshow: boolean;
   shot: number;
   onClick: () => void;
+  /** Slideshow only plays once ready (after the 1s focus delay). Default true. */
+  slideshowReady?: boolean;
 }
 
-function Tile({ game, variant, focused, pressing, slideshow, shot, onClick }: TileProps) {
+function Tile({ game, variant, focused, pressing, slideshow, shot, onClick, slideshowReady = true }: TileProps) {
   const t = TILE[variant];
-  const showShots = slideshow && focused;
+  const showShots = slideshow && focused && slideshowReady;
 
   const captionStyle: CSSProperties = {
     position: 'absolute',
