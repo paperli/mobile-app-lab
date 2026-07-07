@@ -185,6 +185,66 @@ function HubView({ phase, variation, pairing }: { phase: number; variation: numb
   );
 }
 
+function PrototypeGroup({ title, options }: { title: string; options: LayoutOption[] }) {
+  if (options.length === 0) return null;
+  return (
+    <>
+      <div
+        style={{
+          marginTop: 56,
+          fontSize: 13,
+          fontWeight: 700,
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+          color: '#8a8a9a',
+        }}
+      >
+        {title}
+      </div>
+      <div
+        style={{
+          marginTop: 20,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gap: 24,
+        }}
+      >
+        {options.map((o) => (
+          <a
+            key={`${o.phase}-${o.variation}`}
+            href={optionHref(o)}
+            style={{
+              display: 'block',
+              textDecoration: 'none',
+              color: 'inherit',
+              background: '#141518',
+              border: '1px solid #2b2c30',
+              borderRadius: 18,
+              padding: '26px 26px 28px',
+              transition: 'border-color 160ms ease, transform 160ms ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = '#6a6b70';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = '#2b2c30';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', color: '#8a8a9a', textTransform: 'uppercase' }}>
+              {o.name}
+            </div>
+            <div style={{ marginTop: 10, fontSize: 26, fontWeight: 800, letterSpacing: '-0.01em' }}>{o.tagline}</div>
+            <p style={{ margin: '12px 0 0', fontSize: 15.5, lineHeight: 1.5, color: 'rgba(243,244,241,0.68)' }}>{o.desc}</p>
+            <div style={{ marginTop: 18, fontSize: 15, fontWeight: 700, color: '#f3f4f1' }}>Open →</div>
+          </a>
+        ))}
+      </div>
+    </>
+  );
+}
+
 function Gallery() {
   return (
     <div
@@ -289,58 +349,9 @@ function Gallery() {
           </div>
         </section>
 
-        <div
-          style={{
-            marginTop: 56,
-            fontSize: 13,
-            fontWeight: 700,
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-            color: '#8a8a9a',
-          }}
-        >
-          Prototypes
-        </div>
-        <div
-          style={{
-            marginTop: 20,
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: 24,
-          }}
-        >
-          {OPTIONS.map((o) => (
-            <a
-              key={`${o.phase}-${o.variation}`}
-              href={optionHref(o)}
-              style={{
-                display: 'block',
-                textDecoration: 'none',
-                color: 'inherit',
-                background: '#141518',
-                border: '1px solid #2b2c30',
-                borderRadius: 18,
-                padding: '26px 26px 28px',
-                transition: 'border-color 160ms ease, transform 160ms ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#6a6b70';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = '#2b2c30';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }}
-            >
-              <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', color: '#8a8a9a', textTransform: 'uppercase' }}>
-                {o.name}
-              </div>
-              <div style={{ marginTop: 10, fontSize: 26, fontWeight: 800, letterSpacing: '-0.01em' }}>{o.tagline}</div>
-              <p style={{ margin: '12px 0 0', fontSize: 15.5, lineHeight: 1.5, color: 'rgba(243,244,241,0.68)' }}>{o.desc}</p>
-              <div style={{ marginTop: 18, fontSize: 15, fontWeight: 700, color: '#f3f4f1' }}>Open →</div>
-            </a>
-          ))}
-        </div>
+        {/* Phase 0 prototypes first (smaller catalog), then phase 1. */}
+        <PrototypeGroup title="Prototypes — 12–20 games" options={OPTIONS.filter((o) => o.phase === 0)} />
+        <PrototypeGroup title="Prototypes — 30+ games" options={OPTIONS.filter((o) => o.phase === 1)} />
 
         <p style={{ marginTop: 44, fontSize: 14, color: '#6b6c71' }}>
           Tip: append <code style={{ color: '#b9babe' }}>&amp;pairing=true</code> to any layout to show the QR pairing panel.
