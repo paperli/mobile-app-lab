@@ -556,6 +556,14 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     soundManager.playNavigationSound();
   }, []);
 
+  // MORE INFO on a game hero slide → open that game's info side panel.
+  const openHeroInfo = useCallback(() => {
+    const cur = navRef.current;
+    if (isPromoSlideRef.current(cur.heroSlide)) return;
+    const g = HERO_GAMES[cur.heroSlide - promoOffset];
+    if (g) openPanel(g);
+  }, [openPanel, promoOffset]);
+
   const openAllGames = useCallback(() => {
     const n = { row: 0, col: 0 };
     agNavRef.current = n;
@@ -1014,9 +1022,17 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     const sectionCount = rows.length + 1;
     if (dx !== 0) {
       if (prev.sec === 0) {
+        // Hero: ◀▶ move between CTAs (PLAY NOW / MORE INFO); at the edges,
+        // cycle slides. Promo slides have a single CTA (maxCol 0).
         const count = heroSlideCountRef.current;
-        const hs = (prev.heroSlide + (dx > 0 ? 1 : -1) + count) % count;
-        next = { ...prev, heroSlide: hs };
+        const maxCol = isPromoSlideRef.current(prev.heroSlide) ? 0 : 1;
+        if (dx > 0) {
+          if (prev.col < maxCol) next = { ...prev, col: prev.col + 1 };
+          else next = { ...prev, heroSlide: (prev.heroSlide + 1) % count, col: 0 };
+        } else {
+          if (prev.col > 0) next = { ...prev, col: prev.col - 1 };
+          else next = { ...prev, heroSlide: (prev.heroSlide - 1 + count) % count, col: 0 };
+        }
         sound = 'nav';
       } else if (rows[prev.sec - 1]?.banner) {
         sound = 'bounce'; // banner is a single full-width item
@@ -1236,7 +1252,10 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       if (action === 'ok') {
         const cur = navRef.current;
         if (cur.sec === 0) {
-          launch(); // hero CTA (all variations)
+          // Game hero: col 1 = MORE INFO (side panel); col 0 = PLAY NOW. Promo
+          // slide has a single CTA that opens the upsell (via launch).
+          if (!isPromoSlideRef.current(cur.heroSlide) && cur.col === 1) openHeroInfo();
+          else launch();
           return;
         }
         const row = navRowsRef.current[cur.sec - 1];
@@ -1256,7 +1275,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     },
     [
       closePanel, closeAllGames, closeUpsell, openUpsell, openAllGames, launchGame, toggleFavorite, launch, openPanel,
-      goToPage, applyKey, toNav, openProfile, closeProfileMenu, openSettings, closeSettings, openSwitch,
+      goToPage, applyKey, toNav, openHeroInfo, openProfile, closeProfileMenu, openSettings, closeSettings, openSwitch,
       closeSwitch, selectProfile, startEdit, commitEdit, applyEditKey, openSignOutConfirm, closeSignOutConfirm, doSignOut,
     ]
   );
@@ -1293,7 +1312,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     if (page !== 'home' || nav.sec !== 0 || reduceMotion || panel.game) return;
     const t = setTimeout(() => {
       setNav((p) => {
-        const n = { ...p, heroSlide: (p.heroSlide + 1) % heroSlideCount };
+        const n = { ...p, heroSlide: (p.heroSlide + 1) % heroSlideCount, col: 0 };
         navRef.current = n;
         return n;
       });
@@ -1714,8 +1733,10 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
               trialUrl={trialUrl}
               phase={heroTransFrom !== null ? 'in' : 'idle'}
               heroFocused={nav.sec === 0 && !navFocus}
+              heroCol={nav.col}
               pressing={pressing}
               onPlay={handleHeroPlay}
+              onMoreInfo={openHeroInfo}
             />
             {heroTransFrom !== null && (
               <HeroSlide
@@ -1726,8 +1747,10 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                 trialUrl={trialUrl}
                 phase="out"
                 heroFocused={nav.sec === 0 && !navFocus}
+                heroCol={0}
                 pressing={false}
                 onPlay={handleHeroPlay}
+                onMoreInfo={openHeroInfo}
               />
             )}
 
@@ -2731,11 +2754,25 @@ interface HeroSlideProps {
   phase: HeroPhase;
   /** Whether the hero section currently holds D-pad focus. */
   heroFocused: boolean;
+  /** Focused CTA within the hero: 0 = PLAY NOW, 1 = MORE INFO (game slides). */
+  heroCol: number;
   pressing: boolean;
   onPlay: () => void;
+  onMoreInfo: () => void;
 }
 
-function HeroSlide({ promo, game, promoGames = [], trialUrl = '', phase, heroFocused, pressing, onPlay }: HeroSlideProps) {
+function HeroSlide({
+  promo,
+  game,
+  promoGames = [],
+  trialUrl = '',
+  phase,
+  heroFocused,
+  heroCol,
+  pressing,
+  onPlay,
+  onMoreInfo,
+}: HeroSlideProps) {
   // The CTA re-selects (unselected → selected) as the new slide settles, so the
   // change reads clearly. Incoming slides start unselected then flip; otherwise
   // the button just mirrors whether the hero is focused.
@@ -2892,41 +2929,53 @@ function HeroSlide({ promo, game, promoGames = [], trialUrl = '', phase, heroFoc
             </>
           )
         )}
-        <button
-          onClick={onPlay}
-          style={{
-            appearance: 'none',
-            marginTop: 6,
-            minWidth: 220,
-            height: 56,
-            padding: '0 34px',
-            borderRadius: 9999,
-            cursor: 'pointer',
-            fontFamily: FONT,
-            fontSize: 20,
-            fontWeight: 600,
-            letterSpacing: '0.02em',
-            transition:
-              'transform 220ms cubic-bezier(.22,.61,.36,1), background 220ms ease, box-shadow 220ms ease, color 220ms ease, border-color 220ms ease',
-            ...(selected
-              ? {
-                  background: INK,
-                  color: '#000',
-                  border: '1px solid #fff',
-                  transform: pressing ? 'scale(0.96)' : 'scale(1.04)',
-                  boxShadow: '0 0 0 4px #fff, 0 12px 30px rgba(0,0,0,0.6)',
-                }
-              : {
-                  background: '#141518',
-                  color: INK,
-                  border: '1px solid #3a3b3f',
-                  transform: 'scale(1)',
-                  boxShadow: 'none',
-                }),
-          }}
-        >
-          {promo ? 'MORE INFO' : 'PLAY NOW'}
-        </button>
+        <div style={{ marginTop: 6, display: 'flex', gap: 14 }}>
+          {(() => {
+            const ctaStyle = (btnFocused: boolean): CSSProperties => ({
+              appearance: 'none',
+              minWidth: 200,
+              height: 56,
+              padding: '0 34px',
+              borderRadius: 9999,
+              cursor: 'pointer',
+              fontFamily: FONT,
+              fontSize: 20,
+              fontWeight: 600,
+              letterSpacing: '0.02em',
+              transition:
+                'transform 220ms cubic-bezier(.22,.61,.36,1), background 220ms ease, box-shadow 220ms ease, color 220ms ease, border-color 220ms ease',
+              ...(btnFocused && selected
+                ? {
+                    background: INK,
+                    color: '#000',
+                    border: '1px solid #fff',
+                    transform: pressing ? 'scale(0.96)' : 'scale(1.04)',
+                    boxShadow: '0 0 0 4px #fff, 0 12px 30px rgba(0,0,0,0.6)',
+                  }
+                : {
+                    background: '#141518',
+                    color: INK,
+                    border: '1px solid #3a3b3f',
+                    transform: 'scale(1)',
+                    boxShadow: 'none',
+                  }),
+            });
+            return promo ? (
+              <button onClick={onPlay} style={ctaStyle(true)}>
+                MORE INFO
+              </button>
+            ) : (
+              <>
+                <button onClick={onPlay} style={ctaStyle(heroCol === 0)}>
+                  PLAY NOW
+                </button>
+                <button onClick={onMoreInfo} style={ctaStyle(heroCol === 1)}>
+                  MORE INFO
+                </button>
+              </>
+            );
+          })()}
+        </div>
       </div>
     </div>
   );
