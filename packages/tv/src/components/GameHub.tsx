@@ -1428,7 +1428,10 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // one fades in.
   const [heroTransFrom, setHeroTransFrom] = useState<number | null>(null);
   const prevHeroSlideRef = useRef(nav.heroSlide);
-  useEffect(() => {
+  // Layout effect (not a plain effect) so the incoming slide is marked
+  // "transitioning" before the browser paints — otherwise it paints one frame at
+  // full opacity (phase "idle") before the fade-in applies, causing a flash.
+  useLayoutEffect(() => {
     if (prevHeroSlideRef.current === nav.heroSlide) return;
     const from = prevHeroSlideRef.current;
     prevHeroSlideRef.current = nav.heroSlide;
