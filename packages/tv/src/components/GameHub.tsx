@@ -173,6 +173,17 @@ const HERO_ANIM_CSS = `
 @keyframes hubHeroDotFill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes hubHeroPan { from { transform: translate(0, -50%); } to { transform: translate(-33.333%, -50%); } }
 @keyframes hubHeroPanX { from { transform: translateX(0); } to { transform: translateX(-33.333%); } }
+/* Gift icon: lift + scale up + wiggle for a beat, then rest, then repeat. */
+@keyframes hubGiftWiggle {
+  0%   { transform: translateY(0) scale(1) rotate(0deg); }
+  5%   { transform: translateY(-5px) scale(1.28) rotate(-12deg); }
+  10%  { transform: translateY(-5px) scale(1.28) rotate(11deg); }
+  15%  { transform: translateY(-5px) scale(1.24) rotate(-9deg); }
+  20%  { transform: translateY(-4px) scale(1.22) rotate(8deg); }
+  25%  { transform: translateY(-3px) scale(1.12) rotate(-4deg); }
+  30%  { transform: translateY(0) scale(1) rotate(0deg); }
+  100% { transform: translateY(0) scale(1) rotate(0deg); }
+}
 `;
 
 // ── Imperative handle exposed to App.tsx ────────────────────────────────────
@@ -262,12 +273,13 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // Unknown values fall back to 1. Future phases/variations branch on these.
   const resolvedPhase = (HUB_PHASES as readonly number[]).includes(phase) ? phase : 1;
   const resolvedVariation = (HUB_VARIATIONS as readonly number[]).includes(variation) ? variation : 1;
-  // "Preview mode" (variation 3, and phase 0): keep the large hero at section 0
-  // but show a pinned game-info preview at the top while a tile is focused, and
-  // launch directly on OK (no side panel). Phase 0 also strips the hub down to
-  // just the All Games grid. Kept in refs for the input callbacks.
+  // "Preview mode" (variation 3, and phase-0 variation 1): keep the large hero
+  // at section 0 but show a pinned game-info preview at the top while a tile is
+  // focused, and launch directly on OK (no side panel). Phase 0 strips the hub
+  // down to the All Games grid — variation 1 uses the top preview, variation 2
+  // opens the game-info side panel on select instead. Kept in refs for input.
   const isPhase0 = resolvedPhase === 0;
-  const previewMode = resolvedVariation === 3 || isPhase0;
+  const previewMode = resolvedVariation === 3 || (isPhase0 && resolvedVariation === 1);
   const isV3 = previewMode; // preview-mode behaviour (hero preview + direct launch)
   const isV3Ref = useRef(isV3);
   isV3Ref.current = isV3;
@@ -279,7 +291,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // Free-trial promo as the first hero slide. Phase 0/variation 1 always shows
   // it; phase-1 variations show it only while signed out (signed-in users have
   // already claimed the trial).
-  const showPromoSlide = isPhase0 ? resolvedVariation === 1 : !signedIn;
+  const showPromoSlide = isPhase0 ? true : !signedIn;
   const promoOffset = showPromoSlide ? 1 : 0;
   const heroSlideCount = HERO_GAMES.length + promoOffset;
   const isPromoSlide = (i: number) => showPromoSlide && i === 0;
@@ -888,11 +900,12 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       return;
     }
 
-    // While the panel is open, ▲▼ move between its actions.
+    // While the panel is open, ▲▼ move between its actions. Signed-out hides Play.
     const p = panelRef.current;
     if (p.game) {
+      const actionCount = signedInRef.current ? PANEL_ACTIONS.length : PANEL_ACTIONS.length - 1;
       if (dy !== 0) {
-        const nf = Math.min(Math.max(0, p.focus + (dy > 0 ? 1 : -1)), PANEL_ACTIONS.length - 1);
+        const nf = Math.min(Math.max(0, p.focus + (dy > 0 ? 1 : -1)), actionCount - 1);
         if (nf !== p.focus) {
           const np = { ...p, focus: nf };
           panelRef.current = np;
@@ -1189,7 +1202,9 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           return;
         }
         if (action === 'ok') {
-          const which = PANEL_ACTIONS[p.focus];
+          // Signed-out panels hide Play, so the focusable actions shift up.
+          const actions = signedInRef.current ? PANEL_ACTIONS : PANEL_ACTIONS.filter((a) => a !== 'play');
+          const which = actions[p.focus];
           if (which === 'play') {
             const g = p.game;
             closePanel();
@@ -2479,22 +2494,47 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
 
                 {/* Actions */}
                 <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <PanelButton
-                    label="Play"
-                    focused={panel.focus === 0}
-                    pressing={pressing && panel.focus === 0}
-                    onClick={() => {
-                      const g = panelRef.current.game ?? panelGame;
-                      closePanel();
-                      launchGame(g);
-                    }}
-                  />
+                  {signedIn ? (
+                    <PanelButton
+                      label="Play"
+                      focused={panel.focus === 0}
+                      pressing={pressing && panel.focus === 0}
+                      onClick={() => {
+                        const g = panelRef.current.game ?? panelGame;
+                        closePanel();
+                        launchGame(g);
+                      }}
+                    />
+                  ) : (
+                    // Signed out: no Play — pair your phone first. QR (left) +
+                    // instruction (right).
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 20, paddingBottom: 8 }}>
+                      <div style={{ background: '#fff', padding: 10, borderRadius: 12, lineHeight: 0, flex: '0 0 auto' }}>
+                        <QRCodeSVG value={mobileUrl} size={124} level="M" includeMargin={false} />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                        <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.02em', color: INK, lineHeight: 1.12 }}>
+                          Scan, connect, and play!
+                        </div>
+                        <div style={{ height: 1, background: 'rgba(255,255,255,0.16)' }} />
+                        <div style={{ fontSize: 18, lineHeight: 1.5, color: 'rgba(243,244,241,0.66)' }}>
+                          Or, go to <b style={{ color: INK, fontWeight: 700 }}>pair.weekend.com</b>
+                          <br />
+                          and enter code <b style={{ color: INK, fontWeight: 700, letterSpacing: '0.04em' }}>{pairCode}</b>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <PanelButton
                     label={favorites.has(panelGame.id) ? '♥  Favorited' : '♡  Add to Favorites'}
-                    focused={panel.focus === 1}
+                    focused={panel.focus === (signedIn ? 1 : 0)}
                     onClick={() => toggleFavorite(panelGame.id)}
                   />
-                  <PanelButton label="Back to Lobby" focused={panel.focus === 2} onClick={closePanel} />
+                  <PanelButton
+                    label="Back to Lobby"
+                    focused={panel.focus === (signedIn ? 2 : 1)}
+                    onClick={closePanel}
+                  />
                 </div>
               </>
             )}
@@ -3451,7 +3491,15 @@ function TopNav({
             </>
           ) : (
             <>
-              <IconGift size={22} color={profileFocused ? '#000' : INK} />
+              <span
+                style={{
+                  display: 'inline-flex',
+                  transformOrigin: 'bottom center',
+                  animation: reduceMotion ? undefined : 'hubGiftWiggle 3s ease-in-out infinite',
+                }}
+              >
+                <IconGift size={22} color={profileFocused ? '#000' : INK} />
+              </span>
               <span>Claim Free Trial</span>
             </>
           )}

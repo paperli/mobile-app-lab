@@ -44,6 +44,13 @@ const OPTIONS: LayoutOption[] = [
     tagline: 'Grid-only browse',
     desc: 'Stripped-down layout: the hero (with promo) sits above a single titled All Games grid, with the trial banner beneath it.',
   },
+  {
+    phase: 0,
+    variation: 2,
+    name: 'Phase 0 · Variation 2',
+    tagline: 'Grid + side panel',
+    desc: 'Same grid-only layout, but selecting a game opens the game-info side panel instead of previewing it in the top area.',
+  },
 ];
 
 const FONT = "'Weekend Repro', ui-sans-serif, system-ui, sans-serif";
