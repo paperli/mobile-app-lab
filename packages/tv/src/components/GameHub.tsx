@@ -241,6 +241,16 @@ const HERO_ANIM_CSS = `
 }
 /* Song Quiz "now playing" badge: the disc spins continuously like a record. */
 @keyframes puzzleNoteSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+/* Party Mode hero: players gently bob; confetti drifts and twinkles. */
+@keyframes sqPlayerBob {
+  0%, 100% { transform: translateY(var(--bob-lift, 0px)); }
+  50%      { transform: translateY(calc(var(--bob-lift, 0px) - 12px)); }
+}
+@keyframes sqConfetti {
+  0%   { transform: translateY(6px) rotate(-12deg); opacity: 0.25; }
+  50%  { transform: translateY(-8px) rotate(10deg); opacity: 0.7; }
+  100% { transform: translateY(6px) rotate(-12deg); opacity: 0.25; }
+}
 `;
 
 // ── Imperative handle exposed to App.tsx ────────────────────────────────────
@@ -3563,6 +3573,136 @@ function WofWheel({ focused }: { focused: boolean }) {
   );
 }
 
+// ── Song Quiz "Party Mode" hero art ──────────────────────────────────────────
+// Three players buzzing in head-to-head with a confetti burst — promotes the
+// new Party Mode. Monochrome to match the hub (the real game is full-colour).
+function SongQuizParty({ focused }: { focused: boolean }) {
+  // Middle player leads; the others sit lower for a podium feel.
+  const players = [
+    { emoji: '😎', name: 'Max', score: 2, lift: 34 },
+    { emoji: '🥳', name: 'Ava', score: 3, lift: 0, lead: true },
+    { emoji: '🎤', name: 'Zoe', score: 1, lift: 48 },
+  ];
+  // Confetti at fixed spots (no RNG in this env); size + delay vary per piece.
+  const confetti = [
+    { left: 2, top: 4, s: 34, d: 0 },
+    { left: 42, top: 0, s: 24, d: 0.7 },
+    { left: 82, top: 8, s: 36, d: 0.3 },
+    { left: 16, top: 66, s: 26, d: 1.0 },
+    { left: 90, top: 52, s: 30, d: 0.5 },
+    { left: 60, top: 72, s: 22, d: 1.2 },
+    { left: 0, top: 40, s: 26, d: 0.2 },
+    { left: 96, top: 26, s: 32, d: 0.9 },
+  ];
+  const emojis = ['🎉', '🎊', '✨', '🎵', '🎈', '🎉', '🎵', '✨'];
+  return (
+    <div style={{ position: 'absolute', right: 120, top: 40, width: 760, height: 520 }}>
+      {/* Confetti scattered behind the players */}
+      {confetti.map((c, i) => (
+        <span
+          key={i}
+          aria-hidden
+          style={{
+            position: 'absolute',
+            left: `${c.left}%`,
+            top: `${c.top}%`,
+            fontSize: c.s,
+            opacity: 0.5,
+            animation: focused ? `sqConfetti 2.6s ease-in-out ${c.d}s infinite` : undefined,
+          }}
+        >
+          {emojis[i % emojis.length]}
+        </span>
+      ))}
+      {/* Three players buzzing in — the middle one leading the round */}
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 30,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'flex-end',
+          gap: 34,
+        }}
+      >
+        {players.map((p, i) => (
+          <div
+            key={p.name}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 14,
+              // Custom prop drives the bob keyframe so each player keeps its lift.
+              ['--bob-lift' as string]: `${p.lift}px`,
+              transform: `translateY(${p.lift}px)`,
+              animation: focused ? `sqPlayerBob 3s ease-in-out ${i * 0.25}s infinite` : undefined,
+            }}
+          >
+            <div
+              style={{
+                position: 'relative',
+                width: p.lead ? 208 : 168,
+                height: p.lead ? 208 : 168,
+                borderRadius: '50%',
+                background: 'rgba(255,255,255,0.10)',
+                border: p.lead ? '3px solid rgba(255,255,255,0.9)' : '2px solid rgba(255,255,255,0.45)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: p.lead ? 118 : 92,
+                boxShadow: '0 16px 40px rgba(0,0,0,0.55)',
+              }}
+            >
+              {p.emoji}
+              {/* Buzzer light dot for the leader */}
+              {p.lead && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: -6,
+                    right: -6,
+                    width: 34,
+                    height: 34,
+                    borderRadius: '50%',
+                    background: INK,
+                    color: '#000',
+                    fontSize: 18,
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                  }}
+                >
+                  ★
+                </span>
+              )}
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '6px 14px',
+                borderRadius: 9999,
+                background: 'rgba(20,21,24,0.85)',
+                border: '1px solid rgba(255,255,255,0.25)',
+                fontFamily: FONT,
+              }}
+            >
+              <span style={{ fontWeight: 700, fontSize: 18, color: INK }}>{p.name}</span>
+              <span style={{ fontSize: 16, color: '#9a9ba0' }}>🎤 {p.score}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Hero slide ───────────────────────────────────────────────────────────────
 type HeroPhase = 'idle' | 'in' | 'out';
 
@@ -3596,6 +3736,7 @@ function HeroSlide({
   onMoreInfo,
 }: HeroSlideProps) {
   const isWof = !promo && game?.id === WOF_ID;
+  const isSongQuiz = !promo && game?.id === 'song-quiz';
   // The CTA re-selects (unselected → selected) as the new slide settles, so the
   // change reads clearly. Incoming slides start unselected then flip; otherwise
   // the button just mirrors whether the hero is focused.
@@ -3675,6 +3816,18 @@ function HeroSlide({
             <div style={{ position: 'absolute', right: 210, top: 300, transform: 'translateY(-50%)' }}>
               <WofWheel focused={heroFocused && phase !== 'out'} />
             </div>
+          </>
+        ) : isSongQuiz ? (
+          <>
+            {game && (
+              <GameArt
+                game={game}
+                variant="hero"
+                hideMotif
+                style={{ position: 'absolute', top: 0, left: 0, width: STAGE_W, height: 620 }}
+              />
+            )}
+            <SongQuizParty focused={heroFocused && phase !== 'out'} />
           </>
         ) : (
           game && (
@@ -3768,6 +3921,33 @@ function HeroSlide({
                     NEW RELEASE
                   </span>
                 )}
+                {/* Song Quiz: "Party Mode" as a second title line with a NEW
+                    tag beside it — promotes the new mode, not a new game. */}
+                {isSongQuiz && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 10 }}>
+                    <GameLogo
+                      title="Party Mode"
+                      theme={game.theme}
+                      onDark
+                      style={{ fontSize: 58, whiteSpace: 'nowrap', color: game.theme?.accent }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 16,
+                        fontWeight: 800,
+                        letterSpacing: '0.14em',
+                        color: '#000',
+                        background: INK,
+                        borderRadius: 6,
+                        padding: '5px 12px',
+                        boxShadow: '0 6px 18px rgba(0,0,0,0.5)',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      NEW
+                    </span>
+                  </div>
+                )}
               </div>
               <p
                 style={{
@@ -3782,7 +3962,9 @@ function HeroSlide({
                   overflow: 'hidden',
                 }}
               >
-                {game.description}
+                {isSongQuiz
+                  ? 'Up to 4 friends go head-to-head to name the hit song first.'
+                  : game.description}
               </p>
               <GameMetaPills players={game.players} interaction={game.interaction} size={42} />
             </>
