@@ -69,6 +69,8 @@ interface NavRow {
   slideshow: boolean;
   /** Single full-width focusable item (no tiles), e.g. the free-trial banner. */
   banner?: boolean;
+  /** Interactive puzzle row (question + inline answers), navigated specially. */
+  puzzle?: boolean;
   /** Row ends with an extra "See all games" tile (focusable at index games.length). */
   seeAll?: boolean;
 }
@@ -128,6 +130,7 @@ const SHELF_PAD = 80;
 
 // ── Top navigation (phase 1 only) ────────────────────────────────────────────
 type Page = 'search' | 'home' | 'mygames';
+type PuzzleStage = 'question' | 'result' | 'followup' | 'thanks' | 'done';
 const NAV_BAR_H = 96;
 const TOP_NAV: { key: Page; label: string }[] = [
   { key: 'search', label: 'Search' },
@@ -165,6 +168,26 @@ const PREVIEW_GAP = 28;
 const HERO_AUTOPLAY_MS = 6000;
 // Per-shot dwell for the game-info panel's screenshot slideshow (+ dot countdown).
 const PANEL_SHOT_MS = 2600;
+
+// Puzzle row timings: how long the result/thanks screens hold before advancing,
+// and how fast the lyric lines scroll.
+const PUZZLE_ADVANCE_MS = 3000;
+const PUZZLE_LYRIC_MS = 2200;
+// Song-quiz puzzle. Lyrics are original placeholder lines (not a real song).
+const SONG_PUZZLE = {
+  title: 'Guess who sings this song',
+  lyrics: [
+    'City lights are calling out my name tonight',
+    'Dancing through the rain without a single care',
+    'Hold me like the summer never has to end',
+    'We were young and always running out of time',
+    'Every heartbeat echoes somewhere in the dark',
+    'Take my hand and we will find our way back home',
+  ],
+  options: ['The Midnight Echo', 'Nova Reign', 'Cassette Kids', 'Golden Hour'],
+  correct: 2,
+  followUp: { question: 'Do you like this game?', options: ['I love it!', 'Not quite'] },
+};
 
 // Hero slide-change choreography (see HeroSlide): outgoing art fades + slides
 // left; incoming art/text fade in. Plus the active-dot countdown fill.
@@ -325,6 +348,16 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const [upsellOpen, setUpsellOpen] = useState(false);
   const [upsellFading, setUpsellFading] = useState(false); // fade-out on auto-dismiss
 
+  // Puzzle row (phase 1 only): an inline song-quiz question that the user answers
+  // with the d-pad. Flow: question -> result -> follow-up -> thanks -> done (row
+  // removed). `puzzleCol` is the focused option (2×2 grid in question, 2 in follow-up).
+  const [puzzleStage, setPuzzleStage] = useState<PuzzleStage>('question');
+  const [puzzleCol, setPuzzleCol] = useState(0);
+  const [puzzleSel, setPuzzleSel] = useState<number | null>(null); // chosen answer (question)
+  // Follow-up choice is recorded but not currently surfaced in the UI.
+  const [, setPuzzleFollowSel] = useState<number | null>(null);
+  const [puzzleLyric, setPuzzleLyric] = useState(0); // current lyric line index
+
   // Top navigation (phase 1 only): Search / Home / My Games. `navFocus` = focus
   // is on the top nav bar. On launch focus starts in the hero (content), not the
   // nav; the Home tab is the default when the user does move up to the nav.
@@ -423,6 +456,10 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   panelRef.current = panel;
   const shotViewerOpenRef = useRef(shotViewerOpen);
   shotViewerOpenRef.current = shotViewerOpen;
+  const puzzleStageRef = useRef(puzzleStage);
+  puzzleStageRef.current = puzzleStage;
+  const puzzleColRef = useRef(puzzleCol);
+  puzzleColRef.current = puzzleCol;
   const colMemoryRef = useRef<number[]>([]);
   const rowRefs = useRef<(HTMLElement | null)[]>([]);
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -465,9 +502,14 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // Only the Home page carries the big hero; My Games / Search start at the top nav.
   const pageHasHero = page === 'home';
 
+  // The puzzle row lives at the top of the phase-1 Home page until it's answered
+  // through and self-dismisses (stage 'done').
+  const showPuzzle = !isPhase0 && puzzleStage !== 'done';
+
   type SectionDef =
     | { kind: 'shelf'; row: RowDef }
     | { kind: 'banner' }
+    | { kind: 'puzzle' }
     | { kind: 'grid'; games: HubGame[]; gridIndex: number; gridTitle?: string };
   const sections: SectionDef[] = [];
   if (page === 'search') {
@@ -494,6 +536,8 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     gridChunks.forEach((games, gridIndex) => sections.push({ kind: 'grid', games, gridIndex }));
     sections.push({ kind: 'banner' });
   } else {
+    // Puzzle row sits at the very top of the phase-1 Home page.
+    if (showPuzzle) sections.push({ kind: 'puzzle' });
     // Jump Back On (all phase-1 variations) — only once the user has played
     // something; same source as the My Games page.
     if (jumpBackGames.length) {
@@ -517,6 +561,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     if (s.kind === 'shelf')
       return { games: s.row.games, variant: s.row.variant, slideshow: s.row.slideshow, seeAll: s.row.seeAll };
     if (s.kind === 'grid') return { games: s.games, variant: 'grid' as TileVariant, slideshow: false };
+    if (s.kind === 'puzzle') return { games: [], variant: 'sm' as TileVariant, slideshow: false, puzzle: true };
     return { games: [], variant: 'sm' as TileVariant, slideshow: false, banner: true };
   });
   const navRowsRef = useRef(navRows);
@@ -1070,6 +1115,37 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
 
     const rows = navRowsRef.current;
     const sectionCount = rows.length + 1;
+
+    // Puzzle row: navigate its inline answer options. The 2×2 grid (question) and
+    // the two follow-up options are handled here; d-pad at a vertical edge (or on
+    // the non-interactive result/thanks screens) falls through to leave the row.
+    if (prev.sec > 0 && rows[prev.sec - 1]?.puzzle) {
+      const stage = puzzleStageRef.current;
+      const col = puzzleColRef.current;
+      const setPz = (c: number) => {
+        puzzleColRef.current = c;
+        setPuzzleCol(c);
+        soundManager.playNavigationSound();
+      };
+      if (dx !== 0) {
+        if (stage === 'question') {
+          const rowStart = col < 2 ? 0 : 2;
+          const within = col - rowStart + (dx > 0 ? 1 : -1);
+          if (within >= 0 && within <= 1) setPz(rowStart + within);
+          else soundManager.playBounceSound();
+        } else if (stage === 'followup') {
+          const nc = col + (dx > 0 ? 1 : -1);
+          if (nc >= 0 && nc <= 1) setPz(nc);
+          else soundManager.playBounceSound();
+        } else soundManager.playBounceSound();
+        return;
+      }
+      // Vertical inside the 2×2 question grid; otherwise leave the row.
+      if (dy > 0 && stage === 'question' && col < 2) return void setPz(col + 2);
+      if (dy < 0 && stage === 'question' && col >= 2) return void setPz(col - 2);
+      // fall through: dy at an edge escapes to the adjacent section.
+    }
+
     if (dx !== 0) {
       if (prev.sec === 0) {
         // Hero: ◀▶ move between CTAs (PLAY NOW / MORE INFO); at the edges,
@@ -1336,6 +1412,23 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           return;
         }
         const row = navRowsRef.current[cur.sec - 1];
+        if (row?.puzzle) {
+          // Lock in the answer / follow-up choice; the result → follow-up → thanks
+          // → dismiss timing is driven by effects keyed on the stage.
+          const stage = puzzleStageRef.current;
+          if (stage === 'question') {
+            setPuzzleSel(puzzleColRef.current);
+            puzzleStageRef.current = 'result';
+            setPuzzleStage('result');
+            soundManager.playSelectionSound();
+          } else if (stage === 'followup') {
+            setPuzzleFollowSel(puzzleColRef.current);
+            puzzleStageRef.current = 'thanks';
+            setPuzzleStage('thanks');
+            soundManager.playSelectionSound();
+          } else soundManager.playBounceSound();
+          return;
+        }
         if (row?.banner) {
           openUpsell(); // the free-trial banner opens the full-page upsell
           return;
@@ -1438,6 +1531,52 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     const t = setTimeout(() => setPanelShot((s) => (s + 1) % SHOT_VARIANTS.length), PANEL_SHOT_MS);
     return () => clearTimeout(t);
   }, [panel.game, panelShot]);
+
+  // ── Puzzle row timing ──
+  // Lyrics scroll one line at a time while the question is on screen.
+  useEffect(() => {
+    if (puzzleStage !== 'question' || reduceMotion) return;
+    const t = setInterval(() => setPuzzleLyric((l) => (l + 1) % SONG_PUZZLE.lyrics.length), PUZZLE_LYRIC_MS);
+    return () => clearInterval(t);
+  }, [puzzleStage]);
+  // Result holds briefly, then the follow-up question appears (focus reset to option 0).
+  useEffect(() => {
+    if (puzzleStage !== 'result') return;
+    const t = setTimeout(() => {
+      puzzleColRef.current = 0;
+      setPuzzleCol(0);
+      puzzleStageRef.current = 'followup';
+      setPuzzleStage('followup');
+    }, PUZZLE_ADVANCE_MS);
+    return () => clearTimeout(t);
+  }, [puzzleStage]);
+  // "Thank you!" holds briefly, then the whole row self-dismisses.
+  useEffect(() => {
+    if (puzzleStage !== 'thanks') return;
+    const t = setTimeout(() => {
+      puzzleStageRef.current = 'done';
+      setPuzzleStage('done');
+    }, PUZZLE_ADVANCE_MS);
+    return () => clearTimeout(t);
+  }, [puzzleStage]);
+  // When the puzzle row appears/dismisses at the top, shift Home focus so the
+  // ring stays on the same visual row (same trick as Jump Back On).
+  const puzzlePresentRef = useRef(showPuzzle);
+  useEffect(() => {
+    const changed = showPuzzle !== puzzlePresentRef.current;
+    puzzlePresentRef.current = showPuzzle;
+    if (!changed || pageRef.current !== 'home') return;
+    setNav((n) => {
+      if (n.sec === 0) return n;
+      const sec = Math.max(1, n.sec + (showPuzzle ? 1 : -1));
+      const row = navRowsRef.current[sec - 1];
+      const col = Math.max(0, Math.min(n.col, (row?.games.length ?? 1) - 1));
+      if (sec === n.sec && col === n.col) return n;
+      const ns = { ...n, sec, col };
+      navRef.current = ns;
+      return ns;
+    });
+  }, [showPuzzle]);
 
   // Prototype: pressing "s" on the sign-in upsell simulates a successful sign-in
   // — flip the QR to a checked state and play the success sound.
@@ -1640,6 +1779,168 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                   </>
                 )}
               </button>
+            </div>
+          );
+        }
+
+        // ── Puzzle row (inline song-quiz question) ──
+        if (s.kind === 'puzzle') {
+          const stage = puzzleStage;
+          const correctIdx = SONG_PUZZLE.correct;
+          const lyricCount = SONG_PUZZLE.lyrics.length;
+          return (
+            <div
+              key="puzzle-row"
+              ref={(el) => (rowRefs.current[sectionIndex - 1] = el)}
+              style={{ padding: `0 ${SHELF_PAD}px`, marginTop: 8 }}
+            >
+              <div
+                style={{
+                  width: '100%',
+                  minHeight: 300,
+                  borderRadius: 20,
+                  display: 'flex',
+                  alignItems: 'stretch',
+                  gap: 48,
+                  padding: '34px 48px',
+                  background: 'linear-gradient(100deg, #17181c 0%, #23242a 60%, #303138 100%)',
+                  border: '1px solid #3a3b3f',
+                  fontFamily: FONT,
+                  color: INK,
+                  overflow: 'hidden',
+                }}
+              >
+                {/* Left: title + auto-scrolling lyrics */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.16em', color: '#b9babe', marginBottom: 10 }}>
+                    SONG QUIZ
+                  </span>
+                  <span style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 28 }}>
+                    {SONG_PUZZLE.title}
+                  </span>
+                  {/* 3-line lyric window: the current line is solid, neighbors fade out. */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {[-1, 0, 1].map((off) => {
+                      const idx = ((puzzleLyric + off) % lyricCount + lyricCount) % lyricCount;
+                      const isCur = off === 0;
+                      return (
+                        <div
+                          key={off}
+                          style={{
+                            fontSize: isCur ? 30 : 23,
+                            fontWeight: isCur ? 800 : 500,
+                            fontStyle: 'italic',
+                            opacity: isCur ? 1 : 0.24,
+                            lineHeight: 1.32,
+                            letterSpacing: '-0.01em',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            transition: 'opacity 450ms ease, font-size 450ms ease',
+                          }}
+                        >
+                          {SONG_PUZZLE.lyrics[idx]}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Right: answer options / result / follow-up / thanks */}
+                <div style={{ flex: '0 0 auto', width: 820, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  {(stage === 'question' || stage === 'result') && (
+                    <>
+                      {stage === 'result' && (
+                        <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 16, letterSpacing: '-0.01em' }}>
+                          {puzzleSel === correctIdx ? 'Correct!' : 'Not quite —'}{' '}
+                          <span style={{ fontWeight: 600, color: INK_DIM }}>
+                            {SONG_PUZZLE.options[correctIdx]} sings it.
+                          </span>
+                        </div>
+                      )}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                        {SONG_PUZZLE.options.map((opt, i) => {
+                          const isFocus = focusedHere && stage === 'question' && puzzleCol === i;
+                          const revealCorrect = stage === 'result' && i === correctIdx;
+                          const revealWrong = stage === 'result' && i === puzzleSel && i !== correctIdx;
+                          const dim = stage === 'result' && !revealCorrect && !revealWrong;
+                          return (
+                            <div
+                              key={i}
+                              style={{
+                                minHeight: 78,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 12,
+                                padding: '20px 24px',
+                                borderRadius: 14,
+                                fontSize: 23,
+                                fontWeight: 700,
+                                letterSpacing: '-0.01em',
+                                background: revealCorrect ? INK : '#1c1d21',
+                                color: revealCorrect ? '#101114' : INK,
+                                border: revealWrong ? '2px solid #fff' : '1px solid #3a3b3f',
+                                opacity: dim ? 0.4 : 1,
+                                boxShadow: isFocus ? '0 0 0 4px #fff' : 'none',
+                                transform: isFocus ? 'scale(1.02)' : 'scale(1)',
+                                transition: 'box-shadow 180ms ease, transform 180ms ease, opacity 300ms ease, background 300ms ease',
+                              }}
+                            >
+                              {revealCorrect && <span style={{ fontWeight: 900 }}>✓</span>}
+                              {revealWrong && <span style={{ fontWeight: 900 }}>✕</span>}
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opt}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+
+                  {stage === 'followup' && (
+                    <>
+                      <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 20, letterSpacing: '-0.01em' }}>
+                        {SONG_PUZZLE.followUp.question}
+                      </div>
+                      <div style={{ display: 'flex', gap: 16 }}>
+                        {SONG_PUZZLE.followUp.options.map((opt, i) => {
+                          const isFocus = focusedHere && puzzleCol === i;
+                          return (
+                            <div
+                              key={i}
+                              style={{
+                                flex: 1,
+                                minHeight: 78,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: '20px 24px',
+                                borderRadius: 14,
+                                fontSize: 24,
+                                fontWeight: 800,
+                                letterSpacing: '-0.01em',
+                                background: '#1c1d21',
+                                color: INK,
+                                border: '1px solid #3a3b3f',
+                                boxShadow: isFocus ? '0 0 0 4px #fff' : 'none',
+                                transform: isFocus ? 'scale(1.02)' : 'scale(1)',
+                                transition: 'box-shadow 180ms ease, transform 180ms ease',
+                              }}
+                            >
+                              {opt}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+
+                  {stage === 'thanks' && (
+                    <div style={{ fontSize: 42, fontWeight: 800, letterSpacing: '-0.02em', textAlign: 'center' }}>
+                      Thank you!
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           );
         }
