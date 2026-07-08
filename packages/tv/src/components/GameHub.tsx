@@ -197,6 +197,14 @@ const SONG_PUZZLE = {
 };
 // The full game the puzzle promotes (shown as a tile after "Thank you!").
 const SONG_QUIZ_GAME = HUB_GAMES.find((g) => g.id === 'song-quiz');
+// Games related to Song Quiz, shown as a center-locked scroller on the puzzle's
+// final "Play more on" screen: the focused tile stays in the middle while ◀▶
+// scroll the pool. Song Quiz sits centered to start.
+const RELATED_GAMES = ['beat-breaker', 'song-quiz', 'karaoke-kings', 'music-maestro', 'dance-floor']
+  .map((id) => HUB_GAMES.find((g) => g.id === id))
+  .filter((g): g is HubGame => !!g);
+// Initial center index — Song Quiz — for the "Play more on" scroller.
+const RELATED_START = Math.max(0, RELATED_GAMES.findIndex((g) => g.id === 'song-quiz'));
 
 // Hero slide-change choreography (see HeroSlide): outgoing art fades + slides
 // left; incoming art/text fade in. Plus the active-dot countdown fill.
@@ -1171,6 +1179,12 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           const nc = col + (dx > 0 ? 1 : -1);
           if (nc >= 0 && nc <= 1) setPz(nc);
           else soundManager.playBounceSound();
+        } else if (stage === 'thanks') {
+          // Center-locked scroller: advance the pool index (wrapping) so the
+          // focused game stays in the middle slot.
+          const len = RELATED_GAMES.length;
+          if (len > 0) setPz((col + (dx > 0 ? 1 : -1) + len) % len);
+          else soundManager.playBounceSound();
         } else soundManager.playBounceSound();
         return;
       }
@@ -1457,14 +1471,15 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
             soundManager.playSelectionSound();
           } else if (stage === 'followup') {
             setPuzzleFollowSel(puzzleColRef.current);
-            puzzleColRef.current = 0; // focus the promoted Song Quiz tile
-            setPuzzleCol(0);
+            puzzleColRef.current = RELATED_START; // center the promoted Song Quiz tile
+            setPuzzleCol(RELATED_START);
             puzzleStageRef.current = 'thanks';
             setPuzzleStage('thanks');
             soundManager.playSelectionSound();
           } else if (stage === 'thanks') {
-            // Launch the full Song Quiz directly (skip the game-info panel).
-            if (SONG_QUIZ_GAME) launchGame(SONG_QUIZ_GAME);
+            // Launch the centered game directly (skip the game-info panel).
+            const g = RELATED_GAMES[puzzleColRef.current] ?? SONG_QUIZ_GAME;
+            if (g) launchGame(g);
           } else soundManager.playBounceSound();
           return;
         }
@@ -2011,18 +2026,43 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                   {stage === 'thanks' && (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
                       <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.02em' }}>Play more on</div>
-                      {/* Play the full game — focused tile launches directly (no panel). */}
-                      {SONG_QUIZ_GAME && (
-                        <Tile
-                          game={SONG_QUIZ_GAME}
-                          variant="sm"
-                          focused={focusedHere}
-                          pressing={pressing}
-                          slideshow={false}
-                          shot={0}
-                          onClick={() => launchGame(SONG_QUIZ_GAME)}
-                        />
-                      )}
+                      {/* Center-locked scroller: 3 related games with the focused
+                          one held in the middle; ◀▶ scroll the pool. Side tiles
+                          are dimmed; a side click recenters, center click launches. */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 28 }}>
+                        {[-1, 0, 1].map((off) => {
+                          const len = RELATED_GAMES.length;
+                          const idx = ((puzzleCol + off) % len + len) % len;
+                          const g = RELATED_GAMES[idx];
+                          const isCenter = off === 0;
+                          return (
+                            <div
+                              key={off}
+                              style={{
+                                opacity: isCenter ? 1 : 0.4,
+                                transition: 'opacity 220ms ease',
+                              }}
+                            >
+                              <Tile
+                                game={g}
+                                variant="sm"
+                                focused={isCenter && focusedHere}
+                                pressing={isCenter && pressing}
+                                slideshow={false}
+                                shot={0}
+                                onClick={() => {
+                                  if (isCenter) launchGame(g);
+                                  else {
+                                    puzzleColRef.current = idx;
+                                    setPuzzleCol(idx);
+                                    soundManager.playNavigationSound();
+                                  }
+                                }}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -3713,7 +3753,7 @@ function HeroSlide({
                       position: 'absolute',
                       top: -22,
                       right: -46,
-                      transform: 'rotate(-9deg)',
+                      transform: 'rotate(12deg)',
                       fontSize: 15,
                       fontWeight: 800,
                       letterSpacing: '0.14em',
