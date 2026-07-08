@@ -460,6 +460,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   puzzleStageRef.current = puzzleStage;
   const puzzleColRef = useRef(puzzleCol);
   puzzleColRef.current = puzzleCol;
+  const puzzleSecRef = useRef(0); // section index of the puzzle row (set during render when present)
   const colMemoryRef = useRef<number[]>([]);
   const rowRefs = useRef<(HTMLElement | null)[]>([]);
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -536,8 +537,6 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     gridChunks.forEach((games, gridIndex) => sections.push({ kind: 'grid', games, gridIndex }));
     sections.push({ kind: 'banner' });
   } else {
-    // Puzzle row sits at the very top of the phase-1 Home page.
-    if (showPuzzle) sections.push({ kind: 'puzzle' });
     // Jump Back On (all phase-1 variations) — only once the user has played
     // something; same source as the My Games page.
     if (jumpBackGames.length) {
@@ -549,10 +548,13 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     // v1/phase 1: New on Weekend shows 5 games + a "See all games" tile.
     const showSeeAll = resolvedVariation === 1;
     visibleShelves.forEach((row) => {
+      // Free-trial banner sits just above "Games That Go Viral" (community).
+      if (row.key === 'community') sections.push({ kind: 'banner' });
       const shelf =
         showSeeAll && row.key === 'more' ? { ...row, games: row.games.slice(0, 5), seeAll: true } : row;
       sections.push({ kind: 'shelf', row: shelf });
-      if (row.key === 'community') sections.push({ kind: 'banner' });
+      // Song-quiz puzzle sits just below "Games That Go Viral".
+      if (row.key === 'community' && showPuzzle) sections.push({ kind: 'puzzle' });
     });
     gridChunks.forEach((games, gridIndex) => sections.push({ kind: 'grid', games, gridIndex }));
   }
@@ -566,6 +568,12 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   });
   const navRowsRef = useRef(navRows);
   navRowsRef.current = navRows;
+  // Remember where the puzzle row sits while it's present, so the dismiss shift
+  // only nudges focus for rows below it (rows above are unaffected by its removal).
+  if (showPuzzle) {
+    const pi = navRows.findIndex((r) => r.puzzle);
+    if (pi >= 0) puzzleSecRef.current = pi + 1;
+  }
   const pageHasHeroRef = useRef(pageHasHero);
   pageHasHeroRef.current = pageHasHero;
   const hasTopNavRef = useRef(hasTopNav);
@@ -1559,16 +1567,25 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     }, PUZZLE_ADVANCE_MS);
     return () => clearTimeout(t);
   }, [puzzleStage]);
-  // When the puzzle row appears/dismisses at the top, shift Home focus so the
-  // ring stays on the same visual row (same trick as Jump Back On).
+  // When the puzzle row dismisses, keep the focus ring on the same visual row:
+  // rows below the puzzle shift up by one, so nudge focus to match. Rows above
+  // the puzzle are unaffected; a ring parked on the puzzle itself stays put and
+  // lands on the row that slides up into its place.
   const puzzlePresentRef = useRef(showPuzzle);
   useEffect(() => {
-    const changed = showPuzzle !== puzzlePresentRef.current;
+    const wasPresent = puzzlePresentRef.current;
     puzzlePresentRef.current = showPuzzle;
-    if (!changed || pageRef.current !== 'home') return;
+    if (wasPresent === showPuzzle || pageRef.current !== 'home') return;
+    const pIdx = puzzleSecRef.current;
     setNav((n) => {
       if (n.sec === 0) return n;
-      const sec = Math.max(1, n.sec + (showPuzzle ? 1 : -1));
+      let sec = n.sec;
+      if (showPuzzle) {
+        if (n.sec >= pIdx) sec = n.sec + 1; // row inserted at pIdx pushes it (and below) down
+      } else if (n.sec > pIdx) {
+        sec = n.sec - 1; // rows below the removed puzzle move up
+      }
+      sec = Math.max(1, Math.min(sec, navRowsRef.current.length));
       const row = navRowsRef.current[sec - 1];
       const col = Math.max(0, Math.min(n.col, (row?.games.length ?? 1) - 1));
       if (sec === n.sec && col === n.col) return n;
