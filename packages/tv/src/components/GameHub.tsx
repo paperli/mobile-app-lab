@@ -2508,7 +2508,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                   ) : (
                     // Signed out: no Play — pair your phone first. QR (left) +
                     // instruction (right).
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 20, paddingBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 48 }}>
                       <div style={{ background: '#fff', padding: 12, borderRadius: 14, lineHeight: 0, flex: '0 0 auto' }}>
                         <QRCodeSVG value={mobileUrl} size={168} level="M" includeMargin={false} />
                       </div>
