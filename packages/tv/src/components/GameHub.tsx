@@ -324,6 +324,13 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const [searchZone, setSearchZone] = useState<'kb' | 'results'>('kb');
   const [resNav, setResNav] = useState({ row: 0, col: 0 });
 
+  // Random pairing code shown in the "Claim Free Trial" focus popover.
+  const [pairCode] = useState(() => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let s = '';
+    for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+    return s;
+  });
   const [profileIdx, setProfileIdx] = useState(0);
   const [profileNames, setProfileNames] = useState<string[]>(PROFILE_NAMES_DEFAULT);
   // Randomly assign a distinct mock avatar to each profile at launch.
@@ -1940,6 +1947,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
             profileAvatar={profileAvatars[profileIdx]}
             profileName={profileNames[profileIdx]}
             profileMenu={profileMenu}
+            pairCode={pairCode}
             onTab={goToPage}
             onProfile={openProfile}
             onMenuPick={(i) => (i === 0 ? openSettings() : openSwitch())}
@@ -3299,6 +3307,7 @@ function TopNav({
   profileAvatar,
   profileName,
   profileMenu,
+  pairCode,
   onTab,
   onProfile,
   onMenuPick,
@@ -3310,6 +3319,7 @@ function TopNav({
   profileAvatar: number;
   profileName: string;
   profileMenu: number | null;
+  pairCode: string;
   onTab: (p: Page) => void;
   onProfile: () => void;
   onMenuPick: (i: number) => void;
@@ -3490,6 +3500,33 @@ function TopNav({
                 </button>
               );
             })}
+          </div>
+        )}
+
+        {/* Claim Free Trial focus popover: QR + pairing code */}
+        {!signedIn && profileFocused && (
+          <div
+            style={{
+              position: 'absolute',
+              top: NAV_BAR_H - 6,
+              right: 0,
+              padding: 20,
+              borderRadius: 18,
+              background: '#0d0e10',
+              border: '1px solid #26272b',
+              boxShadow: '0 30px 70px rgba(0,0,0,0.7)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 14,
+            }}
+          >
+            <div style={{ background: '#fff', padding: 12, borderRadius: 12, lineHeight: 0 }}>
+              <QRCodeSVG value={`https://pair.weekend.com/${pairCode}`} size={150} level="M" includeMargin={false} />
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#b9babe', letterSpacing: '0.01em' }}>
+              pair.weekend.com/<span style={{ color: INK, fontWeight: 800 }}>{pairCode}</span>
+            </div>
           </div>
         )}
       </div>
