@@ -2509,15 +2509,14 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                     // Signed out: no Play — pair your phone first. QR (left) +
                     // instruction (right).
                     <div style={{ display: 'flex', alignItems: 'center', gap: 20, paddingBottom: 8 }}>
-                      <div style={{ background: '#fff', padding: 10, borderRadius: 12, lineHeight: 0, flex: '0 0 auto' }}>
-                        <QRCodeSVG value={mobileUrl} size={124} level="M" includeMargin={false} />
+                      <div style={{ background: '#fff', padding: 12, borderRadius: 14, lineHeight: 0, flex: '0 0 auto' }}>
+                        <QRCodeSVG value={mobileUrl} size={168} level="M" includeMargin={false} />
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                        <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.02em', color: INK, lineHeight: 1.12 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.01em', color: INK, lineHeight: 1.15 }}>
                           Scan, connect, and play!
                         </div>
-                        <div style={{ height: 1, background: 'rgba(255,255,255,0.16)' }} />
-                        <div style={{ fontSize: 18, lineHeight: 1.5, color: 'rgba(243,244,241,0.66)' }}>
+                        <div style={{ fontSize: 19, lineHeight: 1.5, color: 'rgba(243,244,241,0.66)' }}>
                           Or, go to <b style={{ color: INK, fontWeight: 700 }}>pair.weekend.com</b>
                           <br />
                           and enter code <b style={{ color: INK, fontWeight: 700, letterSpacing: '0.04em' }}>{pairCode}</b>
