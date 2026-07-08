@@ -26,6 +26,12 @@ export const SOCKET_EVENTS = {
   SYSTEM_MENU_OPEN: 'system-menu:open',
   SYSTEM_MENU_CLOSE: 'system-menu:close',
   SYSTEM_MENU_ACTION: 'system-menu:action',
+
+  // Voice (mic on mobile → matcher on TV; TTS confirm round-trip)
+  VOICE_TRANSCRIPT: 'voice:transcript',
+  VOICE_CONFIRM_PROMPT: 'voice:confirm-prompt',
+  VOICE_CONFIRM_RESPONSE: 'voice:confirm-response',
+  VOICE_STATE: 'voice:state',
 } as const;
 
 // Configuration
@@ -66,5 +72,12 @@ export const PLACEHOLDER_GAMES = [
     description: 'Compete in sports',
     previewImage: '/placeholder-sports.jpg',
     backgroundColor: '#FFA07A',
+  },
+  {
+    id: 'game-5',
+    title: "Wit's End",
+    description: 'Trivia showdown',
+    previewImage: '/placeholder-wits-end.jpg',
+    backgroundColor: '#8B5CF6',
   },
 ] as const;

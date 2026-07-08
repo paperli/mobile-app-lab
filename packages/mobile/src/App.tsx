@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { ControllerMode, SOCKET_EVENTS } from '@mobile-app-lab/shared';
+import { Undo2 } from 'lucide-react';
+import { Button } from '@weekend/ui';
+import { ControllerMode } from '@mobile-app-lab/shared';
 import { useSocket } from './hooks/useSocket';
+import { useVoiceTransport } from './hooks/useVoiceTransport';
 import { PairingScreen } from './components/PairingScreen';
 import { DPadController } from './components/DPadController';
 import { JoystickController } from './components/JoystickController';
@@ -12,12 +15,16 @@ import { GameModal } from './components/GameModal';
 import { RiveEdgeGlow, RiveGameLogo } from './components/RiveEdgeGlow';
 import { TopBar } from './components/TopBar';
 import { SettingsPanel } from './components/SettingsPanel';
+import { VoiceDebugOverlay } from './components/VoiceDebugOverlay';
 import { PreviewShell } from './preview/PreviewShell';
+import { HapticFeedback } from './utils/haptics';
 
 type AppMode = 'dpad' | 'game' | 'theme';
 
 function MainMobileApp() {
-  const { socket, connectionStatus, isPaired, tvScreen, joinRoom, sendNavigationInput, leaveRoom } = useSocket();
+  const { socket, connectionStatus, isPaired, roomCode, tvScreen, joinRoom, sendNavigationInput, leaveRoom } = useSocket();
+  // Always-on voice. Mic is the mobile's; matcher lives on the TV.
+  useVoiceTransport({ socket, isPaired, roomCode });
   const [controllerMode, setControllerMode] = useState<ControllerMode>('square-hybrid');
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string>();
@@ -112,10 +119,14 @@ function MainMobileApp() {
   );
 
   const handleSystem = useCallback(() => {
-    if (socket) {
-      socket.emit(SOCKET_EVENTS.SYSTEM_MENU_OPEN);
-    }
-  }, [socket]);
+    // Route through the normal navigation-action channel so TV can toggle the
+    // menu (open when closed, close when open) from a single input event.
+    sendNavigationInput({
+      type: 'action',
+      action: 'system',
+      timestamp: Date.now(),
+    });
+  }, [sendNavigationInput]);
 
   // Show connection loading
   if (!connectionStatus.connected) {
@@ -153,7 +164,7 @@ function MainMobileApp() {
     const showGameModal = tvScreen !== 'hub';
     return (
       <div className="relative w-full h-full overflow-hidden">
-        <TopBar onBack={() => handleAction('back')} onSystem={handleSystem} onSettings={() => setShowSettings(true)} />
+        <TopBar onSystem={handleSystem} onSettings={() => setShowSettings(true)} />
         <div className="h-full">
           <SquareController onNavigate={handleNavigate} onAction={handleAction} />
         </div>
@@ -165,6 +176,7 @@ function MainMobileApp() {
           <GameModal tvScreen={tvScreen} onNavigate={handleNavigate} onAction={handleAction} />
         </div>
         {settingsPanel}
+        <VoiceDebugOverlay />
       </div>
     );
   }
@@ -174,7 +186,7 @@ function MainMobileApp() {
     const showGameModal = tvScreen !== 'hub';
     return (
       <div className="relative w-full h-full overflow-hidden">
-        <TopBar onBack={() => handleAction('back')} onSystem={handleSystem} onSettings={() => setShowSettings(true)} />
+        <TopBar onSystem={handleSystem} onSettings={() => setShowSettings(true)} />
         <div className="h-full">
           <SquareController onNavigate={handleNavigate} onAction={handleAction} />
         </div>
@@ -196,6 +208,7 @@ function MainMobileApp() {
           />
         </div>
         {settingsPanel}
+        <VoiceDebugOverlay />
       </div>
     );
   }
@@ -204,7 +217,7 @@ function MainMobileApp() {
   return (
     <div className="relative w-full h-full">
       <RiveGameLogo tvScreen={tvScreen} />
-      <TopBar onBack={() => handleAction('back')} onSystem={handleSystem} onSettings={() => setShowSettings(true)} />
+      <TopBar onSystem={handleSystem} onSettings={() => setShowSettings(true)} />
       {/* Rive edge glow — behind controller */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
         <RiveEdgeGlow tvScreen={tvScreen} volume={voiceVolume} />
@@ -230,7 +243,32 @@ function MainMobileApp() {
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
         <RiveEdgeGlow tvScreen={tvScreen} volume={voiceVolume} />
       </div>
+
+      {/* Back button — circular, horizontally centered, 48px below the d-pad
+          (332px tall, centered). */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 'calc(50% + 166px + 48px)',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 10,
+        }}
+      >
+        <Button
+          variant="secondary"
+          size="circular"
+          onClick={() => {
+            HapticFeedback.light();
+            handleAction('back');
+          }}
+        >
+          <Undo2 size={48} strokeWidth={2} />
+        </Button>
+      </div>
+
       {settingsPanel}
+      <VoiceDebugOverlay />
     </div>
   );
 }

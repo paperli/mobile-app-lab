@@ -1,0 +1,50 @@
+name: Deploy Hub Demo to Pages
+
+# Builds the static hub-layout demo (packages/tv, `build:demo`) and publishes it
+# to GitHub Pages. Requires Settings → Pages → Source = "GitHub Actions".
+
+on:
+  push:
+    branches: [main, gh-pages]
+    paths:
+      - 'packages/tv/**'
+      - 'packages/ui-weekend/**'
+      - 'packages/shared/**'
+      - '.github/workflows/deploy-hub-demo.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # Shared package compiles to dist and must be built before the TV app.
+      - run: npm run build --workspace=@mobile-app-lab/shared
+      - run: npm run build:demo --workspace=@mobile-app-lab/tv
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: packages/tv/dist-demo
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

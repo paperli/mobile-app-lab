@@ -58,6 +58,24 @@ export function useVoiceInput(options: UseVoiceInputOptions = {}): UseVoiceInput
       startTestMode();
       return;
     }
+
+    // On native iOS, the SFSpeechRecognizer's AVAudioEngine owns the mic
+    // exclusively. Subscribing to the bridge's voiceVolume events instead of
+    // calling getUserMedia keeps the wave guide animating without fighting
+    // for mic access.
+    const native = window.NativeBridge;
+    if (native?.startSpeechRecognition) {
+      setError(null);
+      setIsListening(true);
+      const unsub = native.addEventListener('voiceVolume', (e) => {
+        setVolume(e.volume);
+      });
+      // Stash the unsubscribe on the streamRef so stopListening can reach it.
+      // Using the existing slot avoids a new ref while keeping cleanup tidy.
+      (streamRef as { current: unknown }).current = { __nativeUnsub: unsub };
+      return;
+    }
+
     try {
       setError(null);
 
@@ -130,6 +148,17 @@ export function useVoiceInput(options: UseVoiceInputOptions = {}): UseVoiceInput
     // Stop test mode if active
     if (testIntervalRef.current) {
       stopTestMode();
+      return;
+    }
+
+    // Native bridge path: just unsubscribe from voiceVolume events. The
+    // recognizer keeps running because it's owned by useVoiceTransport.
+    const slot = streamRef.current as unknown as { __nativeUnsub?: () => void } | null;
+    if (slot && typeof slot.__nativeUnsub === 'function') {
+      slot.__nativeUnsub();
+      streamRef.current = null;
+      setIsListening(false);
+      setVolume(0);
       return;
     }
 

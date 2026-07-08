@@ -28,5 +28,9 @@
 	<string>UIStatusBarStyleLightContent</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Mobile App Lab uses the microphone for voice control of the TV experience.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Mobile App Lab uses speech recognition to turn what you say into commands for the TV.</string>
 </dict>
 </plist>

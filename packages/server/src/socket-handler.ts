@@ -6,6 +6,10 @@ import {
   RoomJoinPayload,
   NavigationInputPayload,
   ScreenUpdatePayload,
+  VoiceTranscriptPayload,
+  VoiceConfirmPromptPayload,
+  VoiceConfirmResponsePayload,
+  VoiceStatePayload,
 } from '@mobile-app-lab/shared';
 
 export function setupSocketHandlers(io: Server, roomManager: RoomManager) {
@@ -146,6 +150,39 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager) {
       if (!room.tvSocketId) return;
       io.to(room.tvSocketId).emit(SOCKET_EVENTS.SYSTEM_MENU_ACTION, { roomCode: room.code, action: payload.action });
       console.log(`[Socket] System menu action ${payload.action} → TV ${room.tvSocketId}`);
+    });
+
+    // Voice: Mobile → TV transcript stream
+    socket.on(SOCKET_EVENTS.VOICE_TRANSCRIPT, (payload: VoiceTranscriptPayload) => {
+      const room = roomManager.getRoomBySocket(socket.id);
+      if (!room || !room.mobileSocketIds.includes(socket.id)) return;
+      if (!room.tvSocketId) return;
+      io.to(room.tvSocketId).emit(SOCKET_EVENTS.VOICE_TRANSCRIPT, payload);
+    });
+
+    // Voice: Mobile → TV state (idle/listening/speaking/awaiting-confirm)
+    socket.on(SOCKET_EVENTS.VOICE_STATE, (payload: VoiceStatePayload) => {
+      const room = roomManager.getRoomBySocket(socket.id);
+      if (!room || !room.mobileSocketIds.includes(socket.id)) return;
+      if (!room.tvSocketId) return;
+      io.to(room.tvSocketId).emit(SOCKET_EVENTS.VOICE_STATE, payload);
+    });
+
+    // Voice: TV → Mobile confirmation prompt (TTS + listen for yes/no)
+    socket.on(SOCKET_EVENTS.VOICE_CONFIRM_PROMPT, (payload: VoiceConfirmPromptPayload) => {
+      const room = roomManager.getRoomBySocket(socket.id);
+      if (!room || room.tvSocketId !== socket.id) return;
+      for (const mobileId of room.mobileSocketIds) {
+        io.to(mobileId).emit(SOCKET_EVENTS.VOICE_CONFIRM_PROMPT, payload);
+      }
+    });
+
+    // Voice: Mobile → TV confirmation response
+    socket.on(SOCKET_EVENTS.VOICE_CONFIRM_RESPONSE, (payload: VoiceConfirmResponsePayload) => {
+      const room = roomManager.getRoomBySocket(socket.id);
+      if (!room || !room.mobileSocketIds.includes(socket.id)) return;
+      if (!room.tvSocketId) return;
+      io.to(room.tvSocketId).emit(SOCKET_EVENTS.VOICE_CONFIRM_RESPONSE, payload);
     });
 
     // Handle disconnection

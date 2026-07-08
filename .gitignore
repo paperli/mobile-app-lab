@@ -59,3 +59,10 @@ coverage/
 # Misc
 *.tsbuildinfo
 .superpowers/
+
+# Brand assets (large PDFs, licensed fonts kept locally only)
+docs/brand/
+packages/shared/public/fonts/
+
+# Static hub demo build (deployed via GitHub Actions)
+dist-demo/

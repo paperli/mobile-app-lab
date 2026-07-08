@@ -41,6 +41,9 @@ struct WebViewContainer: UIViewRepresentable {
         // Set a mobile-like user agent to ensure proper rendering
         webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MobileAppLab/1.0"
 
+        // Give the bridge handler a target for outbound JS dispatch (transcripts, TTS done, etc.)
+        context.coordinator.bridgeHandler.webView = webView
+
         // Load the initial URL
         context.coordinator.loadURLIfNeeded(webView: webView, url: url)
 
@@ -61,7 +64,7 @@ struct WebViewContainer: UIViewRepresentable {
 
     class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         var parent: WebViewContainer
-        private let bridgeHandler = NativeBridgeHandler()
+        let bridgeHandler = NativeBridgeHandler()
         private var loadedURL: URL?
         private var isLoadInProgress = false
 

@@ -17,6 +17,7 @@ function tvScreenToViewState(tvScreen: TVScreen): string {
       return 'launching';
     case 'game-menu':
     case 'playlist-select':
+    case 'party-playlist-select':
     case 'in-game':
       return 'ready';
     default:

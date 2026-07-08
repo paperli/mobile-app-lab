@@ -3,14 +3,16 @@ import * as RadixDialog from '@radix-ui/react-dialog';
 import { cva, type VariantProps } from 'class-variance-authority';
 
 const contentStyles = cva(
-  'fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 text-fg font-sans focus:outline-none data-[state=open]:animate-[weekend-scale-in_var(--duration-base)_var(--ease-standard)] data-[state=closed]:animate-[weekend-scale-out_var(--duration-fast)_var(--ease-standard)]',
+  'z-50 text-fg font-sans focus:outline-none',
   {
     variants: {
       variant: {
         plain:
-          'bg-bg-elevated rounded-card shadow-2xl p-8 max-w-lg w-[calc(100vw-2rem)]',
+          'fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-bg-elevated rounded-card shadow-2xl p-8 max-w-lg w-[calc(100vw-2rem)] data-[state=open]:animate-[weekend-scale-in_var(--duration-base)_var(--ease-standard)] data-[state=closed]:animate-[weekend-scale-out_var(--duration-fast)_var(--ease-standard)]',
         backlit:
-          'p-8 max-w-3xl w-[calc(100vw-2rem)]',
+          'fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-3xl w-[calc(100vw-2rem)] data-[state=open]:animate-[weekend-scale-in_var(--duration-base)_var(--ease-standard)] data-[state=closed]:animate-[weekend-scale-out_var(--duration-fast)_var(--ease-standard)]',
+        fullscreen:
+          'fixed inset-0 data-[state=open]:animate-[weekend-fade-in_var(--duration-base)_var(--ease-standard)] data-[state=closed]:animate-[weekend-fade-out_var(--duration-fast)_var(--ease-standard)]',
       },
     },
     defaultVariants: { variant: 'plain' },
@@ -76,7 +78,7 @@ const Content = forwardRef<HTMLDivElement, DialogContentProps>(
               }}
             />
             {/* Solid content panel */}
-            <div className="relative rounded-card bg-bg-elevated/90 backdrop-blur-sm p-6">
+            <div className="relative rounded-card bg-bg-elevated/90 backdrop-blur-sm p-8">
               {children}
             </div>
           </>

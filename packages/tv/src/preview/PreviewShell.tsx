@@ -5,7 +5,7 @@ export function PreviewShell() {
   const location = useLocation();
   return (
     <div className="flex w-full h-full bg-bg text-fg font-sans">
-      <nav className="w-60 h-full border-r border-fg/10 p-4 overflow-y-auto">
+      <nav className="w-60 h-full border-r border-fg-10 p-4 overflow-y-auto">
         <h1 className="text-lg font-bold mb-4">UI Preview</h1>
         <ul className="space-y-1">
           {stories.map((s) => {
@@ -15,7 +15,7 @@ export function PreviewShell() {
                 <Link
                   to={`/ui-preview/${s.slug}`}
                   className={`block px-3 py-2 rounded-card text-sm ${
-                    active ? 'bg-fg/10' : 'hover:bg-fg/5'
+                    active ? 'bg-fg-10' : 'hover:bg-fg-5'
                   }`}
                 >
                   {s.label}
