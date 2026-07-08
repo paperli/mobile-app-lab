@@ -129,7 +129,7 @@ const ROWS: RowDef[] = [
 // Tile geometry per variant (design px). `grid` sizes so GRID_COLS fit one row.
 const TILE = {
   sm: { w: 340, h: (340 * 9) / 16, r: 14, gap: 40, visible: 4 },
-  lg: { w: 520, h: (520 * 9) / 16, r: 16, gap: 28, visible: 3 },
+  lg: { w: 545, h: (545 * 9) / 16, r: 16, gap: 28, visible: 3 },
   grid: { w: 332, h: (332 * 9) / 16, r: 12, gap: 24, visible: GRID_COLS },
 } as const;
 
@@ -571,14 +571,16 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     }
     // v1/phase 1: New on Weekend shows 5 games + a "See all games" tile.
     const showSeeAll = resolvedVariation === 1;
+    // The song-quiz puzzle row is v1 only (hidden on variations 2 & 3 for now).
+    const showPuzzleRow = showPuzzle && resolvedVariation === 1;
     visibleShelves.forEach((row) => {
-      // Free-trial banner sits just above "Games That Go Viral" (community).
-      if (row.key === 'community') sections.push({ kind: 'banner' });
       const shelf =
         showSeeAll && row.key === 'more' ? { ...row, games: row.games.slice(0, 5), seeAll: true } : row;
       sections.push({ kind: 'shelf', row: shelf });
-      // Song-quiz puzzle sits just below "Games That Go Viral".
-      if (row.key === 'community' && showPuzzle) sections.push({ kind: 'puzzle' });
+      // Free-trial banner sits just below "Games That Go Viral" (community).
+      if (row.key === 'community') sections.push({ kind: 'banner' });
+      // Song-quiz puzzle sits just below "Party Starters".
+      if (row.key === 'party' && showPuzzleRow) sections.push({ kind: 'puzzle' });
     });
     gridChunks.forEach((games, gridIndex) => sections.push({ kind: 'grid', games, gridIndex }));
   }
@@ -3407,9 +3409,10 @@ function PreviewHero({ game, showPairing, roomCode, mobileUrl }: PreviewHeroProp
 }
 
 // ── Wheel of Fortune hero wheel ──────────────────────────────────────────────
-// Spins on mount, decelerates to rest with the jackpot at the top pointer, then
-// pops the winning score. Remounts (and re-spins) each time the slide activates.
-function WofWheel() {
+// Spins once (no loop) the first time the slide is focused, decelerating to rest
+// with the jackpot at the top pointer, then pops the winning score. Until then it
+// sits still (jackpot already at the pointer, since the spin is a whole # of turns).
+function WofWheel({ focused }: { focused: boolean }) {
   const SIZE = 460;
   const C = SIZE / 2;
   const R = 205;
@@ -3420,6 +3423,12 @@ function WofWheel() {
     const rad = (deg * Math.PI) / 180;
     return [C + r * Math.sin(rad), C - r * Math.cos(rad)];
   };
+  // Latch the spin the first time the slide gains focus; never re-trigger.
+  const [spun, setSpun] = useState(false);
+  useEffect(() => {
+    if (focused) setSpun(true);
+  }, [focused]);
+  const spinning = spun && !reduceMotion;
   return (
     <div style={{ position: 'relative', width: SIZE, height: SIZE }}>
       <svg
@@ -3427,7 +3436,7 @@ function WofWheel() {
         height={SIZE}
         viewBox={`0 0 ${SIZE} ${SIZE}`}
         style={{
-          animation: reduceMotion ? undefined : 'wofSpin 3.6s cubic-bezier(.16,.73,.12,1) forwards',
+          animation: spinning ? 'wofSpin 3.6s cubic-bezier(.16,.73,.12,1) forwards' : undefined,
           transformOrigin: 'center',
           filter: 'drop-shadow(0 24px 60px rgba(0,0,0,0.7))',
         }}
@@ -3487,27 +3496,29 @@ function WofWheel() {
           zIndex: 2,
         }}
       />
-      {/* Winning score, revealed once the wheel settles */}
-      <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)' }}>
-        <div
-          style={{
-            animation: reduceMotion ? undefined : 'wofScorePop 600ms cubic-bezier(.2,1.5,.4,1) 3.3s both',
-            background: 'rgba(12,13,16,0.92)',
-            border: '2px solid #f3f4f1',
-            borderRadius: 16,
-            padding: '10px 24px',
-            color: INK,
-            fontFamily: FONT,
-            fontWeight: 800,
-            fontSize: 42,
-            letterSpacing: '-0.02em',
-            boxShadow: '0 16px 44px rgba(0,0,0,0.7)',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          $2,500
+      {/* Winning score, revealed once the wheel has spun and settled. */}
+      {spun && (
+        <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)' }}>
+          <div
+            style={{
+              animation: reduceMotion ? undefined : 'wofScorePop 600ms cubic-bezier(.2,1.5,.4,1) 3.3s both',
+              background: 'rgba(12,13,16,0.92)',
+              border: '2px solid #f3f4f1',
+              borderRadius: 16,
+              padding: '10px 24px',
+              color: INK,
+              fontFamily: FONT,
+              fontWeight: 800,
+              fontSize: 42,
+              letterSpacing: '-0.02em',
+              boxShadow: '0 16px 44px rgba(0,0,0,0.7)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            $2,500
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -3622,7 +3633,7 @@ function HeroSlide({
               />
             )}
             <div style={{ position: 'absolute', right: 210, top: 300, transform: 'translateY(-50%)' }}>
-              <WofWheel />
+              <WofWheel focused={heroFocused && phase !== 'out'} />
             </div>
           </>
         ) : (
