@@ -209,6 +209,11 @@ const HERO_ANIM_CSS = `
   30%  { transform: translateY(0) scale(1) rotate(0deg); }
   100% { transform: translateY(0) scale(1) rotate(0deg); }
 }
+/* Puzzle lyrics: the 3-line block slides up as each new line becomes current. */
+@keyframes puzzleLyricScroll {
+  0%   { transform: translateY(38px); opacity: 0.35; }
+  100% { transform: translateY(0); opacity: 1; }
+}
 `;
 
 // ── Imperative handle exposed to App.tsx ────────────────────────────────────
@@ -1809,7 +1814,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
             <div
               key="puzzle-row"
               ref={(el) => (rowRefs.current[sectionIndex - 1] = el)}
-              style={{ padding: `0 ${SHELF_PAD}px`, marginTop: 8 }}
+              style={{ padding: `0 ${SHELF_PAD}px`, marginTop: 52 }}
             >
               <div
                 style={{
@@ -1829,37 +1834,49 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
               >
                 {/* Left: title + auto-scrolling lyrics */}
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
-                  <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.16em', color: '#b9babe', marginBottom: 10 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.16em', color: '#b9babe', marginBottom: 8 }}>
                     SONG QUIZ
                   </span>
-                  <span style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 28 }}>
+                  <span style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 16 }}>
                     {SONG_PUZZLE.title}
                   </span>
-                  {/* 3-line lyric window: the current line is solid, neighbors fade out. */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {[-1, 0, 1].map((off) => {
-                      const idx = ((puzzleLyric + off) % lyricCount + lyricCount) % lyricCount;
-                      const isCur = off === 0;
-                      return (
-                        <div
-                          key={off}
-                          style={{
-                            fontSize: isCur ? 30 : 23,
-                            fontWeight: isCur ? 800 : 500,
-                            fontStyle: 'italic',
-                            opacity: isCur ? 1 : 0.24,
-                            lineHeight: 1.32,
-                            letterSpacing: '-0.01em',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            transition: 'opacity 450ms ease, font-size 450ms ease',
-                          }}
-                        >
-                          {SONG_PUZZLE.lyrics[idx]}
-                        </div>
-                      );
-                    })}
+                  {/* Divider sets the title apart from the lyric block. */}
+                  <div style={{ height: 1, background: '#3a3b3f', marginBottom: 20 }} />
+                  {/* 3-line lyric window: current line solid, neighbors fade; the block
+                      slides up on each line change (clipped to the viewport). */}
+                  <div style={{ height: 124, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <div
+                      key={puzzleLyric}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 6,
+                        animation: reduceMotion ? undefined : 'puzzleLyricScroll 480ms cubic-bezier(.22,.61,.36,1)',
+                      }}
+                    >
+                      {[-1, 0, 1].map((off) => {
+                        const idx = ((puzzleLyric + off) % lyricCount + lyricCount) % lyricCount;
+                        const isCur = off === 0;
+                        return (
+                          <div
+                            key={off}
+                            style={{
+                              fontSize: isCur ? 30 : 23,
+                              fontWeight: isCur ? 800 : 500,
+                              fontStyle: 'italic',
+                              opacity: isCur ? 1 : 0.24,
+                              lineHeight: 1.32,
+                              letterSpacing: '-0.01em',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {SONG_PUZZLE.lyrics[idx]}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 
@@ -3726,13 +3743,16 @@ function Tile({ game, variant, focused, pressing, slideshow, shot, onClick, slid
         }}
       />
 
-      {/* Caption — metadata only; the game name now lives centered on the art */}
-      <div style={captionStyle}>
-        <span style={{ display: 'flex', gap: 10, alignItems: 'center', color: INK_DIM, fontSize: variant === 'lg' ? 20 : variant === 'grid' ? 14 : 15 }}>
-          <span style={{ fontVariantNumeric: 'tabular-nums' }}>{game.players}</span>
-          {variant === 'lg' && <span style={{ color: '#8a8a9a' }}>• {game.description}</span>}
-        </span>
-      </div>
+      {/* Caption — the large featured (lg) tiles keep player count + description;
+          regular game-row tiles (sm/grid) no longer show the player count. */}
+      {variant === 'lg' && (
+        <div style={captionStyle}>
+          <span style={{ display: 'flex', gap: 10, alignItems: 'center', color: INK_DIM, fontSize: 20 }}>
+            <span style={{ fontVariantNumeric: 'tabular-nums' }}>{game.players}</span>
+            <span style={{ color: '#8a8a9a' }}>• {game.description}</span>
+          </span>
+        </div>
+      )}
 
       {/* PLAYING chip while the slideshow loops */}
       {showShots && (
