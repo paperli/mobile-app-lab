@@ -80,7 +80,14 @@ const navRowLen = (r: NavRow) => r.games.length + (r.seeAll ? 1 : 0);
 
 // Full 30-game catalog (phase 1). Phase 0 uses a 12-game slice of it.
 const HUB_CATALOG = HUB_GAMES;
-const HERO_GAMES = HUB_CATALOG.slice(0, 3); // 3 featured slides → 3 dots
+const WOF_ID = 'wheel-of-fortune';
+// 3 featured slides → 3 dots. The first slot advertises the newly released
+// Wheel of Fortune (swapped in for the original Jeopardy slide).
+const HERO_GAMES = (() => {
+  const base = HUB_CATALOG.slice(0, 3);
+  const wof = HUB_CATALOG.find((g) => g.id === WOF_ID);
+  return wof ? [wof, ...base.slice(1)] : base;
+})();
 
 // "All Games" grid (variation 2): every game in the catalog, GRID_COLS per row.
 const ALL_GAMES = HUB_CATALOG;
@@ -122,7 +129,7 @@ const ROWS: RowDef[] = [
 // Tile geometry per variant (design px). `grid` sizes so GRID_COLS fit one row.
 const TILE = {
   sm: { w: 340, h: (340 * 9) / 16, r: 14, gap: 40, visible: 4 },
-  lg: { w: 620, h: (620 * 9) / 16, r: 16, gap: 28, visible: 2 },
+  lg: { w: 520, h: (520 * 9) / 16, r: 16, gap: 28, visible: 3 },
   grid: { w: 332, h: (332 * 9) / 16, r: 12, gap: 24, visible: GRID_COLS },
 } as const;
 
@@ -188,6 +195,8 @@ const SONG_PUZZLE = {
   correct: 2,
   followUp: { question: 'Do you like this game?', options: ['I love it!', 'Not quite'] },
 };
+// The full game the puzzle promotes (shown as a tile after "Thank you!").
+const SONG_QUIZ_GAME = HUB_GAMES.find((g) => g.id === 'song-quiz');
 
 // Hero slide-change choreography (see HeroSlide): outgoing art fades + slides
 // left; incoming art/text fade in. Plus the active-dot countdown fill.
@@ -214,6 +223,16 @@ const HERO_ANIM_CSS = `
   0%   { transform: translateY(38px); opacity: 0.35; }
   100% { transform: translateY(0); opacity: 1; }
 }
+/* Wheel of Fortune hero: the wheel spins several turns then decelerates to rest. */
+@keyframes wofSpin { from { transform: rotate(0deg); } to { transform: rotate(1800deg); } }
+/* The winning score pops in once the wheel has settled. */
+@keyframes wofScorePop {
+  0%   { opacity: 0; transform: scale(0.4); }
+  70%  { opacity: 1; transform: scale(1.12); }
+  100% { opacity: 1; transform: scale(1); }
+}
+/* Song Quiz "now playing" badge: the disc spins continuously like a record. */
+@keyframes puzzleNoteSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 `;
 
 // ── Imperative handle exposed to App.tsx ────────────────────────────────────
@@ -1436,9 +1455,14 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
             soundManager.playSelectionSound();
           } else if (stage === 'followup') {
             setPuzzleFollowSel(puzzleColRef.current);
+            puzzleColRef.current = 0; // focus the promoted Song Quiz tile
+            setPuzzleCol(0);
             puzzleStageRef.current = 'thanks';
             setPuzzleStage('thanks');
             soundManager.playSelectionSound();
+          } else if (stage === 'thanks') {
+            // Launch the full Song Quiz directly (skip the game-info panel).
+            if (SONG_QUIZ_GAME) launchGame(SONG_QUIZ_GAME);
           } else soundManager.playBounceSound();
           return;
         }
@@ -1563,15 +1587,8 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     }, PUZZLE_ADVANCE_MS);
     return () => clearTimeout(t);
   }, [puzzleStage]);
-  // "Thank you!" holds briefly, then the whole row self-dismisses.
-  useEffect(() => {
-    if (puzzleStage !== 'thanks') return;
-    const t = setTimeout(() => {
-      puzzleStageRef.current = 'done';
-      setPuzzleStage('done');
-    }, PUZZLE_ADVANCE_MS);
-    return () => clearTimeout(t);
-  }, [puzzleStage]);
+  // "Thank you!" persists (no auto-dismiss) so the promoted Song Quiz tile stays
+  // available to launch the full game.
   // When the puzzle row dismisses, keep the focus ring on the same visual row:
   // rows below the puzzle shift up by one, so nudge focus to match. Rows above
   // the puzzle are unaffected; a ring parked on the puzzle itself stays put and
@@ -1834,12 +1851,33 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
               >
                 {/* Left: title + auto-scrolling lyrics */}
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.16em', color: '#b9babe', marginBottom: 8 }}>
-                    SONG QUIZ
-                  </span>
-                  <span style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 16 }}>
-                    {SONG_PUZZLE.title}
-                  </span>
+                  {/* Music icon in front of the SONG QUIZ / title block. */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 16 }}>
+                    <div
+                      style={{
+                        flex: '0 0 auto',
+                        width: 58,
+                        height: 58,
+                        borderRadius: '50%',
+                        border: '1px solid #3a3b3f',
+                        background: 'rgba(255,255,255,0.05)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        animation: reduceMotion ? undefined : 'puzzleNoteSpin 3.5s linear infinite',
+                      }}
+                    >
+                      <IconMusic size={28} />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.16em', color: '#b9babe' }}>
+                        SONG QUIZ
+                      </span>
+                      <span style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em' }}>
+                        {SONG_PUZZLE.title}
+                      </span>
+                    </div>
+                  </div>
                   {/* Divider sets the title apart from the lyric block. */}
                   <div style={{ height: 1, background: '#3a3b3f', marginBottom: 20 }} />
                   {/* 3-line lyric window: current line solid, neighbors fade; the block
@@ -1969,8 +2007,20 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                   )}
 
                   {stage === 'thanks' && (
-                    <div style={{ fontSize: 42, fontWeight: 800, letterSpacing: '-0.02em', textAlign: 'center' }}>
-                      Thank you!
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+                      <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.02em' }}>Thank you!</div>
+                      {/* Play the full game — focused tile launches directly (no panel). */}
+                      {SONG_QUIZ_GAME && (
+                        <Tile
+                          game={SONG_QUIZ_GAME}
+                          variant="sm"
+                          focused={focusedHere}
+                          pressing={pressing}
+                          slideshow={false}
+                          shot={0}
+                          onClick={() => launchGame(SONG_QUIZ_GAME)}
+                        />
+                      )}
                     </div>
                   )}
                 </div>
@@ -3356,6 +3406,112 @@ function PreviewHero({ game, showPairing, roomCode, mobileUrl }: PreviewHeroProp
   );
 }
 
+// ── Wheel of Fortune hero wheel ──────────────────────────────────────────────
+// Spins on mount, decelerates to rest with the jackpot at the top pointer, then
+// pops the winning score. Remounts (and re-spins) each time the slide activates.
+function WofWheel() {
+  const SIZE = 460;
+  const C = SIZE / 2;
+  const R = 205;
+  const SEGMENTS = ['JACKPOT', '$400', '$800', '$650', '$350', '$900', '$500', '$750', '$600', '$450', '$850', '$700'];
+  const n = SEGMENTS.length;
+  const step = 360 / n;
+  const pt = (r: number, deg: number): [number, number] => {
+    const rad = (deg * Math.PI) / 180;
+    return [C + r * Math.sin(rad), C - r * Math.cos(rad)];
+  };
+  return (
+    <div style={{ position: 'relative', width: SIZE, height: SIZE }}>
+      <svg
+        width={SIZE}
+        height={SIZE}
+        viewBox={`0 0 ${SIZE} ${SIZE}`}
+        style={{
+          animation: reduceMotion ? undefined : 'wofSpin 3.6s cubic-bezier(.16,.73,.12,1) forwards',
+          transformOrigin: 'center',
+          filter: 'drop-shadow(0 24px 60px rgba(0,0,0,0.7))',
+        }}
+      >
+        {SEGMENTS.map((val, k) => {
+          const [x0, y0] = pt(R, k * step - step / 2);
+          const [x1, y1] = pt(R, k * step + step / 2);
+          const jackpot = k === 0;
+          const fill = jackpot ? '#f3f4f1' : k % 2 === 0 ? '#3b3d44' : '#191a1e';
+          const [tx, ty] = pt(R * 0.66, k * step);
+          return (
+            <g key={k}>
+              <path
+                d={`M ${C} ${C} L ${x0} ${y0} A ${R} ${R} 0 0 1 ${x1} ${y1} Z`}
+                fill={fill}
+                stroke="#0c0d10"
+                strokeWidth={2}
+              />
+              <text
+                x={tx}
+                y={ty}
+                fill={jackpot ? '#111' : '#e8e8e6'}
+                fontSize={jackpot ? 16 : 15}
+                fontWeight={jackpot ? 800 : 600}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontFamily={FONT}
+              >
+                {val}
+              </text>
+            </g>
+          );
+        })}
+        <circle cx={C} cy={C} r={R} fill="none" stroke="#000" strokeWidth={6} />
+        <circle cx={C} cy={C} r={R + 9} fill="none" stroke="#4a4b52" strokeWidth={3} />
+        {Array.from({ length: n }, (_, k) => {
+          const [px, py] = pt(R, k * step - step / 2);
+          return <circle key={k} cx={px} cy={py} r={4} fill="#d9d9d7" stroke="#000" strokeWidth={1} />;
+        })}
+        <circle cx={C} cy={C} r={34} fill="#111214" stroke="#4a4b52" strokeWidth={3} />
+        <circle cx={C} cy={C} r={11} fill="#d9d9d7" />
+      </svg>
+      {/* Fixed pointer at the top (does not spin) */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          top: -4,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 0,
+          height: 0,
+          borderLeft: '17px solid transparent',
+          borderRight: '17px solid transparent',
+          borderTop: '34px solid #f3f4f1',
+          filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.6))',
+          zIndex: 2,
+        }}
+      />
+      {/* Winning score, revealed once the wheel settles */}
+      <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)' }}>
+        <div
+          style={{
+            animation: reduceMotion ? undefined : 'wofScorePop 600ms cubic-bezier(.2,1.5,.4,1) 3.3s both',
+            background: 'rgba(12,13,16,0.92)',
+            border: '2px solid #f3f4f1',
+            borderRadius: 16,
+            padding: '10px 24px',
+            color: INK,
+            fontFamily: FONT,
+            fontWeight: 800,
+            fontSize: 42,
+            letterSpacing: '-0.02em',
+            boxShadow: '0 16px 44px rgba(0,0,0,0.7)',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          $2,500
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Hero slide ───────────────────────────────────────────────────────────────
 type HeroPhase = 'idle' | 'in' | 'out';
 
@@ -3388,6 +3544,7 @@ function HeroSlide({
   onPlay,
   onMoreInfo,
 }: HeroSlideProps) {
+  const isWof = !promo && game?.id === WOF_ID;
   // The CTA re-selects (unselected → selected) as the new slide settles, so the
   // change reads clearly. Incoming slides start unselected then flip; otherwise
   // the button just mirrors whether the hero is focused.
@@ -3452,6 +3609,20 @@ function HeroSlide({
               }}
             >
               <QRCodeSVG value={trialUrl} size={300} level="M" includeMargin={false} />
+            </div>
+          </>
+        ) : isWof ? (
+          <>
+            {/* Wheel of Fortune art: game backdrop + the spinning wheel on the right. */}
+            {game && (
+              <GameArt
+                game={game}
+                variant="hero"
+                style={{ position: 'absolute', top: 0, left: 0, width: STAGE_W, height: 620 }}
+              />
+            )}
+            <div style={{ position: 'absolute', right: 210, top: 300, transform: 'translateY(-50%)' }}>
+              <WofWheel />
             </div>
           </>
         ) : (
@@ -3522,8 +3693,30 @@ function HeroSlide({
         ) : (
           game && (
             <>
-              <div style={{ maxWidth: 640 }}>
+              <div style={{ maxWidth: 640, position: 'relative', display: 'inline-block' }}>
                 <GameLogo title={game.title} theme={game.theme} onDark style={{ fontSize: 92, whiteSpace: 'normal' }} />
+                {/* "NEW RELEASE" sticker pinned to the top-right edge of the title. */}
+                {isWof && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: -22,
+                      right: -46,
+                      transform: 'rotate(-9deg)',
+                      fontSize: 15,
+                      fontWeight: 800,
+                      letterSpacing: '0.14em',
+                      color: '#111',
+                      background: INK,
+                      borderRadius: 8,
+                      padding: '8px 16px',
+                      boxShadow: '0 8px 22px rgba(0,0,0,0.55)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    NEW RELEASE
+                  </span>
+                )}
               </div>
               <p
                 style={{
@@ -3733,15 +3926,18 @@ function Tile({ game, variant, focused, pressing, slideshow, shot, onClick, slid
           />
         ))}
 
-      {/* Legibility scrim */}
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'linear-gradient(0deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0) 55%)',
-        }}
-      />
+      {/* Legibility scrim — only the featured (lg) tiles carry a caption, so the
+          bottom fade is limited to them; regular tiles show clean art. */}
+      {variant === 'lg' && (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(0deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0) 55%)',
+          }}
+        />
+      )}
 
       {/* Caption — the large featured (lg) tiles keep player count + description;
           regular game-row tiles (sm/grid) no longer show the player count. */}
@@ -3780,6 +3976,16 @@ function Tile({ game, variant, focused, pressing, slideshow, shot, onClick, slid
         </div>
       )}
     </button>
+  );
+}
+
+function IconMusic({ size = 26, color = INK }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path d="M9 17V4.5l10-2V15" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="6.4" cy="17" r="2.6" fill={color} />
+      <circle cx="16.4" cy="15" r="2.6" fill={color} />
+    </svg>
   );
 }
 
