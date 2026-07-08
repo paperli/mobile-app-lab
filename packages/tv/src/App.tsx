@@ -568,6 +568,7 @@ function MainTvApp() {
         showPairing={showPairing}
         phase={hubPhase}
         variation={hubVariation}
+        frame
       />
     );
   }
