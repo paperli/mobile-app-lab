@@ -2662,11 +2662,10 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
               fontFamily: FONT,
             }}
           >
-            <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.02em', color: INK }}>{panelGame.title}</div>
             <div
               style={{
                 position: 'relative',
-                width: 1280,
+                width: 1660,
                 aspectRatio: '16 / 9',
                 borderRadius: 20,
                 overflow: 'hidden',
@@ -2718,7 +2717,6 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                 );
               })}
             </div>
-            <div style={{ fontSize: 18, color: '#8a8a9a' }}>◀ ▶ browse screenshots · Back to close</div>
           </div>
         )}
 
