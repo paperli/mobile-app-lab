@@ -163,6 +163,8 @@ const PREVIEW_GAP = 28;
 // How long each hero slide stays before auto-advancing. The active dot fills
 // over this same duration as a countdown.
 const HERO_AUTOPLAY_MS = 6000;
+// Per-shot dwell for the game-info panel's screenshot slideshow (+ dot countdown).
+const PANEL_SHOT_MS = 2600;
 
 // Hero slide-change choreography (see HeroSlide): outgoing art fades + slides
 // left; incoming art/text fade in. Plus the active-dot countdown fill.
@@ -310,6 +312,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // Game-info side panel: which game (null = closed) + focused action index.
   const [panel, setPanel] = useState<{ game: HubGame | null; focus: number }>({ game: null, focus: 0 });
   const [panelShot, setPanelShot] = useState(0);
+  const [shotViewerOpen, setShotViewerOpen] = useState(false); // full-screen screenshot carousel
   const [favorites, setFavorites] = useState<ReadonlySet<string>>(() => new Set());
   // Recently-played game ids (most recent first, capped at 10) — the source for
   // the "Jump Back On" row. A play is recorded whenever a game is launched.
@@ -418,6 +421,8 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   editKbRef.current = editKb;
   const panelRef = useRef(panel);
   panelRef.current = panel;
+  const shotViewerOpenRef = useRef(shotViewerOpen);
+  shotViewerOpenRef.current = shotViewerOpen;
   const colMemoryRef = useRef<number[]>([]);
   const rowRefs = useRef<(HTMLElement | null)[]>([]);
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -568,7 +573,8 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   );
 
   const openPanel = useCallback((game: HubGame) => {
-    const np = { game, focus: 0 };
+    // Focus 0 is the screenshot area; open with the first action focused instead.
+    const np = { game, focus: 1 };
     panelRef.current = np;
     setPanel(np);
     soundManager.playSelectionSound();
@@ -579,6 +585,8 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     const np = { game: null, focus: 0 };
     panelRef.current = np;
     setPanel(np);
+    shotViewerOpenRef.current = false;
+    setShotViewerOpen(false);
     soundManager.playNavigationSound();
   }, []);
 
@@ -817,6 +825,14 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   }, []);
 
   const move = useCallback((dx: number, dy: number) => {
+    // Full-screen screenshot carousel: ◀▶ swap shots.
+    if (shotViewerOpenRef.current) {
+      if (dx !== 0) {
+        setPanelShot((s) => (s + (dx > 0 ? 1 : -1) + SHOT_VARIANTS.length) % SHOT_VARIANTS.length);
+        soundManager.playNavigationSound();
+      } else soundManager.playBounceSound();
+      return;
+    }
     // ── Profile overlays (highest priority) ──
     // Sign-out confirmation: ◀▶ between Cancel / Sign Out.
     if (signOutConfirmRef.current) {
@@ -900,12 +916,15 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       return;
     }
 
-    // While the panel is open, ▲▼ move between its actions. Signed-out hides Play.
+    // Panel open: focus 0 = the screenshot area; 1..N = the action buttons
+    // (signed-out hides Play). ▲▼ move between them; ◀▶ swaps screenshots while
+    // the screenshot area is focused.
     const p = panelRef.current;
     if (p.game) {
       const actionCount = signedInRef.current ? PANEL_ACTIONS.length : PANEL_ACTIONS.length - 1;
+      const focusCount = 1 + actionCount; // + the screenshot area
       if (dy !== 0) {
-        const nf = Math.min(Math.max(0, p.focus + (dy > 0 ? 1 : -1)), actionCount - 1);
+        const nf = Math.min(Math.max(0, p.focus + (dy > 0 ? 1 : -1)), focusCount - 1);
         if (nf !== p.focus) {
           const np = { ...p, focus: nf };
           panelRef.current = np;
@@ -914,6 +933,10 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
         } else {
           soundManager.playBounceSound();
         }
+      } else if (dx !== 0 && p.focus === 0) {
+        // Swap screenshots (wraps); resetting panelShot restarts the countdown.
+        setPanelShot((s) => (s + (dx > 0 ? 1 : -1) + SHOT_VARIANTS.length) % SHOT_VARIANTS.length);
+        soundManager.playNavigationSound();
       } else {
         soundManager.playBounceSound();
       }
@@ -1164,6 +1187,15 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
 
   const doAction = useCallback(
     (action: NavigationAction) => {
+      // Full-screen screenshot carousel: Back closes it (panel stays behind).
+      if (shotViewerOpenRef.current) {
+        if (action === 'back') {
+          shotViewerOpenRef.current = false;
+          setShotViewerOpen(false);
+          soundManager.playNavigationSound();
+        }
+        return;
+      }
       // ── Profile overlays (highest priority) ──
       if (signOutConfirmRef.current) {
         if (action === 'back') closeSignOutConfirm();
@@ -1202,9 +1234,16 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           return;
         }
         if (action === 'ok') {
-          // Signed-out panels hide Play, so the focusable actions shift up.
+          // Focus 0 is the screenshot area → open the full-screen carousel.
+          // Actions are 1..N; signed-out panels hide Play so they shift up.
+          if (p.focus === 0) {
+            shotViewerOpenRef.current = true;
+            setShotViewerOpen(true);
+            soundManager.playSelectionSound();
+            return;
+          }
           const actions = signedInRef.current ? PANEL_ACTIONS : PANEL_ACTIONS.filter((a) => a !== 'play');
-          const which = actions[p.focus];
+          const which = actions[p.focus - 1];
           if (which === 'play') {
             const g = p.game;
             closePanel();
@@ -1331,6 +1370,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       // nav bar itself is the top level, so Back there is not consumed.
       wantsBack: () =>
         panelRef.current.game !== null ||
+        shotViewerOpenRef.current ||
         allGamesOpenRef.current ||
         upsellOpenRef.current ||
         profileMenuRef.current !== null ||
@@ -1387,13 +1427,17 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     };
   }, [nav.sec, nav.col]);
 
-  // Slideshow inside the open game-info panel.
+  // Slideshow inside the open game-info panel. Reset to the first shot on open.
   useEffect(() => {
     setPanelShot(0);
-    if (!panel.game || reduceMotion) return;
-    const t = setInterval(() => setPanelShot((s) => (s + 1) % SHOT_VARIANTS.length), 1800);
-    return () => clearInterval(t);
   }, [panel.game]);
+  // Auto-advance per shot (keyed on panelShot so a manual ◀▶ swap resets the
+  // countdown, matching the hero's per-slide timer + dot fill).
+  useEffect(() => {
+    if (!panel.game || reduceMotion) return;
+    const t = setTimeout(() => setPanelShot((s) => (s + 1) % SHOT_VARIANTS.length), PANEL_SHOT_MS);
+    return () => clearTimeout(t);
+  }, [panel.game, panelShot]);
 
   // Prototype: pressing "s" on the sign-in upsell simulates a successful sign-in
   // — flip the QR to a checked state and play the success sound.
@@ -2446,7 +2490,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           >
             {panelGame && (
               <>
-                {/* Screenshots slideshow */}
+                {/* Screenshots slideshow — focusable (◀▶ swaps shots) */}
                 <div
                   style={{
                     position: 'relative',
@@ -2456,6 +2500,8 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                     overflow: 'hidden',
                     flex: '0 0 auto',
                     background: '#141518',
+                    boxShadow: panel.focus === 0 ? '0 0 0 4px #fff' : 'none',
+                    transition: 'box-shadow 200ms ease',
                   }}
                 >
                   {SHOT_VARIANTS.map((v, i) => (
@@ -2471,6 +2517,66 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                       }}
                     />
                   ))}
+                  {/* Dots + countdown, shown while the screenshot is focused. */}
+                  {panel.focus === 0 && (
+                    <>
+                      <div
+                        aria-hidden
+                        style={{
+                          position: 'absolute',
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          height: 60,
+                          background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)',
+                        }}
+                      />
+                      <div
+                        style={{
+                          position: 'absolute',
+                          bottom: 14,
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          display: 'flex',
+                          gap: 8,
+                          alignItems: 'center',
+                        }}
+                      >
+                        {SHOT_VARIANTS.map((_, i) => {
+                          const active = i === panelShot;
+                          return (
+                            <span
+                              key={i}
+                              style={{
+                                position: 'relative',
+                                width: active ? 28 : 9,
+                                height: 9,
+                                borderRadius: 9999,
+                                overflow: 'hidden',
+                                background: 'rgba(255,255,255,0.4)',
+                                transition: 'width 300ms ease',
+                              }}
+                            >
+                              {active && (
+                                <span
+                                  key={panelShot}
+                                  style={{
+                                    position: 'absolute',
+                                    inset: 0,
+                                    background: '#fff',
+                                    transformOrigin: 'left center',
+                                    ...(reduceMotion
+                                      ? { transform: 'scaleX(1)' }
+                                      : { animation: `hubHeroDotFill ${PANEL_SHOT_MS}ms linear forwards` }),
+                                  }}
+                                />
+                              )}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Title + meta + description */}
@@ -2497,8 +2603,8 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                   {signedIn ? (
                     <PanelButton
                       label="Play"
-                      focused={panel.focus === 0}
-                      pressing={pressing && panel.focus === 0}
+                      focused={panel.focus === 1}
+                      pressing={pressing && panel.focus === 1}
                       onClick={() => {
                         const g = panelRef.current.game ?? panelGame;
                         closePanel();
@@ -2526,12 +2632,12 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                   )}
                   <PanelButton
                     label={favorites.has(panelGame.id) ? '♥  Favorited' : '♡  Add to Favorites'}
-                    focused={panel.focus === (signedIn ? 1 : 0)}
+                    focused={panel.focus === (signedIn ? 2 : 1)}
                     onClick={() => toggleFavorite(panelGame.id)}
                   />
                   <PanelButton
                     label="Back to Lobby"
-                    focused={panel.focus === (signedIn ? 2 : 1)}
+                    focused={panel.focus === (signedIn ? 3 : 2)}
                     onClick={closePanel}
                   />
                 </div>
@@ -2539,6 +2645,82 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
             )}
           </aside>
         </div>
+
+        {/* ── Full-screen screenshot carousel (OK on the panel screenshot) ── */}
+        {shotViewerOpen && panelGame && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 22,
+              background: STAGE_BG,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 34,
+              fontFamily: FONT,
+            }}
+          >
+            <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.02em', color: INK }}>{panelGame.title}</div>
+            <div
+              style={{
+                position: 'relative',
+                width: 1280,
+                aspectRatio: '16 / 9',
+                borderRadius: 20,
+                overflow: 'hidden',
+                background: '#141518',
+                boxShadow: '0 40px 100px rgba(0,0,0,0.6)',
+              }}
+            >
+              {SHOT_VARIANTS.map((v, i) => (
+                <Screenshot
+                  key={v}
+                  game={panelGame}
+                  variant={v}
+                  style={{ position: 'absolute', inset: 0, opacity: i === panelShot ? 1 : 0, transition: 'opacity 500ms ease' }}
+                />
+              ))}
+            </div>
+            {/* Dots + countdown */}
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              {SHOT_VARIANTS.map((_, i) => {
+                const active = i === panelShot;
+                return (
+                  <span
+                    key={i}
+                    style={{
+                      position: 'relative',
+                      width: active ? 34 : 11,
+                      height: 11,
+                      borderRadius: 9999,
+                      overflow: 'hidden',
+                      background: 'rgba(255,255,255,0.32)',
+                      transition: 'width 300ms ease',
+                    }}
+                  >
+                    {active && (
+                      <span
+                        key={panelShot}
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          background: '#fff',
+                          transformOrigin: 'left center',
+                          ...(reduceMotion
+                            ? { transform: 'scaleX(1)' }
+                            : { animation: `hubHeroDotFill ${PANEL_SHOT_MS}ms linear forwards` }),
+                        }}
+                      />
+                    )}
+                  </span>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: 18, color: '#8a8a9a' }}>◀ ▶ browse screenshots · Back to close</div>
+          </div>
+        )}
 
         {/* Variation 3: pinned preview overlay while a game tile is focused. */}
         {isV3 && showPreview && previewGame && (
