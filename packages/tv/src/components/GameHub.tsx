@@ -2008,7 +2008,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
 
                   {stage === 'thanks' && (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-                      <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.02em' }}>Thank you!</div>
+                      <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.02em' }}>Play more on</div>
                       {/* Play the full game — focused tile launches directly (no panel). */}
                       {SONG_QUIZ_GAME && (
                         <Tile
