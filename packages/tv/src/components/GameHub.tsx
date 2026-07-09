@@ -60,6 +60,8 @@ interface RowDef {
   games: HubGame[];
   /** Append a "See all games" tile as the last item (opens the All Games page). */
   seeAll?: boolean;
+  /** Show a "NEW" tag on every tile in this row (e.g. freshly-added games). */
+  newTag?: boolean;
 }
 
 /** One navigable row below the hero (a shelf, a grid row, or the promo banner). */
@@ -118,7 +120,7 @@ const ROWS: RowDef[] = [
     games: HUB_CATALOG.slice(8, 12),
   },
   // Genre shelves (phase 1 / variation 1 only) — faked with catalog games.
-  { key: 'fromtv', title: 'From Famous TV Shows', variant: 'sm', slideshow: false, games: pick(0, 3, 1, 16, 29, 4) },
+  { key: 'fromtv', title: 'Weekend Classic', variant: 'sm', slideshow: false, games: pick(0, 3, 1, 16, 29, 4) },
   { key: 'party', title: 'Party Starters', variant: 'sm', slideshow: false, games: HUB_CATALOG.slice(12, 21) },
   { key: 'coop', title: 'Work Together', variant: 'sm', slideshow: false, games: pick(18, 19, 22, 8, 27, 24) },
   { key: 'family', title: 'Family Game Night', variant: 'sm', slideshow: false, games: pick(2, 9, 5, 12, 28, 13) },
@@ -514,11 +516,13 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   //            grid, with the banner below Community Crafted Games.
   const gridGames = isPhase0 ? HUB_CATALOG.slice(0, 12) : ALL_GAMES;
   const gridChunks = isPhase0 || resolvedVariation >= 2 ? chunk(gridGames, GRID_COLS) : [];
-  // "Jump Back On" is currently hidden in every variation.
-  const visibleShelves =
-    resolvedVariation >= 2
-      ? ROWS.filter((r) => r.key === 'more' || r.key === 'community')
-      : ROWS.filter((r) => r.key !== 'jumpback');
+  // The full categorized shelf set (New on Weekend + Games That Go Viral + genre
+  // rows) is used by phase-1 v1 and the new phase-0 v3; other variations trim to
+  // just New on Weekend + Games That Go Viral. ("Jump Back On" is hidden here.)
+  const fullShelfSet = resolvedVariation === 1 || (isPhase0 && resolvedVariation === 3);
+  const visibleShelves = fullShelfSet
+    ? ROWS.filter((r) => r.key !== 'jumpback')
+    : ROWS.filter((r) => r.key === 'more' || r.key === 'community');
 
   // Real favorites (v1/v2 only): the panel's Add/Remove toggles this set, which
   // populates a "Favorites" row at the top of the hub.
@@ -576,8 +580,30 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       );
     }
   } else if (isPhase0) {
-    gridChunks.forEach((games, gridIndex) => sections.push({ kind: 'grid', games, gridIndex }));
-    sections.push({ kind: 'banner' });
+    if (resolvedVariation === 3) {
+      // New phase-0 variation: categorized shelves + New on Weekend, no All
+      // Games grid and no large "Games That Go Viral" row. New on Weekend gets
+      // its own set of (newer) games with a NEW tag; the trial banner sits one
+      // row further down, below "Weekend Classic" (the fromtv row).
+      let bannerPlaced = false;
+      visibleShelves
+        .filter((row) => row.key !== 'community')
+        .forEach((row) => {
+          const shelf =
+            row.key === 'more'
+              ? { ...row, games: HUB_CATALOG.slice(8, 13), newTag: true, seeAll: true }
+              : row;
+          sections.push({ kind: 'shelf', row: shelf });
+          if (row.key === 'fromtv') {
+            sections.push({ kind: 'banner' });
+            bannerPlaced = true;
+          }
+        });
+      if (!bannerPlaced) sections.push({ kind: 'banner' });
+    } else {
+      gridChunks.forEach((games, gridIndex) => sections.push({ kind: 'grid', games, gridIndex }));
+      sections.push({ kind: 'banner' });
+    }
   } else {
     // Jump Back On (all phase-1 variations) — only once the user has played
     // something; same source as the My Games page.
@@ -2189,6 +2215,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                   slideshow={row.slideshow}
                   slideshowReady={slideshowReady}
                   shot={shot}
+                  badge={row.newTag ? 'NEW' : undefined}
                   onClick={() => selectTile(sectionIndex, i, row.games[i])}
                 />
               ))}
@@ -4102,9 +4129,21 @@ interface TileProps {
   onClick: () => void;
   /** Slideshow only plays once ready (after the 1s focus delay). Default true. */
   slideshowReady?: boolean;
+  /** Optional corner tag, e.g. "NEW". */
+  badge?: string;
 }
 
-function Tile({ game, variant, focused, pressing, slideshow, shot, onClick, slideshowReady = true }: TileProps) {
+function Tile({
+  game,
+  variant,
+  focused,
+  pressing,
+  slideshow,
+  shot,
+  onClick,
+  slideshowReady = true,
+  badge,
+}: TileProps) {
   const t = TILE[variant];
   const showShots = slideshow && focused && slideshowReady;
 
@@ -4140,6 +4179,27 @@ function Tile({ game, variant, focused, pressing, slideshow, shot, onClick, slid
         zIndex: focused ? 3 : 1,
       }}
     >
+      {/* Corner tag (e.g. "NEW") pinned above the art. */}
+      {badge && (
+        <span
+          style={{
+            position: 'absolute',
+            top: variant === 'grid' ? 8 : 12,
+            left: variant === 'grid' ? 8 : 12,
+            zIndex: 4,
+            fontSize: variant === 'grid' ? 11 : 13,
+            fontWeight: 800,
+            letterSpacing: '0.1em',
+            color: '#000',
+            background: INK,
+            borderRadius: 6,
+            padding: '4px 9px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+          }}
+        >
+          {badge}
+        </span>
+      )}
       {/* Base tile art with the game name centered as the logotype */}
       <GameArt
         game={game}
