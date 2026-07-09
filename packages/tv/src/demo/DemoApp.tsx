@@ -13,14 +13,25 @@ interface LayoutOption {
   name: string;
   tagline: string;
   desc: string;
+  /** Optional colored flag pill on the gallery card (e.g. the chosen direction). */
+  flag?: string;
 }
 
 const OPTIONS: LayoutOption[] = [
+  {
+    phase: 0,
+    variation: 3,
+    name: 'Phase 0 · Variation 3',
+    tagline: 'Categorized rows',
+    flag: 'GO THIS',
+    desc: 'No top nav and a promo hero, but the full shelf set instead of a grid — New on Weekend (5 games + a See-all tile, each tagged NEW), Weekend Classic and the genre rows — with the trial banner. The focused game previews in the top area and OK launches it directly.',
+  },
   {
     phase: 1,
     variation: 1,
     name: 'Phase 1 · Variation 1',
     tagline: 'Full hub',
+    flag: 'GO THIS',
     desc: 'Hero carousel (with the free-trial promo), “New on Weekend” with a See-all-games tile, Games That Go Viral, genre shelves and the trial banner.',
   },
   {
@@ -225,6 +236,7 @@ function PrototypeGroup({ title, options }: { title: string; options: LayoutOpti
             href={optionHref(o)}
             style={{
               display: 'block',
+              position: 'relative',
               textDecoration: 'none',
               color: 'inherit',
               background: '#141518',
@@ -242,6 +254,30 @@ function PrototypeGroup({ title, options }: { title: string; options: LayoutOpti
               e.currentTarget.style.transform = 'translateY(0)';
             }}
           >
+            {o.flag && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 16,
+                  right: 16,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 12,
+                  fontWeight: 800,
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  color: '#04241a',
+                  background: '#34d399', // vivid green — the chosen direction
+                  borderRadius: 999,
+                  padding: '5px 13px 5px 11px',
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+                }}
+              >
+                <span aria-hidden style={{ fontSize: 13, lineHeight: 1 }}>✓</span>
+                {o.flag}
+              </div>
+            )}
             <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', color: '#8a8a9a', textTransform: 'uppercase' }}>
               {o.name}
             </div>
