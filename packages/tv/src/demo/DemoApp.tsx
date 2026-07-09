@@ -373,12 +373,12 @@ function Gallery() {
 
 // ── Components playground ─────────────────────────────────────────────────────
 // Usage tags describe the *job* each element does in the hub.
-type UsageTag = 'promotion' | 'navigation' | 'discovery' | 'personalization';
+type UsageTag = 'merchandise' | 'navigation' | 'discovery' | 'personalization';
 
 // Each usage tag gets its own hue so the jobs read apart at a glance. (The
 // example stages stay B&W; these chips are documentation chrome.)
 const TAG_COLORS: Record<UsageTag, string> = {
-  promotion: '#f4b740', // amber
+  merchandise: '#f4b740', // amber
   navigation: '#5aa9ff', // blue
   discovery: '#5ad19b', // green
   personalization: '#c58cf5', // purple
@@ -394,7 +394,7 @@ interface KitEntry {
 const KIT_ENTRIES: KitEntry[] = [
   {
     name: 'Hero section',
-    tags: ['promotion'],
+    tags: ['merchandise'],
     purpose:
       'The top billboard. Rotates featured slides — a promoted game, editorial content, or a campaign (e.g. the free-trial offer). Oversized art, the game’s logotype, key metadata and one primary CTA. It’s the first thing on screen, so it sets the tone and drives the main action.',
     example: <HeroExample />,
@@ -408,14 +408,14 @@ const KIT_ENTRIES: KitEntry[] = [
   },
   {
     name: 'Large game row',
-    tags: ['promotion', 'navigation'],
+    tags: ['merchandise', 'navigation'],
     purpose:
       'A higher-impact shelf with oversized tiles. When a tile is highlighted it plays a looping screenshot slideshow to preview gameplay — used to spotlight promoted or editorially featured games (e.g. “Games That Go Viral”).',
     example: <LargeGameRow />,
   },
   {
     name: 'Banner',
-    tags: ['promotion'],
+    tags: ['merchandise'],
     purpose:
       'A full-width, single-focus panel carrying one message — a promoted campaign or content (e.g. the 7-day free trial with a QR to scan). One item, one action; it breaks up the shelves to elevate a promotion.',
     example: <PromoBanner />,
@@ -475,7 +475,7 @@ function Playground() {
         </h1>
         <p style={{ margin: '16px 0 0', fontSize: 20, lineHeight: 1.5, color: 'rgba(243,244,241,0.72)', maxWidth: 760 }}>
           The building blocks the hub is assembled from. Each element is tagged by the job it does —{' '}
-          <b style={{ color: TAG_COLORS.promotion }}>promotion</b> vs <b style={{ color: TAG_COLORS.navigation }}>navigation</b>,
+          <b style={{ color: TAG_COLORS.merchandise }}>merchandise</b> vs <b style={{ color: TAG_COLORS.navigation }}>navigation</b>,
           plus <b style={{ color: TAG_COLORS.discovery }}>discovery</b> and{' '}
           <b style={{ color: TAG_COLORS.personalization }}>personalization</b> — with a live example rendered at hub fidelity.
         </p>
