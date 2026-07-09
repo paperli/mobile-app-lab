@@ -1190,10 +1190,10 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           if (nc >= 0 && nc <= 1) setPz(nc);
           else soundManager.playBounceSound();
         } else if (stage === 'thanks') {
-          // Center-locked scroller: advance the pool index (wrapping) so the
-          // focused game stays in the middle slot.
-          const len = RELATED_GAMES.length;
-          if (len > 0) setPz((col + (dx > 0 ? 1 : -1) + len) % len);
+          // Center-locked scroller: step the pool index; the track slides so the
+          // focused tile stays centered. Clamp (bounce) at the ends.
+          const nc = col + (dx > 0 ? 1 : -1);
+          if (nc >= 0 && nc < RELATED_GAMES.length) setPz(nc);
           else soundManager.playBounceSound();
         } else soundManager.playBounceSound();
         return;
@@ -2033,48 +2033,81 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                     </>
                   )}
 
-                  {stage === 'thanks' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-                      <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.02em' }}>Play more on</div>
-                      {/* Center-locked scroller: 3 related games with the focused
-                          one held in the middle; ◀▶ scroll the pool. Side tiles
-                          are dimmed; a side click recenters, center click launches. */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 28 }}>
-                        {[-1, 0, 1].map((off) => {
-                          const len = RELATED_GAMES.length;
-                          const idx = ((puzzleCol + off) % len + len) % len;
-                          const g = RELATED_GAMES[idx];
-                          const isCenter = off === 0;
-                          return (
+                  {stage === 'thanks' &&
+                    (() => {
+                      // Center-locked scroller: the whole pool is one track that
+                      // slides so the focused tile stays centered; ◀▶ animate the
+                      // movement. Neighbours peek in and are dimmed; a peeked tile
+                      // click recenters it, the centered tile launches.
+                      const TW = TILE.sm.w;
+                      const GAP = 32;
+                      const step = TW + GAP;
+                      const VIEW_W = 820;
+                      const FADE = 130; // edge fade width (px) on each side
+                      const translateX = VIEW_W / 2 - TW / 2 - puzzleCol * step;
+                      const edgeMask = `linear-gradient(to right, transparent 0, #000 ${FADE}px, #000 calc(100% - ${FADE}px), transparent 100%)`;
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+                          <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.02em' }}>Play more on</div>
+                          {/* Viewport clips the track; vertical padding (offset by a
+                              negative margin) leaves room for the focus ring/shadow. */}
+                          <div
+                            style={{
+                              width: VIEW_W,
+                              overflow: 'hidden',
+                              paddingTop: 60,
+                              paddingBottom: 60,
+                              marginTop: -60,
+                              marginBottom: -60,
+                              WebkitMaskImage: edgeMask,
+                              maskImage: edgeMask,
+                            }}
+                          >
                             <div
-                              key={off}
                               style={{
-                                opacity: isCenter ? 1 : 0.4,
-                                transition: 'opacity 220ms ease',
+                                display: 'flex',
+                                gap: GAP,
+                                transform: `translateX(${translateX}px)`,
+                                transition: reduceMotion
+                                  ? undefined
+                                  : 'transform 360ms cubic-bezier(.22,.61,.36,1)',
                               }}
                             >
-                              <Tile
-                                game={g}
-                                variant="sm"
-                                focused={isCenter && focusedHere}
-                                pressing={isCenter && pressing}
-                                slideshow={false}
-                                shot={0}
-                                onClick={() => {
-                                  if (isCenter) launchGame(g);
-                                  else {
-                                    puzzleColRef.current = idx;
-                                    setPuzzleCol(idx);
-                                    soundManager.playNavigationSound();
-                                  }
-                                }}
-                              />
+                              {RELATED_GAMES.map((g, idx) => {
+                                const isCenter = idx === puzzleCol;
+                                return (
+                                  <div
+                                    key={g.id}
+                                    style={{
+                                      flex: '0 0 auto',
+                                      opacity: isCenter ? 1 : 0.4,
+                                      transition: 'opacity 240ms ease',
+                                    }}
+                                  >
+                                    <Tile
+                                      game={g}
+                                      variant="sm"
+                                      focused={isCenter && focusedHere}
+                                      pressing={isCenter && pressing}
+                                      slideshow={false}
+                                      shot={0}
+                                      onClick={() => {
+                                        if (isCenter) launchGame(g);
+                                        else {
+                                          puzzleColRef.current = idx;
+                                          setPuzzleCol(idx);
+                                          soundManager.playNavigationSound();
+                                        }
+                                      }}
+                                    />
+                                  </div>
+                                );
+                              })}
                             </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+                          </div>
+                        </div>
+                      );
+                    })()}
                 </div>
               </div>
             </div>
