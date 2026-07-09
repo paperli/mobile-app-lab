@@ -110,7 +110,11 @@ const pick = (...idx: number[]) => idx.map((i) => HUB_CATALOG[i]);
 const ROWS: RowDef[] = [
   // Faked "continue playing" row — 2 recently-played games, same sm style.
   { key: 'jumpback', title: 'Jump Back On', variant: 'sm', slideshow: false, games: pick(1, 7) },
-  { key: 'more', title: 'New on Weekend', variant: 'sm', slideshow: false, games: HUB_CATALOG.slice(0, 8) },
+  // Flagship classics (Jeopardy!, Wheel of Fortune, Song Quiz…) — sits above New on Weekend.
+  { key: 'classic-weekend', title: 'Timeless Classics', variant: 'sm', slideshow: false, games: HUB_CATALOG.slice(0, 8), seeAll: true },
+  // New on Weekend = freshly-added titles (NEW-tagged). Picked to avoid overlap
+  // with the classics above and the "Games That Go Viral" row (catalog 8–11).
+  { key: 'more', title: 'New on Weekend', variant: 'sm', slideshow: false, games: pick(15, 23, 12, 18, 13, 27, 28, 14), newTag: true },
   {
     key: 'community',
     title: 'Games That Go Viral',
@@ -4119,6 +4123,15 @@ function SeeAllTile({ variant, focused, onClick }: { variant: TileVariant; focus
 }
 
 // ── GameTile ────────────────────────────────────────────────────────────────
+
+/* Faked "live players" count for the PLAYING chip — deterministic per game (so
+   it stays stable across re-renders) and clamped to the 103–999 range. */
+function fakePlayingCount(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return 103 + (h % (999 - 103 + 1));
+}
+
 interface TileProps {
   game: HubGame;
   variant: TileVariant;
@@ -4298,7 +4311,7 @@ function Tile({
           }}
         >
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff' }} />
-          PLAYING
+          {fakePlayingCount(game.id)} PLAYING
         </div>
       )}
     </button>

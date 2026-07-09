@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { GameHub, type HubHandle } from '../components/GameHub';
 import type { HubGame } from '../prototype/hub/games';
-import { HeroExample, SmallGameRow, LargeGameRow, PromoBanner, GameGridKit } from './ComponentKit';
+import { HeroExample, SmallGameRow, LargeGameRow, PromoBanner, GameGridKit, SongQuizBanner } from './ComponentKit';
 
 interface LayoutOption {
   phase: number;
@@ -455,6 +455,13 @@ const KIT_ENTRIES: KitEntry[] = [
     purpose:
       'A full-width, single-focus panel carrying one message — a promoted campaign or content (e.g. the 7-day free trial with a QR to scan). One item, one action; it breaks up the shelves to elevate a promotion.',
     example: <PromoBanner />,
+  },
+  {
+    name: 'Song Quiz inline banner',
+    tags: ['merchandise', 'discovery'],
+    purpose:
+      'A full-width inline mini-game: a Song Quiz question the user can answer right from the hub — a title and auto-scrolling lyrics on the left, tappable answer options on the right. It turns a shelf slot into a playable teaser that advertises the game and leads into related titles once answered.',
+    example: <SongQuizBanner />,
   },
   {
     name: 'Grid',

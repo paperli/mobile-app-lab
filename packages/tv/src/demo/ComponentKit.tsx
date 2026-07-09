@@ -20,9 +20,18 @@ const GRID_COLS = 5;
 type TileVariant = 'sm' | 'lg' | 'grid';
 const TILE = {
   sm: { w: 340, h: (340 * 9) / 16, r: 14, gap: 40 },
-  lg: { w: 620, h: (620 * 9) / 16, r: 16, gap: 28 },
+  lg: { w: 545, h: (545 * 9) / 16, r: 16, gap: 28 },
   grid: { w: 332, h: (332 * 9) / 16, r: 12, gap: 24 },
 } as const;
+
+/* Faked "live players" count for the PLAYING chip — deterministic per game (so
+   it stays stable across re-renders) and clamped to the 103–999 range. Mirrors
+   the helper of the same name in GameHub. */
+function fakePlayingCount(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return 103 + (h % (999 - 103 + 1));
+}
 
 // ── Fit-to-container stage ────────────────────────────────────────────────────
 // The hub renders at a fixed 1920-px design width; here each example declares its
@@ -70,11 +79,14 @@ function KitTile({
   variant,
   focused,
   slideshow = false,
+  badge,
 }: {
   game: HubGame;
   variant: TileVariant;
   focused?: boolean;
   slideshow?: boolean;
+  /** Optional corner tag, e.g. "NEW". */
+  badge?: string;
 }) {
   const t = TILE[variant];
   const [shot, setShot] = useState(0);
@@ -110,6 +122,27 @@ function KitTile({
         zIndex: focused ? 3 : 1,
       }}
     >
+      {/* Corner tag (e.g. "NEW") pinned above the art. */}
+      {badge && (
+        <span
+          style={{
+            position: 'absolute',
+            top: variant === 'grid' ? 8 : 12,
+            left: variant === 'grid' ? 8 : 12,
+            zIndex: 4,
+            fontSize: variant === 'grid' ? 11 : 13,
+            fontWeight: 800,
+            letterSpacing: '0.1em',
+            color: '#000',
+            background: INK,
+            borderRadius: 6,
+            padding: '4px 9px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+          }}
+        >
+          {badge}
+        </span>
+      )}
       <GameArt
         game={game}
         variant="tile"
@@ -135,14 +168,20 @@ function KitTile({
           />
         ))}
 
-      <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(0deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0) 55%)' }} />
-
-      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: variant === 'lg' ? 22 : variant === 'grid' ? 14 : 18 }}>
-        <span style={{ display: 'flex', gap: 10, alignItems: 'center', color: INK_DIM, fontSize: variant === 'lg' ? 20 : variant === 'grid' ? 14 : 15 }}>
-          <span style={{ fontVariantNumeric: 'tabular-nums' }}>{game.players}</span>
-          {variant === 'lg' && <span style={{ color: '#8a8a9a' }}>• {game.description}</span>}
-        </span>
-      </div>
+      {/* Legibility scrim + caption — only the featured (lg) tiles carry a
+          caption, so the bottom fade is limited to them; regular (sm/grid)
+          tiles show clean art with no player count. */}
+      {variant === 'lg' && (
+        <>
+          <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(0deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0) 55%)' }} />
+          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: 22 }}>
+            <span style={{ display: 'flex', gap: 10, alignItems: 'center', color: INK_DIM, fontSize: 20 }}>
+              <span style={{ fontVariantNumeric: 'tabular-nums' }}>{game.players}</span>
+              <span style={{ color: '#8a8a9a' }}>• {game.description}</span>
+            </span>
+          </div>
+        </>
+      )}
 
       {showShots && (
         <div
@@ -153,7 +192,7 @@ function KitTile({
           }}
         >
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff' }} />
-          PLAYING
+          {fakePlayingCount(game.id)} PLAYING
         </div>
       )}
     </div>
@@ -178,7 +217,9 @@ export function SmallGameRow() {
         <ShelfTitle title="Party Starters" />
         <div style={{ display: 'flex', gap: TILE.sm.gap, paddingLeft: SHELF_PAD }}>
           {games.map((g, i) => (
-            <KitTile key={g.id} game={g} variant="sm" focused={i === 1} />
+            // Tiles can carry an optional "NEW" corner tag (used by the New on
+            // Weekend row for freshly-added games).
+            <KitTile key={g.id} game={g} variant="sm" focused={i === 1} badge={i === 0 ? 'NEW' : undefined} />
           ))}
         </div>
       </div>
@@ -190,7 +231,7 @@ export function SmallGameRow() {
 export function LargeGameRow() {
   const games = HUB_GAMES.slice(8, 11);
   return (
-    <ScaledStage designW={1440} designH={510}>
+    <ScaledStage designW={1440} designH={470}>
       <div style={{ paddingTop: 28 }}>
         <ShelfTitle title="Games That Go Viral" sub="The games everyone’s talking about right now" />
         <div style={{ display: 'flex', gap: TILE.lg.gap, paddingLeft: SHELF_PAD }}>
@@ -245,6 +286,136 @@ export function PromoBanner() {
             <span style={{ fontSize: 18, fontWeight: 600, color: '#cfd0d3' }}>Scan to start →</span>
             <div style={{ background: '#fff', padding: 12, borderRadius: 14, lineHeight: 0 }}>
               <QRCodeSVG value="https://weekend.tv/free-trial" size={124} level="M" includeMargin={false} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </ScaledStage>
+  );
+}
+
+// ── Song Quiz inline banner (the puzzle row) ──────────────────────────────────
+// Mirrors GameHub's puzzle row in its "question" stage: a title + auto-scrolling
+// lyric window on the left, a 2×2 answer grid on the right. Playable inline —
+// the user answers the song-quiz question straight from the hub.
+const SQ_BANNER = {
+  label: 'SONG QUIZ',
+  title: 'Guess who sings this song',
+  lyrics: [
+    'City lights are calling out my name tonight',
+    'Dancing through the rain without a single care',
+    'Hold me like the summer never has to end',
+  ],
+  options: ['The Midnight Echo', 'Nova Reign', 'Cassette Kids', 'Golden Hour'],
+  focused: 2, // the tile shown with the focus ring
+};
+
+function IconMusic({ size = 28, color = INK }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path d="M9 17V4.5l10-2V15" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="6.4" cy="17" r="2.6" fill={color} />
+      <circle cx="16.4" cy="15" r="2.6" fill={color} />
+    </svg>
+  );
+}
+
+export function SongQuizBanner() {
+  return (
+    <ScaledStage designW={1920} designH={356}>
+      <style>{'@keyframes kitNoteSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }'}</style>
+      <div style={{ padding: `28px ${SHELF_PAD}px` }}>
+        <div
+          style={{
+            width: '100%',
+            minHeight: 300,
+            borderRadius: 20,
+            display: 'flex',
+            alignItems: 'stretch',
+            gap: 48,
+            padding: '34px 48px',
+            background: 'linear-gradient(100deg, #17181c 0%, #23242a 60%, #303138 100%)',
+            border: '1px solid #3a3b3f',
+            fontFamily: FONT,
+            color: INK,
+            overflow: 'hidden',
+          }}
+        >
+          {/* Left: title + 3-line lyric window (center line solid, neighbors fade). */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 16 }}>
+              <div
+                style={{
+                  flex: '0 0 auto', width: 58, height: 58, borderRadius: '50%',
+                  border: '1px solid #3a3b3f', background: 'rgba(255,255,255,0.05)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  animation: 'kitNoteSpin 3.5s linear infinite',
+                }}
+              >
+                <IconMusic size={28} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.16em', color: '#b9babe' }}>{SQ_BANNER.label}</span>
+                <span style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em' }}>{SQ_BANNER.title}</span>
+              </div>
+            </div>
+            <div style={{ height: 1, background: '#3a3b3f', marginBottom: 20 }} />
+            <div style={{ height: 124, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {SQ_BANNER.lyrics.map((line, i) => {
+                  const isCur = i === 1;
+                  return (
+                    <div
+                      key={line}
+                      style={{
+                        fontSize: isCur ? 30 : 23,
+                        fontWeight: isCur ? 800 : 500,
+                        fontStyle: 'italic',
+                        opacity: isCur ? 1 : 0.24,
+                        lineHeight: 1.32,
+                        letterSpacing: '-0.01em',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {line}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Right: 2×2 answer grid (one tile focused). */}
+          <div style={{ flex: '0 0 auto', width: 820, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              {SQ_BANNER.options.map((opt, i) => {
+                const isFocus = i === SQ_BANNER.focused;
+                return (
+                  <div
+                    key={opt}
+                    style={{
+                      minHeight: 78,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: '20px 24px',
+                      borderRadius: 14,
+                      fontSize: 23,
+                      fontWeight: 700,
+                      letterSpacing: '-0.01em',
+                      background: '#1c1d21',
+                      color: INK,
+                      border: '1px solid #3a3b3f',
+                      boxShadow: isFocus ? '0 0 0 4px #fff' : 'none',
+                      transform: isFocus ? 'scale(1.02)' : 'scale(1)',
+                    }}
+                  >
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opt}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
