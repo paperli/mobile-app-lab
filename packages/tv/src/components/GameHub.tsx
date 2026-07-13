@@ -23,6 +23,7 @@ import {
 } from 'react';
 import type { CSSProperties } from 'react';
 import type { NavigationAction, NavigationDirection } from '@mobile-app-lab/shared';
+import { layout, tileHeight } from '@weekend/ui';
 import { QRCodeSVG } from 'qrcode.react';
 import { HUB_GAMES, type HubGame } from '../prototype/hub/games';
 import { GameArt } from '../prototype/hub/GameArt';
@@ -92,8 +93,10 @@ const HERO_GAMES = (() => {
 })();
 
 // "All Games" grid (variation 2): every game in the catalog, GRID_COLS per row.
+// 4 columns of the standard 368px tile fit inside the shared 80px gutters
+// (4·368 + 3·32 + 2·80 = 1728 ≤ 1920); a 5th would overflow the stage.
 const ALL_GAMES = HUB_CATALOG;
-const GRID_COLS = 5;
+const GRID_COLS = 4;
 
 function chunk<T>(arr: readonly T[], size: number): T[][] {
   const out: T[][] = [];
@@ -132,14 +135,19 @@ const ROWS: RowDef[] = [
   { key: 'brain', title: 'Brain Benders', variant: 'sm', slideshow: false, games: HUB_CATALOG.slice(21, 30) },
 ];
 
-// Tile geometry per variant (design px). `grid` sizes so GRID_COLS fit one row.
+// Tile geometry per variant, derived from the shared @weekend/ui layout tokens
+// so gap / radius / gutter are identical across every role (only tile *width*
+// and the visible-tile count vary). Standard shelves and the grid share one
+// width; featured rows use the 2x tile. `visible` counts are tuned so a chunk of
+// the next tile (~2/3 on standard rows) always peeks past the stage edge as a
+// "there's more" cue.
 const TILE = {
-  sm: { w: 340, h: (340 * 9) / 16, r: 14, gap: 40, visible: 4 },
-  lg: { w: 545, h: (545 * 9) / 16, r: 16, gap: 28, visible: 3 },
-  grid: { w: 332, h: (332 * 9) / 16, r: 12, gap: 24, visible: GRID_COLS },
+  sm: { w: layout.tile.w, h: tileHeight(layout.tile.w), r: layout.tile.radius, gap: layout.shelfGap, visible: 4 },
+  lg: { w: layout.tile.wFeatured, h: tileHeight(layout.tile.wFeatured), r: layout.tile.radius, gap: layout.shelfGap, visible: 2 },
+  grid: { w: layout.tile.w, h: tileHeight(layout.tile.w), r: layout.tile.radius, gap: layout.shelfGap, visible: GRID_COLS },
 } as const;
 
-const SHELF_PAD = 80;
+const SHELF_PAD = layout.shelfGutter;
 
 // ── Top navigation (phase 1 only) ────────────────────────────────────────────
 type Page = 'search' | 'home' | 'mygames';
@@ -2070,10 +2078,10 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                       // movement. Neighbours peek in and are dimmed; a peeked tile
                       // click recenters it, the centered tile launches.
                       const TW = TILE.sm.w;
-                      const GAP = 32;
+                      const GAP = layout.shelfGap;
                       const step = TW + GAP;
                       const VIEW_W = 820;
-                      const FADE = 130; // edge fade width (px) on each side
+                      const FADE = layout.shelfFade; // edge fade width (px) on each side
                       const translateX = VIEW_W / 2 - TW / 2 - puzzleCol * step;
                       const edgeMask = `linear-gradient(to right, transparent 0, #000 ${FADE}px, #000 calc(100% - ${FADE}px), transparent 100%)`;
                       return (
@@ -2151,7 +2159,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           return (
             <div key={`all-games-${s.gridIndex}`}>
               {s.gridIndex === 0 && (
-                <div style={{ padding: `0 ${SHELF_PAD}px`, margin: '44px 0 22px' }}>
+                <div style={{ padding: `0 ${SHELF_PAD}px`, margin: `${layout.shelfRowGap}px 0 ${layout.shelfHeaderGap}px` }}>
                   <h2 style={{ margin: 0, fontSize: 32, fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>
                     {s.gridTitle ?? 'All Games'}
                   </h2>
@@ -2190,49 +2198,87 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
         const col = focusedHere ? nav.col : Math.min(colMemoryRef.current[sectionIndex] ?? 0, maxIdx);
         const step = t.w + t.gap;
         const trackX = -Math.max(0, col - (t.visible - 1)) * step;
+        // Edge-fade "peek" affordance: the track never gets a trailing gutter,
+        // so the next tile is always clipped by the stage — the fade turns that
+        // clipped sliver into a "there's more ->" cue. Shown only when content
+        // actually overflows that edge (leading fade appears once scrolled).
+        const itemCount = row.games.length + (row.seeAll ? 1 : 0);
+        const contentW = SHELF_PAD + itemCount * t.w + (itemCount - 1) * t.gap;
+        const hasTrailing = contentW + trackX > STAGE_W + 1;
+        const hasLeading = trackX < 0;
         return (
           <section
             key={row.key}
             ref={(el) => (rowRefs.current[sectionIndex - 1] = el)}
-            style={{ marginTop: si === 0 ? 40 : 36, paddingBottom: 12 }}
+            style={{ marginTop: layout.shelfRowGap, paddingBottom: 12 }}
           >
-            <div style={{ padding: `0 ${SHELF_PAD}px`, marginBottom: 22 }}>
+            <div style={{ padding: `0 ${SHELF_PAD}px`, marginBottom: layout.shelfHeaderGap }}>
               <h2 style={{ margin: 0, fontSize: 32, fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>{row.title}</h2>
               {row.sub && <p style={{ margin: '10px 0 0', fontSize: 21, color: '#8a8a9a' }}>{row.sub}</p>}
             </div>
-            <div
-              style={{
-                display: 'flex',
-                gap: t.gap,
-                paddingLeft: SHELF_PAD,
-                transform: `translateX(${trackX}px)`,
-                transition: 'transform 420ms cubic-bezier(.22,.61,.36,1)',
-              }}
-            >
-              {row.games.map((game, i) => (
-                <Tile
-                  key={game.id}
-                  game={game}
-                  variant={row.variant}
-                  focused={focusedHere && i === col}
-                  pressing={pressing && focusedHere && i === col}
-                  slideshow={row.slideshow}
-                  slideshowReady={slideshowReady}
-                  shot={shot}
-                  badge={row.newTag ? 'NEW' : undefined}
-                  onClick={() => selectTile(sectionIndex, i, row.games[i])}
+            <div style={{ position: 'relative', height: t.h }}>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: t.gap,
+                  paddingLeft: SHELF_PAD,
+                  transform: `translateX(${trackX}px)`,
+                  transition: 'transform 420ms cubic-bezier(.22,.61,.36,1)',
+                }}
+              >
+                {row.games.map((game, i) => (
+                  <Tile
+                    key={game.id}
+                    game={game}
+                    variant={row.variant}
+                    focused={focusedHere && i === col}
+                    pressing={pressing && focusedHere && i === col}
+                    slideshow={row.slideshow}
+                    slideshowReady={slideshowReady}
+                    shot={shot}
+                    badge={row.newTag ? 'NEW' : undefined}
+                    onClick={() => selectTile(sectionIndex, i, row.games[i])}
+                  />
+                ))}
+                {row.seeAll && (
+                  <SeeAllTile
+                    variant={row.variant}
+                    focused={focusedHere && col === row.games.length}
+                    onClick={() => {
+                      colMemoryRef.current[sectionIndex] = row.games.length;
+                      const n = { ...navRef.current, sec: sectionIndex, col: row.games.length };
+                      navRef.current = n;
+                      setNav(n);
+                      openAllGames();
+                    }}
+                  />
+                )}
+              </div>
+              {hasTrailing && (
+                <div
+                  aria-hidden
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    bottom: 0,
+                    right: 0,
+                    width: layout.shelfFade,
+                    pointerEvents: 'none',
+                    background: `linear-gradient(to right, transparent, ${STAGE_BG})`,
+                  }}
                 />
-              ))}
-              {row.seeAll && (
-                <SeeAllTile
-                  variant={row.variant}
-                  focused={focusedHere && col === row.games.length}
-                  onClick={() => {
-                    colMemoryRef.current[sectionIndex] = row.games.length;
-                    const n = { ...navRef.current, sec: sectionIndex, col: row.games.length };
-                    navRef.current = n;
-                    setNav(n);
-                    openAllGames();
+              )}
+              {hasLeading && (
+                <div
+                  aria-hidden
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    width: layout.shelfFade,
+                    pointerEvents: 'none',
+                    background: `linear-gradient(to left, transparent, ${STAGE_BG})`,
                   }}
                 />
               )}

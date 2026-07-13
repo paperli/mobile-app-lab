@@ -94,9 +94,36 @@ module.exports = {
         metadata: ['24px', { lineHeight: '32px' }],
         caption:  ['24px', { lineHeight: '32px' }],
       },
+      spacing: {
+        // Primitive 8px scale (in addition to Tailwind's default keys).
+        'space-1': 'var(--space-1)',
+        'space-2': 'var(--space-2)',
+        'space-3': 'var(--space-3)',
+        'space-4': 'var(--space-4)',
+        'space-5': 'var(--space-5)',
+        'space-6': 'var(--space-6)',
+        'space-7': 'var(--space-7)',
+        'space-8': 'var(--space-8)',
+        'space-9': 'var(--space-9)',
+        'space-10': 'var(--space-10)',
+        'space-11': 'var(--space-11)',
+        'space-12': 'var(--space-12)',
+        // Semantic hub-layout tokens (drive gap-/p-/w- utilities).
+        'shelf-gutter': 'var(--shelf-gutter)',
+        'shelf-gap': 'var(--shelf-gap)',
+        'shelf-header': 'var(--shelf-header-gap)',
+        'shelf-row': 'var(--shelf-row-gap)',
+        'shelf-fade': 'var(--shelf-fade)',
+        tile: 'var(--tile-w)',
+        'tile-featured': 'var(--tile-w-featured)',
+      },
       borderRadius: {
         pill: 'var(--radius-pill)',
         card: 'var(--radius-card)',
+        tile: 'var(--tile-radius)',
+      },
+      aspectRatio: {
+        tile: '16 / 9',
       },
       boxShadow: {
         'cta-glow': 'var(--shadow-cta-glow)',
