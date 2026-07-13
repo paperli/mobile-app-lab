@@ -5,6 +5,7 @@
 //              focus frame. ← / → browse, Enter opens the game.
 //   Detail:    Hero v2 + the game's three screenshots. Esc / Backspace back.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { layout, tileHeight } from '@weekend/ui';
 import { HUB_GAMES } from './games';
 import { HeroV2 } from './HeroV2';
 import { GameTileV2 } from './GameTileV2';
@@ -13,13 +14,14 @@ import { Screenshot, SHOT_VARIANTS } from './Screenshot';
 const STAGE_W = 1920;
 const STAGE_H = 1080;
 
-// Tile shelf geometry (design-space px)
-const SHELF_PAD = 80;
-const TILE_W = 340;
-const TILE_H = (TILE_W * 9) / 16;
-const GAP = 28;
+// Tile shelf geometry — shared @weekend/ui layout tokens (unified with GameHub:
+// this prototype previously used its own gap of 28, now the shared 32).
+const SHELF_PAD = layout.shelfGutter;
+const TILE_W = layout.tile.w;
+const TILE_H = tileHeight(TILE_W);
+const GAP = layout.shelfGap;
 const STEP = TILE_W + GAP;
-const VISIBLE = 5; // tiles before the row starts scrolling
+const VISIBLE = 4; // tiles before the row starts scrolling (384px tiles → 4 fit + peek)
 
 const SHOT_LABELS: Record<string, string> = {
   gameplay: 'Gameplay',

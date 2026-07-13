@@ -146,6 +146,38 @@
   --type-code:       var(--type-display-1-size);
   --radius-pill:     9999px;
   --radius-card:     16px;
+
+  /* SPACING — 8px base scale (primitive). Fills the layout-token gap so
+   * components stop hardcoding px. Consumed by the semantic --shelf-* tokens
+   * below and exposed through the Tailwind `spacing` keys in the preset. */
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   24px;
+  --space-6:   32px;
+  --space-7:   40px;
+  --space-8:   48px;
+  --space-9:   64px;
+  --space-10:  80px;
+  --space-11:  96px;
+  --space-12:  128px;
+
+  /* TILE — game tiles are uniformly 16:9; only width varies by role, so the
+   * asset pipeline renders just two sizes: standard (1x) and featured (2x). */
+  --tile-radius:     var(--radius-card);  /* 16 — one radius for every tile */
+  --tile-w:          368px;               /* standard shelves + grids (4 visible + ~2/3-tile peek) */
+  --tile-w-featured: 736px;               /* 2x standard — spotlight/viral rows */
+
+  /* SHELF — one gutter, one gap, one rhythm for every hub row and grid.
+   * --shelf-fade is the edge mask that turns clipped tiles into a "more ->"
+   * peek cue; visible-tile counts are chosen so ~0.4 of a tile always peeks. */
+  --shelf-gutter:     var(--space-10);  /* 80 — leading inset; shared left alignment line */
+  --shelf-gap:        var(--space-6);   /* 32 — between tiles, every role */
+  --shelf-header-gap: var(--space-5);   /* 24 — row title -> tiles */
+  --shelf-row-gap:    var(--space-7);   /* 40 — row -> row vertical rhythm */
+  --shelf-fade:       130px;            /* edge-fade mask width */
+
   --duration-fast:   150ms;
   --duration-base:   220ms;
   --ease-standard:   cubic-bezier(0.4, 0, 0.2, 1);
