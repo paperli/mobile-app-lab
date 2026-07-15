@@ -10,6 +10,11 @@ import {
   VoiceConfirmPromptPayload,
   VoiceConfirmResponsePayload,
   VoiceStatePayload,
+  StudioStatePayload,
+  StudioSubmitPayload,
+  StudioActionPayload,
+  StudioGameStatePayload,
+  StudioAnswerPayload,
 } from '@mobile-app-lab/shared';
 
 export function setupSocketHandlers(io: Server, roomManager: RoomManager) {
@@ -183,6 +188,52 @@ export function setupSocketHandlers(io: Server, roomManager: RoomManager) {
       if (!room || !room.mobileSocketIds.includes(socket.id)) return;
       if (!room.tvSocketId) return;
       io.to(room.tvSocketId).emit(SOCKET_EVENTS.VOICE_CONFIRM_RESPONSE, payload);
+    });
+
+    // Studio: TV → Mobile creation phase + version
+    socket.on(SOCKET_EVENTS.STUDIO_STATE, (payload: StudioStatePayload) => {
+      const room = roomManager.getRoomBySocket(socket.id);
+      if (!room || room.tvSocketId !== socket.id) return;
+      for (const mobileId of room.mobileSocketIds) {
+        io.to(mobileId).emit(SOCKET_EVENTS.STUDIO_STATE, payload);
+      }
+      console.log(`[Socket] Studio state → mobiles: ${payload.phase} v${payload.version}`);
+    });
+
+    // Studio: Mobile → TV game idea / iteration prompt
+    socket.on(SOCKET_EVENTS.STUDIO_SUBMIT, (payload: StudioSubmitPayload) => {
+      const room = roomManager.getRoomBySocket(socket.id);
+      if (!room || !room.mobileSocketIds.includes(socket.id)) return;
+      if (!room.tvSocketId) return;
+      io.to(room.tvSocketId).emit(SOCKET_EVENTS.STUDIO_SUBMIT, payload);
+      console.log(`[Socket] Studio submit (${payload.mode}) → TV: "${payload.text}"`);
+    });
+
+    // Studio: Mobile → TV discrete action (ready / start / tab switch / play)
+    socket.on(SOCKET_EVENTS.STUDIO_ACTION, (payload: StudioActionPayload) => {
+      const room = roomManager.getRoomBySocket(socket.id);
+      if (!room || !room.mobileSocketIds.includes(socket.id)) return;
+      if (!room.tvSocketId) return;
+      io.to(room.tvSocketId).emit(SOCKET_EVENTS.STUDIO_ACTION, payload);
+      console.log(`[Socket] Studio action → TV: ${payload.action}`);
+    });
+
+    // Studio gameplay: TV → Mobile live game state (question / reveal / results)
+    socket.on(SOCKET_EVENTS.STUDIO_GAME_STATE, (payload: StudioGameStatePayload) => {
+      const room = roomManager.getRoomBySocket(socket.id);
+      if (!room || room.tvSocketId !== socket.id) return;
+      for (const mobileId of room.mobileSocketIds) {
+        io.to(mobileId).emit(SOCKET_EVENTS.STUDIO_GAME_STATE, payload);
+      }
+    });
+
+    // Studio gameplay: Mobile → TV answer selection
+    socket.on(SOCKET_EVENTS.STUDIO_ANSWER, (payload: StudioAnswerPayload) => {
+      const room = roomManager.getRoomBySocket(socket.id);
+      if (!room || !room.mobileSocketIds.includes(socket.id)) return;
+      if (!room.tvSocketId) return;
+      io.to(room.tvSocketId).emit(SOCKET_EVENTS.STUDIO_ANSWER, payload);
+      console.log(`[Socket] Studio answer → TV: option ${payload.index}`);
     });
 
     // Handle disconnection

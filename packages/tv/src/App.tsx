@@ -8,6 +8,19 @@ import {
   SOCKET_EVENTS,
   type VoiceTranscriptPayload,
   type VoiceConfirmResponsePayload,
+  type VoiceStatePayload,
+  type StudioPhase,
+  type StudioGameKind,
+  type StudioSubmitPayload,
+  type StudioActionPayload,
+  type StudioAnswerPayload,
+  type StudioQuestion,
+  type StudioPlayStatus,
+  deriveStudioGame,
+  STUDIO_QUESTIONS,
+  STUDIO_ROUND_LENGTH,
+  STUDIO_POINTS_PER_CORRECT,
+  STUDIO_REVEAL_MS,
 } from '@mobile-app-lab/shared';
 import { matchVoice, type VoiceIntent } from './utils/voiceMatcher';
 import { VoiceDebugOverlay, type TVVoiceDebugEvent } from './components/VoiceDebugOverlay';
@@ -20,28 +33,98 @@ import {
   type SystemMenuOverlayHandle,
   type SystemMenuTab,
 } from '@weekend/ui';
-import { GameHub, type HubHandle } from './components/GameHub';
+import { GameHub, type HubHandle, type StudioCreatedGame } from './components/GameHub';
 import { HUB_GAMES } from './prototype/hub/games';
 import { LoadingScreen } from './components/song-quiz/LoadingScreen';
 import { GameMenu } from './components/song-quiz/GameMenu';
 import { PlaylistSelect } from './components/song-quiz/PlaylistSelect';
 import { PartyPlaylistSelect, type PartyPlaylistHandle } from './components/song-quiz/PartyPlaylistSelect';
 import { GRID, findClosestCol } from './components/song-quiz/PlaylistFocusFrame';
+import { StudioView } from './components/studio/StudioView';
+import { StudioPlay } from './components/studio/StudioPlay';
+import { StudioExitConfirm } from './components/studio/StudioExitConfirm';
+import { GameMasterGlobe } from './components/studio/GameMasterGlobe';
 import { useSocket } from './hooks/useSocket';
 import { useKeyboardNav } from './hooks/useKeyboardNav';
 import { soundManager } from './utils/sounds';
 import { PreviewShell } from './preview/PreviewShell';
 import { getMobileUrl } from './utils/getMobileUrl';
 
-type AppScreen = 'hub' | 'loading' | 'game-menu' | 'playlist-select' | 'party-playlist-select';
+type AppScreen = 'hub' | 'loading' | 'game-menu' | 'playlist-select' | 'party-playlist-select' | 'studio';
 
 // Configuration
 const LOADING_DURATION_MS = 5000; // Adjustable loading time
 const MENU_ITEM_COUNT = 2; // Single Player + Party Mode
+// Faked "build your game" duration (prototype). The TV progress bar and the
+// TV→game transition both run off this, so they stay in lockstep.
+const STUDIO_GEN_MS = 10000;
+// After generating, the game-tile "breathing" reveal plays before the preview.
+const STUDIO_REVEAL_MS_TILE = 2600;
 
 // Pressing back on these screens opens the system menu (exit confirmation)
 // instead of navigating up a step.
 const BOUNDARY_SCREENS: ReadonlySet<AppScreen> = new Set(['hub', 'game-menu']);
+
+// Live state for one playable Studio round (C1).
+interface StudioPlayState {
+  status: StudioPlayStatus;
+  questionIndex: number;
+  selectedIndex: number | null;
+  score: number;
+  questions: StudioQuestion[];
+}
+
+// Assemble a fresh round from the shared question bank.
+function buildStudioRound(): StudioPlayState {
+  const questions = STUDIO_QUESTIONS.slice(0, STUDIO_ROUND_LENGTH).map((q) => ({
+    prompt: q.prompt,
+    options: [...q.options],
+    correctIndex: q.correctIndex,
+  }));
+  return { status: 'question', questionIndex: 0, selectedIndex: null, score: 0, questions };
+}
+
+// Reveal the answer for the current question and score it. Returns the next
+// play state (no-op unless a question is currently awaiting an answer).
+function revealStudioAnswer(prev: StudioPlayState | null, index: number): StudioPlayState | null {
+  if (!prev || prev.status !== 'question') return prev;
+  const q = prev.questions[prev.questionIndex];
+  const correct = index === q.correctIndex;
+  return {
+    ...prev,
+    status: 'reveal',
+    selectedIndex: index,
+    score: correct ? prev.score + STUDIO_POINTS_PER_CORRECT : prev.score,
+  };
+}
+
+// 2x2 option grid movement for the phone d-pad (options laid out 0 1 / 2 3).
+function moveStudioFocus(i: number, direction: NavigationDirection): number {
+  const row = Math.floor(i / 2);
+  const col = i % 2;
+  if (direction === 'left' && col > 0) return i - 1;
+  if (direction === 'right' && col < 1) return i + 1;
+  if (direction === 'up' && row > 0) return i - 2;
+  if (direction === 'down' && row < 1) return i + 2;
+  return i;
+}
+
+// Build the TV → mobile gameplay payload from the local round state.
+function studioGamePayload(roomCode: string, play: StudioPlayState) {
+  const q = play.questions[play.questionIndex];
+  const revealed = play.status !== 'question';
+  return {
+    roomCode,
+    status: play.status,
+    questionIndex: play.questionIndex,
+    totalQuestions: play.questions.length,
+    prompt: q?.prompt ?? '',
+    options: q ? [...q.options] : [],
+    correctIndex: revealed ? q?.correctIndex : undefined,
+    selectedIndex: revealed ? play.selectedIndex : null,
+    score: play.score,
+  };
+}
 
 function MainTvApp() {
   // URL params (mockup switches):
@@ -57,6 +140,71 @@ function MainTvApp() {
 
   // Screen state
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('hub');
+
+  // Game Studio state (only meaningful while currentScreen === 'studio').
+  //   phase   — connect → prompt → generating → game (see StudioPhase)
+  //   version — 0 until the first build completes, then 1, 2, … per iteration
+  //   listening — the phone is holding its mic (drives the game-master overlay)
+  const [studioPhase, setStudioPhase] = useState<StudioPhase>('connect');
+  const [studioVersion, setStudioVersion] = useState(0);
+  const [studioListening, setStudioListening] = useState(false);
+  // The game the TV built from the user's idea (C2): drives the TV/phone titles.
+  const [studioIdea, setStudioIdea] = useState('');
+  const [studioTitle, setStudioTitle] = useState('');
+  const [studioKind, setStudioKind] = useState<StudioGameKind>('trivia');
+  // Live gameplay state for the playable round (C1); null when not playing.
+  const [studioPlay, setStudioPlay] = useState<StudioPlayState | null>(null);
+  // Which option the phone's d-pad is hovering during a question (0..3).
+  const [studioPlayFocus, setStudioPlayFocus] = useState(0);
+  // Games built this session — a temporary in-memory cache shown in the Studio
+  // "My games" row. Cleared on TV reload (App remount).
+  const [studioCreatedGames, setStudioCreatedGames] = useState<StudioCreatedGame[]>([]);
+  const studioGameSeqRef = useRef(0);
+  // True while the phone has the Develop tool open — un-fades the on-top globe.
+  const [studioDeveloping, setStudioDeveloping] = useState(false);
+  // "Leave game creation?" confirmation; phone becomes a d-pad to answer it.
+  const [studioExitConfirm, setStudioExitConfirm] = useState(false);
+  // Focused button in the exit confirm: 0 = Keep building, 1 = Leave.
+  const [studioExitFocus, setStudioExitFocus] = useState(0);
+  const studioPhaseRef = useRef(studioPhase);
+  studioPhaseRef.current = studioPhase;
+  const studioPlayFocusRef = useRef(studioPlayFocus);
+  studioPlayFocusRef.current = studioPlayFocus;
+  const studioExitConfirmRef = useRef(studioExitConfirm);
+  studioExitConfirmRef.current = studioExitConfirm;
+  const studioExitFocusRef = useRef(studioExitFocus);
+  studioExitFocusRef.current = studioExitFocus;
+  // Refs so the "re-sync on phone join" handler (B1) can read current values
+  // without re-subscribing the socket listener on every change.
+  const studioVersionRef = useRef(studioVersion);
+  studioVersionRef.current = studioVersion;
+  const studioIdeaRef = useRef(studioIdea);
+  studioIdeaRef.current = studioIdea;
+  const studioTitleRef = useRef(studioTitle);
+  studioTitleRef.current = studioTitle;
+  const studioKindRef = useRef(studioKind);
+  studioKindRef.current = studioKind;
+  const studioPlayRef = useRef(studioPlay);
+  studioPlayRef.current = studioPlay;
+  // Remembers whether the in-flight build is a first create or an iteration, so
+  // the generating timer knows whether to set v1 or bump the version.
+  const studioSubmitModeRef = useRef<'create' | 'iterate'>('create');
+
+  // Enter the full-screen create flow from the hub's "Create new game" tile.
+  const handleCreateGame = useCallback(() => {
+    setStudioPhase('connect');
+    setStudioVersion(0);
+    setStudioListening(false);
+    setStudioIdea('');
+    setStudioTitle('');
+    setStudioKind('trivia');
+    setStudioPlay(null);
+    setStudioPlayFocus(0);
+    setStudioExitConfirm(false);
+    setStudioExitFocus(0);
+    setStudioDeveloping(false);
+    setCurrentScreen('studio');
+  }, []);
 
   // System menu state
   const [systemMenuOpen, setSystemMenuOpen] = useState(false);
@@ -105,6 +253,25 @@ function MainTvApp() {
     }
     if (currentScreen === 'party-playlist-select') {
       partyPlaylistRef.current?.navigate(direction);
+      return;
+    }
+    if (currentScreen === 'studio') {
+      // Exit confirmation owns the d-pad while shown (Keep building ↔ Leave).
+      if (studioExitConfirmRef.current) {
+        if (direction === 'left' || direction === 'right') {
+          setStudioExitFocus(direction === 'left' ? 0 : 1);
+          soundManager.playNavigationSound();
+        }
+        return;
+      }
+      // Gameplay question: the phone d-pad moves the option cursor on the TV.
+      if (studioPhaseRef.current === 'playing' && studioPlayRef.current?.status === 'question') {
+        setStudioPlayFocus((i) => {
+          const ni = moveStudioFocus(i, direction);
+          if (ni !== i) soundManager.playNavigationSound();
+          return ni;
+        });
+      }
       return;
     }
     if (currentScreen === 'hub') {
@@ -247,6 +414,58 @@ function MainTvApp() {
       partyPlaylistRef.current?.action(action);
       return;
     }
+    if (currentScreen === 'studio') {
+      // Exit confirmation is modal — it owns ok/back while shown.
+      if (studioExitConfirmRef.current) {
+        if (action === 'ok') {
+          soundManager.playSelectionSound();
+          if (studioExitFocusRef.current === 1) {
+            // Leave: tear down the studio and return to the hub.
+            setStudioExitConfirm(false);
+            setStudioPlay(null);
+            setCurrentScreen('hub');
+          } else {
+            setStudioExitConfirm(false);
+          }
+        } else if (action === 'back') {
+          setStudioExitConfirm(false);
+        }
+        return;
+      }
+      // Gameplay: OK selects the focused option / restarts on results.
+      if (studioPhaseRef.current === 'playing') {
+        const play = studioPlayRef.current;
+        if (action === 'ok') {
+          if (play?.status === 'question') {
+            setStudioPlay((prev) => revealStudioAnswer(prev, studioPlayFocusRef.current));
+            soundManager.playSelectionSound();
+          } else if (play?.status === 'results') {
+            setStudioPlayFocus(0);
+            setStudioPlay(buildStudioRound());
+            soundManager.playSelectionSound();
+          }
+        } else if (action === 'back') {
+          setStudioPlay(null);
+          setStudioPhase('game');
+        }
+        return;
+      }
+      // Creation phases: Back on the game preview asks to leave; on the earlier
+      // phases it exits straight to the hub. OK on connect is a solo-test aid.
+      if (action === 'back') {
+        if (studioPhaseRef.current === 'game') {
+          setStudioExitFocus(0);
+          setStudioExitConfirm(true);
+          soundManager.playSelectionSound();
+        } else {
+          setCurrentScreen('hub');
+        }
+      } else if (action === 'ok' && studioPhaseRef.current === 'connect') {
+        setStudioPhase('prompt');
+        soundManager.playSelectionSound();
+      }
+      return;
+    }
     if (currentScreen === 'game-menu') {
       if (action === 'ok') {
         setMenuIsPressing(true);
@@ -295,6 +514,8 @@ function MainTvApp() {
   );
 
   const { socket, roomCode, connectionStatus } = useSocket(handleNavigationInput);
+  const roomCodeRef = useRef(roomCode);
+  roomCodeRef.current = roomCode;
 
   // Voice integration ------------------------------------------------------
   // Mobile streams transcripts → TV runs the matcher with a screen-aware
@@ -512,6 +733,166 @@ function MainTvApp() {
     }
   }, [currentScreen, socket]);
 
+  // ── Studio wiring ───────────────────────────────────────────────────────────
+  // Push the current studio phase + version + built-game info to the phone so it
+  // renders the matching controller. (SCREEN_UPDATE above already tells it we're
+  // in Studio.)
+  useEffect(() => {
+    if (!socket || !roomCode || currentScreen !== 'studio') return;
+    socket.emit(SOCKET_EVENTS.STUDIO_STATE, {
+      roomCode,
+      phase: studioPhase,
+      version: studioVersion,
+      title: studioTitle,
+      kind: studioKind,
+      idea: studioIdea,
+      exitConfirm: studioExitConfirm,
+    });
+  }, [socket, roomCode, currentScreen, studioPhase, studioVersion, studioTitle, studioKind, studioIdea, studioExitConfirm]);
+
+  // Push live gameplay state to the phone whenever it changes.
+  useEffect(() => {
+    if (!socket || !roomCode || currentScreen !== 'studio' || studioPhase !== 'playing' || !studioPlay) return;
+    socket.emit(SOCKET_EVENTS.STUDIO_GAME_STATE, studioGamePayload(roomCode, studioPlay));
+  }, [socket, roomCode, currentScreen, studioPhase, studioPlay]);
+
+  // Faked build: while generating, wait STUDIO_GEN_MS then play the reveal —
+  // v1 for a first create, or a version bump for an iteration.
+  useEffect(() => {
+    if (currentScreen !== 'studio' || studioPhase !== 'generating') return;
+    const t = setTimeout(() => {
+      setStudioVersion((v) => (studioSubmitModeRef.current === 'create' ? 1 : v + 1));
+      setStudioPhase('reveal');
+      soundManager.playSelectionSound(); // the game-tile pop
+    }, STUDIO_GEN_MS);
+    return () => clearTimeout(t);
+  }, [currentScreen, studioPhase]);
+
+  // Reveal: the game-tile breathes for a beat, then the preview fades in.
+  useEffect(() => {
+    if (currentScreen !== 'studio' || studioPhase !== 'reveal') return;
+    const t = setTimeout(() => setStudioPhase('game'), STUDIO_REVEAL_MS_TILE);
+    return () => clearTimeout(t);
+  }, [currentScreen, studioPhase]);
+
+  // Gameplay: after an answer is revealed, linger, then advance to the next
+  // question or finish with the results screen.
+  useEffect(() => {
+    if (currentScreen !== 'studio' || studioPhase !== 'playing') return;
+    if (!studioPlay || studioPlay.status !== 'reveal') return;
+    const t = setTimeout(() => {
+      setStudioPlay((prev) => {
+        if (!prev) return prev;
+        const next = prev.questionIndex + 1;
+        if (next >= prev.questions.length) return { ...prev, status: 'results' };
+        return { ...prev, status: 'question', questionIndex: next, selectedIndex: null };
+      });
+      setStudioPlayFocus(0); // fresh cursor for the next question
+    }, STUDIO_REVEAL_MS);
+    return () => clearTimeout(t);
+  }, [currentScreen, studioPhase, studioPlay]);
+
+  // Phone → TV studio events: idea/iteration submit, discrete actions, mic
+  // state, and in-game answers.
+  useEffect(() => {
+    if (!socket) return;
+    const onSubmit = (p: StudioSubmitPayload) => {
+      if (currentScreenRef.current !== 'studio') return;
+      studioSubmitModeRef.current = p.mode;
+      // A first create derives the game (title/kind) from the idea (C2); an
+      // iteration keeps the same game and just bumps the version.
+      if (p.mode === 'create') {
+        const { title, kind } = deriveStudioGame(p.text);
+        setStudioIdea(p.text);
+        setStudioTitle(title);
+        setStudioKind(kind);
+        // Cache it so it appears as a tile in the Studio "My games" row.
+        const id = `studio-${studioGameSeqRef.current++}`;
+        setStudioCreatedGames((prev) => [{ id, title, kind, idea: p.text }, ...prev]);
+      }
+      setStudioListening(false);
+      // A (re)build always restarts the game from its pair/preview page — never
+      // resume where it was last played.
+      setStudioPlay(null);
+      setStudioPlayFocus(0);
+      setStudioPhase('generating');
+      soundManager.playSelectionSound();
+    };
+    const onAction = (p: StudioActionPayload) => {
+      if (currentScreenRef.current !== 'studio') return;
+      if (p.action === 'ready') {
+        // The phone mounted the studio controller → advance past the QR screen.
+        setStudioPhase((prev) => (prev === 'connect' ? 'prompt' : prev));
+      } else if (p.action === 'start' || p.action === 'play-again') {
+        // Launch (or restart) the real, phone-controlled round.
+        setStudioPlayFocus(0);
+        setStudioPlay(buildStudioRound());
+        setStudioPhase('playing');
+        soundManager.playSelectionSound();
+      } else if (p.action === 'quit-game') {
+        setStudioPlay(null);
+        setStudioPhase('game');
+      } else if (p.action === 'request-exit') {
+        // Phone's Back button on the game preview → show the leave confirmation.
+        setStudioExitFocus(0);
+        setStudioExitConfirm(true);
+        soundManager.playSelectionSound();
+      } else if (p.action === 'develop-tab') {
+        setStudioDeveloping(true);
+      } else if (p.action === 'controller-tab') {
+        setStudioDeveloping(false);
+      }
+    };
+    const onAnswer = (p: StudioAnswerPayload) => {
+      if (currentScreenRef.current !== 'studio') return;
+      // First answer for the current question locks it in (prototype: room-wide).
+      setStudioPlay((prev) => revealStudioAnswer(prev, p.index));
+      soundManager.playSelectionSound();
+    };
+    const onVoiceState = (p: VoiceStatePayload) => {
+      if (currentScreenRef.current !== 'studio') return;
+      setStudioListening(p.state === 'listening');
+    };
+    socket.on(SOCKET_EVENTS.STUDIO_SUBMIT, onSubmit);
+    socket.on(SOCKET_EVENTS.STUDIO_ACTION, onAction);
+    socket.on(SOCKET_EVENTS.STUDIO_ANSWER, onAnswer);
+    socket.on(SOCKET_EVENTS.VOICE_STATE, onVoiceState);
+    return () => {
+      socket.off(SOCKET_EVENTS.STUDIO_SUBMIT, onSubmit);
+      socket.off(SOCKET_EVENTS.STUDIO_ACTION, onAction);
+      socket.off(SOCKET_EVENTS.STUDIO_ANSWER, onAnswer);
+      socket.off(SOCKET_EVENTS.VOICE_STATE, onVoiceState);
+    };
+  }, [socket]);
+
+  // B1: re-sync a freshly joined / reconnected phone with the TV's current
+  // screen (and studio + gameplay state), so it never gets stuck on the default
+  // hub D-pad while the TV is deeper in a flow.
+  useEffect(() => {
+    if (!socket) return;
+    const onJoined = (p: { success: boolean }) => {
+      if (!p?.success) return;
+      socket.emit(SOCKET_EVENTS.SCREEN_UPDATE, { screen: currentScreenRef.current });
+      if (currentScreenRef.current !== 'studio' || !roomCodeRef.current) return;
+      socket.emit(SOCKET_EVENTS.STUDIO_STATE, {
+        roomCode: roomCodeRef.current,
+        phase: studioPhaseRef.current,
+        version: studioVersionRef.current,
+        title: studioTitleRef.current,
+        kind: studioKindRef.current,
+        idea: studioIdeaRef.current,
+        exitConfirm: studioExitConfirmRef.current,
+      });
+      if (studioPhaseRef.current === 'playing' && studioPlayRef.current) {
+        socket.emit(SOCKET_EVENTS.STUDIO_GAME_STATE, studioGamePayload(roomCodeRef.current, studioPlayRef.current));
+      }
+    };
+    socket.on(SOCKET_EVENTS.ROOM_JOINED, onJoined);
+    return () => {
+      socket.off(SOCKET_EVENTS.ROOM_JOINED, onJoined);
+    };
+  }, [socket]);
+
   // Keyboard nav at app level (works on all screens)
   useKeyboardNav({ onNavigate: handleNavigate, onAction: handleAction });
 
@@ -559,12 +940,48 @@ function MainTvApp() {
         }}
       />
     );
+  } else if (currentScreen === 'studio') {
+    screen = (
+      <>
+        {studioPhase === 'playing' && studioPlay ? (
+          <StudioPlay
+            title={studioTitle || 'YOUR GAME'}
+            status={studioPlay.status}
+            questionIndex={studioPlay.questionIndex}
+            totalQuestions={studioPlay.questions.length}
+            question={studioPlay.questions[studioPlay.questionIndex]}
+            selectedIndex={studioPlay.selectedIndex}
+            focusedIndex={studioPlayFocus}
+            score={studioPlay.score}
+          />
+        ) : (
+          <StudioView
+            phase={studioPhase}
+            version={studioVersion}
+            roomCode={roomCode}
+            mobileUrl={`${getMobileUrl()}?code=${roomCode}`}
+            genMs={STUDIO_GEN_MS}
+            listening={studioListening}
+            title={studioTitle}
+            idea={studioIdea}
+          />
+        )}
+        {/* The game master overlays the built game as a faded dev-mode indicator;
+            it brightens while the phone's Develop tool is open. */}
+        {(studioPhase === 'game' || studioPhase === 'playing') && (
+          <GameMasterGlobe mode="overlay" variant="corner" dim={studioDeveloping ? 1 : 0.5} listening={studioListening} />
+        )}
+        {studioExitConfirm && <StudioExitConfirm focus={studioExitFocus} />}
+      </>
+    );
   } else {
     screen = (
       <GameHub
         ref={hubRef}
         roomCode={roomCode}
         onLaunch={handleHubLaunch}
+        onCreateGame={handleCreateGame}
+        createdGames={studioCreatedGames}
         showPairing={showPairing}
         phase={hubPhase}
         variation={hubVariation}
