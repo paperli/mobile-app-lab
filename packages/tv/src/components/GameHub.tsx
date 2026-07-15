@@ -25,7 +25,7 @@ import type { CSSProperties } from 'react';
 import type { NavigationAction, NavigationDirection } from '@mobile-app-lab/shared';
 import { layout, tileHeight } from '@weekend/ui';
 import { QRCodeSVG } from 'qrcode.react';
-import { HUB_GAMES, type HubGame } from '../prototype/hub/games';
+import { HUB_GAMES, type HubGame, type GameTheme } from '../prototype/hub/games';
 import { GameArt } from '../prototype/hub/GameArt';
 import { GameLogo } from '../prototype/hub/GameLogo';
 import { GameMetaPills } from '../prototype/hub/MetadataPill';
@@ -63,6 +63,8 @@ interface RowDef {
   seeAll?: boolean;
   /** Show a "NEW" tag on every tile in this row (e.g. freshly-added games). */
   newTag?: boolean;
+  /** Prepend a "Create new game" tile as the first item (Studio "My games" row). */
+  createTile?: boolean;
 }
 
 /** One navigable row below the hero (a shelf, a grid row, or the promo banner). */
@@ -76,10 +78,15 @@ interface NavRow {
   puzzle?: boolean;
   /** Row ends with an extra "See all games" tile (focusable at index games.length). */
   seeAll?: boolean;
+  /** Row starts with a "Create new game" tile (focusable at index 0; games shift +1). */
+  createTile?: boolean;
 }
 
-/** Effective focusable item count for a row (games + optional See-all tile). */
-const navRowLen = (r: NavRow) => r.games.length + (r.seeAll ? 1 : 0);
+/**
+ * Effective focusable item count for a row: an optional leading Create tile, the
+ * games, then an optional trailing See-all tile.
+ */
+const navRowLen = (r: NavRow) => (r.createTile ? 1 : 0) + r.games.length + (r.seeAll ? 1 : 0);
 
 // Full 30-game catalog (phase 1). Phase 0 uses a 12-game slice of it.
 const HUB_CATALOG = HUB_GAMES;
@@ -92,11 +99,13 @@ const HERO_GAMES = (() => {
   return wof ? [wof, ...base.slice(1)] : base;
 })();
 
-// "All Games" grid (variation 2): every game in the catalog, GRID_COLS per row.
-// 4 columns of the standard 368px tile fit inside the shared 80px gutters
-// (4·368 + 3·32 + 2·80 = 1728 ≤ 1920); a 5th would overflow the stage.
+// "All Games" grid: every game in the catalog, GRID_COLS per row. The grid tile
+// width is derived so exactly GRID_COLS tiles + gaps fill the stage between the
+// shared side gutters — i.e. the left and right margins both equal shelfGutter.
+//   (GRID_COLS·w + (GRID_COLS−1)·gap + 2·gutter = STAGE_W)
 const ALL_GAMES = HUB_CATALOG;
-const GRID_COLS = 4;
+const GRID_COLS = 5;
+const GRID_TILE_W = (STAGE_W - 2 * layout.shelfGutter - (GRID_COLS - 1) * layout.shelfGap) / GRID_COLS;
 
 function chunk<T>(arr: readonly T[], size: number): T[][] {
   const out: T[][] = [];
@@ -144,19 +153,49 @@ const ROWS: RowDef[] = [
 const TILE = {
   sm: { w: layout.tile.w, h: tileHeight(layout.tile.w), r: layout.tile.radius, gap: layout.shelfGap, visible: 4 },
   lg: { w: layout.tile.wFeatured, h: tileHeight(layout.tile.wFeatured), r: layout.tile.radius, gap: layout.shelfGap, visible: 2 },
-  grid: { w: layout.tile.w, h: tileHeight(layout.tile.w), r: layout.tile.radius, gap: layout.shelfGap, visible: GRID_COLS },
+  grid: { w: GRID_TILE_W, h: tileHeight(GRID_TILE_W), r: layout.tile.radius, gap: layout.shelfGap, visible: GRID_COLS },
 } as const;
 
 const SHELF_PAD = layout.shelfGutter;
 
+// A game the user built in the Studio this session (in-memory only — cleared on
+// TV reload). App passes these down so they appear as tiles in "My games".
+export interface StudioCreatedGame {
+  id: string;
+  title: string;
+  kind: string;
+  idea: string;
+}
+
+// Per-kind tile theming for created games, so each looks distinct on the shelf.
+const STUDIO_KIND_THEME: Record<string, GameTheme> = {
+  trivia: { base: '#0c1533', from: '#182a6b', to: '#3f6ae0', accent: '#f7c948', pattern: 'grid', logo: 'block', motif: '🧠' },
+  music: { base: '#1a0b3d', from: '#3a0f7a', to: '#7b2ff7', accent: '#3df5cf', pattern: 'bars', logo: 'block', motif: '🎵' },
+  drawing: { base: '#241326', from: '#4a1550', to: '#c44eb0', accent: '#ff6ec7', pattern: 'sketch', logo: 'script', motif: '✏️' },
+  word: { base: '#0f2a24', from: '#134a3a', to: '#1f9d7a', accent: '#ffd23f', pattern: 'grid', logo: 'block', motif: '🔤' },
+  bluff: { base: '#20112e', from: '#3a1550', to: '#8a2fb0', accent: '#3df5cf', pattern: 'rays', logo: 'serif', motif: '🎭' },
+};
+
+function studioGameToHubGame(g: StudioCreatedGame): HubGame {
+  return {
+    id: g.id,
+    title: g.title,
+    description: g.idea,
+    players: '1–4 Players',
+    interaction: 'Voice Controlled',
+    theme: STUDIO_KIND_THEME[g.kind] ?? STUDIO_KIND_THEME.trivia,
+  };
+}
+
 // ── Top navigation (phase 1 only) ────────────────────────────────────────────
-type Page = 'search' | 'home' | 'mygames';
+type Page = 'search' | 'home' | 'mygames' | 'studio';
 type PuzzleStage = 'question' | 'result' | 'followup' | 'thanks' | 'done';
 const NAV_BAR_H = 96;
 const TOP_NAV: { key: Page; label: string }[] = [
   { key: 'search', label: 'Search' },
   { key: 'home', label: 'Home' },
   { key: 'mygames', label: 'My Games' },
+  { key: 'studio', label: 'Studio' },
 ];
 const HOME_TAB = TOP_NAV.findIndex((t) => t.key === 'home'); // default focus
 
@@ -302,6 +341,12 @@ interface GameHubProps {
   roomCode: string;
   /** Fired when the user presses OK on the hero CTA or a tile. */
   onLaunch: (game: HubGame) => void;
+  /** Fired when the user presses OK on the Studio "Create new game" tile. */
+  onCreateGame?: () => void;
+  /** Games built this session, shown in the Studio "My games" row (temp cache). */
+  createdGames?: StudioCreatedGame[];
+  /** Which top-nav page to open on (mount). Defaults to Home. */
+  initialPage?: Page;
   /** Show the QR pairing panel. Off by default (hidden on the mockup). */
   showPairing?: boolean;
   /** Prototype phase (?phase=N). Falls back to 1 for unknown values. */
@@ -348,9 +393,13 @@ function useFitScale(framed: boolean) {
 }
 
 export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
-  { roomCode, onLaunch, showPairing = false, phase = 1, variation = 1, frame = false },
+  { roomCode, onLaunch, onCreateGame, createdGames, initialPage, showPairing = false, phase = 1, variation = 1, frame = false },
   ref
 ) {
+  // Kept in a ref so the imperative OK handler (doAction) can fire it without
+  // re-subscribing on every render.
+  const onCreateGameRef = useRef(onCreateGame);
+  onCreateGameRef.current = onCreateGame;
   // Unknown values fall back to 1. Future phases/variations branch on these.
   const resolvedPhase = (HUB_PHASES as readonly number[]).includes(phase) ? phase : 1;
   const resolvedVariation = (HUB_VARIATIONS as readonly number[]).includes(variation) ? variation : 1;
@@ -418,7 +467,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // is on the top nav bar. On launch focus starts in the hero (content), not the
   // nav; the Home tab is the default when the user does move up to the nav.
   const hasTopNav = !isPhase0;
-  const [page, setPage] = useState<Page>('home');
+  const [page, setPage] = useState<Page>(initialPage ?? 'home');
   const [navFocus, setNavFocus] = useState(false);
   const [navCol, setNavCol] = useState(HOME_TAB);
   // Search page state: query text, on-screen keyboard cursor, and which zone
@@ -551,6 +600,11 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // The Home "Jump Back On" row (phase 1) appears once the user has play history.
   const homeJumpBack = !isPhase0 && jumpBackGames.length > 0;
 
+  // Studio page (prototype): the user's created games (this session's temp cache)
+  // and a grid of "all community games" (faked with the catalog for now).
+  const myCreatedGames: HubGame[] = (createdGames ?? []).map(studioGameToHubGame);
+  const communityGames = HUB_CATALOG;
+
   // Search results (live-filtered by the on-screen keyboard query).
   const RESULTS_COLS = 3;
   const searchResults = query.trim()
@@ -573,6 +627,16 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const sections: SectionDef[] = [];
   if (page === 'search') {
     // Search renders its own body (keyboard + results) — no scrolling sections.
+  } else if (page === 'studio') {
+    // Studio: a "My games" shelf led by the Create-new-game tile (then any
+    // created games — none yet), and an "All community games" grid below.
+    sections.push({
+      kind: 'shelf',
+      row: { key: 'my-games-studio', title: 'My games', variant: 'sm', slideshow: false, games: myCreatedGames, createTile: true },
+    });
+    chunk(communityGames, GRID_COLS).forEach((games, gridIndex) =>
+      sections.push({ kind: 'grid', games, gridIndex, gridTitle: gridIndex === 0 ? 'All community games' : undefined })
+    );
   } else if (page === 'mygames') {
     if (myGamesEmpty) {
       // The empty state's featured tiles are a navigable (large) row.
@@ -643,7 +707,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
 
   const navRows: NavRow[] = sections.map((s) => {
     if (s.kind === 'shelf')
-      return { games: s.row.games, variant: s.row.variant, slideshow: s.row.slideshow, seeAll: s.row.seeAll };
+      return { games: s.row.games, variant: s.row.variant, slideshow: s.row.slideshow, seeAll: s.row.seeAll, createTile: s.row.createTile };
     if (s.kind === 'grid') return { games: s.games, variant: 'grid' as TileVariant, slideshow: false };
     if (s.kind === 'puzzle') return { games: [], variant: 'sm' as TileVariant, slideshow: false, puzzle: true };
     return { games: [], variant: 'sm' as TileVariant, slideshow: false, banner: true };
@@ -794,7 +858,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // Drop focus from the nav bar into the current page's content.
   const enterContent = useCallback(() => {
     const p = pageRef.current;
-    if (p === 'mygames') {
+    if (p === 'mygames' || p === 'studio') {
       const n = { ...navRef.current, sec: 1, col: 0 };
       navRef.current = n;
       setNav(n);
@@ -820,7 +884,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       const n = { ...navRef.current, sec: 0, col: 0 };
       navRef.current = n;
       setNav(n);
-    } else if (p === 'mygames') {
+    } else if (p === 'mygames' || p === 'studio') {
       const n = { sec: 1, col: 0, heroSlide: navRef.current.heroSlide };
       navRef.current = n;
       setNav(n);
@@ -1535,11 +1599,18 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           openUpsell(); // the free-trial banner opens the full-page upsell
           return;
         }
-        if (row?.seeAll && cur.col >= row.games.length) {
+        // Studio "Create new game" tile sits at col 0 of its row.
+        if (row?.createTile && cur.col === 0) {
+          soundManager.playSelectionSound();
+          onCreateGameRef.current?.();
+          return;
+        }
+        const lead = row?.createTile ? 1 : 0;
+        if (row?.seeAll && cur.col >= lead + row.games.length) {
           openAllGames(); // the trailing "See all games" tile
           return;
         }
-        const g = row?.games[cur.col];
+        const g = row?.games[cur.col - lead];
         if (!g) return;
         if (isV3Ref.current) launchGame(g); // variation 3: launch directly
         else openPanel(g);
@@ -1735,6 +1806,13 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       setScrollY(0);
       return;
     }
+    // Hero-less pages (Studio / My Games) have a page header (h1) tucked under the
+    // top nav. Keep the first row at scrollY 0 so that header never scrolls up
+    // into the "weekend" wordmark when returning to it.
+    if (!pageHasHero && nav.sec === 1) {
+      setScrollY(0);
+      return;
+    }
     const el = rowRefs.current[nav.sec - 1];
     const sc = scrollerRef.current;
     if (!el || !sc) return;
@@ -1743,7 +1821,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     // ring isn't clipped; other variations leave headroom above the row.
     const target = isV3 ? el.offsetTop - PREVIEW_H - PREVIEW_GAP : el.offsetTop - 120;
     setScrollY(Math.min(Math.max(0, target), max));
-  }, [nav.sec, isV3]);
+  }, [nav.sec, isV3, pageHasHero]);
 
   // All Games page: scroll the focused grid row into view.
   useLayoutEffect(() => {
@@ -2194,7 +2272,9 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
         // ── Category shelf ──
         const row = s.row;
         const t = TILE[row.variant];
-        const maxIdx = row.games.length - 1 + (row.seeAll ? 1 : 0);
+        // Optional leading "Create new game" tile occupies col 0; games shift +1.
+        const lead = row.createTile ? 1 : 0;
+        const maxIdx = lead + row.games.length - 1 + (row.seeAll ? 1 : 0);
         const col = focusedHere ? nav.col : Math.min(colMemoryRef.current[sectionIndex] ?? 0, maxIdx);
         const step = t.w + t.gap;
         const trackX = -Math.max(0, col - (t.visible - 1)) * step;
@@ -2202,7 +2282,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
         // so the next tile is always clipped by the stage — the fade turns that
         // clipped sliver into a "there's more ->" cue. Shown only when content
         // actually overflows that edge (leading fade appears once scrolled).
-        const itemCount = row.games.length + (row.seeAll ? 1 : 0);
+        const itemCount = lead + row.games.length + (row.seeAll ? 1 : 0);
         const contentW = SHELF_PAD + itemCount * t.w + (itemCount - 1) * t.gap;
         const hasTrailing = contentW + trackX > STAGE_W + 1;
         const hasLeading = trackX < 0;
@@ -2226,27 +2306,42 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                   transition: 'transform 420ms cubic-bezier(.22,.61,.36,1)',
                 }}
               >
+                {row.createTile && (
+                  <CreateGameTile
+                    variant={row.variant}
+                    focused={focusedHere && col === 0}
+                    pressing={pressing && focusedHere && col === 0}
+                    onClick={() => {
+                      colMemoryRef.current[sectionIndex] = 0;
+                      const n = { ...navRef.current, sec: sectionIndex, col: 0 };
+                      navRef.current = n;
+                      setNav(n);
+                      soundManager.playSelectionSound();
+                      onCreateGameRef.current?.();
+                    }}
+                  />
+                )}
                 {row.games.map((game, i) => (
                   <Tile
                     key={game.id}
                     game={game}
                     variant={row.variant}
-                    focused={focusedHere && i === col}
-                    pressing={pressing && focusedHere && i === col}
+                    focused={focusedHere && i + lead === col}
+                    pressing={pressing && focusedHere && i + lead === col}
                     slideshow={row.slideshow}
                     slideshowReady={slideshowReady}
                     shot={shot}
                     badge={row.newTag ? 'NEW' : undefined}
-                    onClick={() => selectTile(sectionIndex, i, row.games[i])}
+                    onClick={() => selectTile(sectionIndex, i + lead, row.games[i])}
                   />
                 ))}
                 {row.seeAll && (
                   <SeeAllTile
                     variant={row.variant}
-                    focused={focusedHere && col === row.games.length}
+                    focused={focusedHere && col === lead + row.games.length}
                     onClick={() => {
-                      colMemoryRef.current[sectionIndex] = row.games.length;
-                      const n = { ...navRef.current, sec: sectionIndex, col: row.games.length };
+                      colMemoryRef.current[sectionIndex] = lead + row.games.length;
+                      const n = { ...navRef.current, sec: sectionIndex, col: lead + row.games.length };
                       navRef.current = n;
                       setNav(n);
                       openAllGames();
@@ -2344,7 +2439,9 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                   Or find a game on Home and add it to your favorites.
                 </p>
               </div>
-              <div style={{ display: 'flex', gap: TILE.lg.gap, transform: 'scale(0.9)', transformOrigin: 'center' }}>
+              {/* Recommended tiles are shrunk here only (scale wrapper) — this
+                  does not change TILE.lg used by the large "viral" row. */}
+              <div style={{ display: 'flex', gap: TILE.lg.gap, transform: 'scale(0.66)', transformOrigin: 'center' }}>
                 {recommendedGames.map((g, i) => (
                   <Tile
                     key={g.id}
@@ -2366,6 +2463,13 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           {page === 'mygames' && !myGamesEmpty && (
             <div style={{ padding: `${NAV_BAR_H + 44}px ${SHELF_PAD}px 4px` }}>
               <h1 style={{ margin: 0, fontSize: 54, fontWeight: 800, letterSpacing: '-0.03em', color: INK }}>My Games</h1>
+            </div>
+          )}
+
+          {/* Studio header (no hero on this page). */}
+          {page === 'studio' && (
+            <div style={{ padding: `${NAV_BAR_H + 44}px ${SHELF_PAD}px 4px` }}>
+              <h1 style={{ margin: 0, fontSize: 54, fontWeight: 800, letterSpacing: '-0.03em', color: INK }}>Studio</h1>
             </div>
           )}
 
@@ -2530,7 +2634,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           </>
           )}
 
-          {(page === 'home' || (page === 'mygames' && !myGamesEmpty)) && rowsContent}
+          {(page === 'home' || (page === 'mygames' && !myGamesEmpty) || page === 'studio') && rowsContent}
 
           {/* My Games: favorites not started yet (but there is play history). */}
           {page === 'mygames' && !myGamesEmpty && favoriteGames.length === 0 && (
@@ -4168,6 +4272,70 @@ function SeeAllTile({ variant, focused, onClick }: { variant: TileVariant; focus
   );
 }
 
+// The leading tile on the Studio "My games" row. Opens the create-a-game flow.
+function CreateGameTile({
+  variant,
+  focused,
+  pressing,
+  onClick,
+}: {
+  variant: TileVariant;
+  focused: boolean;
+  pressing: boolean;
+  onClick: () => void;
+}) {
+  const t = TILE[variant];
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        appearance: 'none',
+        flex: '0 0 auto',
+        width: t.w,
+        height: t.h,
+        borderRadius: t.r,
+        cursor: 'pointer',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 12,
+        // A vivid canary gradient so "Create new game" reads as the primary action.
+        background: 'linear-gradient(135deg, #2a2410 0%, #17181c 60%)',
+        border: '2px solid rgb(var(--palette-canary-500))',
+        color: INK,
+        fontFamily: FONT,
+        transform: focused ? (pressing ? 'scale(0.98)' : 'scale(1.06)') : 'scale(1)',
+        boxShadow: focused ? '0 0 0 4px #fff, 0 26px 60px rgba(0,0,0,0.7)' : 'none',
+        transition: 'transform 240ms cubic-bezier(.22,.61,.36,1), box-shadow 240ms ease',
+        zIndex: focused ? 3 : 1,
+      }}
+    >
+      <span
+        aria-hidden
+        style={{
+          width: variant === 'lg' ? 64 : 48,
+          height: variant === 'lg' ? 64 : 48,
+          borderRadius: '50%',
+          background: 'rgb(var(--palette-canary-500))',
+          color: '#1a1400',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: variant === 'lg' ? 44 : 34,
+          fontWeight: 700,
+          lineHeight: 1,
+        }}
+      >
+        +
+      </span>
+      <span style={{ fontSize: variant === 'lg' ? 30 : 22, fontWeight: 700, letterSpacing: '-0.01em' }}>
+        Create new game
+      </span>
+    </button>
+  );
+}
+
 // ── GameTile ────────────────────────────────────────────────────────────────
 
 /* Faked "live players" count for the PLAYING chip — deterministic per game (so
@@ -4441,10 +4609,21 @@ function IconGift({ size = 22, color = INK }: { size?: number; color?: string })
     </svg>
   );
 }
+// Studio tab icon — a "magic wand" (create/build).
+function IconStudio({ size = 22, color = INK }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="m4 20 11-11" />
+      <path d="M14 6.5 17.5 3l3.5 3.5L17.5 10Z" />
+      <path d="M6 3v3M3.5 4.5h3M18 15v3M16.5 16.5h3" />
+    </svg>
+  );
+}
 const NAV_ICONS: Record<Page, (p: { size?: number; color?: string }) => JSX.Element> = {
   search: IconSearch,
   home: IconHome,
   mygames: IconHeart,
+  studio: IconStudio,
 };
 
 function TopNav({

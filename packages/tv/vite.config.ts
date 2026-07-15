@@ -14,6 +14,10 @@ const httpsConfig = fs.existsSync(keyPath) && fs.existsSync(certPath)
 
 export default defineConfig({
   plugins: [react()],
+  // Ensure a single copy of three across react-three-fiber / drei / postprocessing.
+  resolve: {
+    dedupe: ['three', '@react-three/fiber'],
+  },
   server: {
     port: 5173,
     host: true, // Expose to network

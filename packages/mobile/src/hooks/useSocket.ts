@@ -7,6 +7,11 @@ import {
   NavigationEvent,
   TVScreen,
   ScreenUpdatePayload,
+  StudioPhase,
+  StudioGameKind,
+  StudioStatePayload,
+  StudioAction,
+  StudioGameStatePayload,
 } from '@mobile-app-lab/shared';
 
 export function useSocket() {
@@ -18,6 +23,16 @@ export function useSocket() {
   const [roomCode, setRoomCode] = useState<string>('');
   const [isPaired, setIsPaired] = useState(false);
   const [tvScreen, setTvScreen] = useState<TVScreen>('hub');
+  // Studio phase/version pushed by the TV (only meaningful while tvScreen==='studio').
+  const [studioPhase, setStudioPhase] = useState<StudioPhase>('connect');
+  const [studioVersion, setStudioVersion] = useState(0);
+  // The game the TV built from the idea (drives the phone's labels).
+  const [studioTitle, setStudioTitle] = useState('');
+  const [studioKind, setStudioKind] = useState<StudioGameKind>('trivia');
+  // Live gameplay state pushed by the TV while phase==='playing'.
+  const [studioGame, setStudioGame] = useState<StudioGameStatePayload | null>(null);
+  // True while the TV is showing the leave-confirmation (phone becomes a d-pad).
+  const [studioExitConfirm, setStudioExitConfirm] = useState(false);
 
   useEffect(() => {
     // Get server URL from environment variable or construct from hostname
@@ -54,6 +69,19 @@ export function useSocket() {
     socketInstance.on(SOCKET_EVENTS.SCREEN_UPDATE, (payload: ScreenUpdatePayload) => {
       console.log('[Mobile] Screen update:', payload.screen);
       setTvScreen(payload.screen);
+    });
+
+    socketInstance.on(SOCKET_EVENTS.STUDIO_STATE, (payload: StudioStatePayload) => {
+      console.log('[Mobile] Studio state:', payload.phase, 'v' + payload.version);
+      setStudioPhase(payload.phase);
+      setStudioVersion(payload.version);
+      if (payload.title !== undefined) setStudioTitle(payload.title);
+      if (payload.kind !== undefined) setStudioKind(payload.kind);
+      setStudioExitConfirm(!!payload.exitConfirm);
+    });
+
+    socketInstance.on(SOCKET_EVENTS.STUDIO_GAME_STATE, (payload: StudioGameStatePayload) => {
+      setStudioGame(payload);
     });
 
     socketInstance.on(SOCKET_EVENTS.DISCONNECT, () => {
@@ -98,6 +126,43 @@ export function useSocket() {
     [socket, isPaired, roomCode]
   );
 
+  // Studio: send a game idea (create) or an iteration prompt (iterate).
+  const sendStudioSubmit = useCallback(
+    (text: string, mode: 'create' | 'iterate') => {
+      if (!socket || !roomCode) return;
+      socket.emit(SOCKET_EVENTS.STUDIO_SUBMIT, { roomCode, text, mode });
+    },
+    [socket, roomCode]
+  );
+
+  // Studio: send a discrete action (ready / start / tab switch).
+  const sendStudioAction = useCallback(
+    (action: StudioAction) => {
+      if (!socket || !roomCode) return;
+      socket.emit(SOCKET_EVENTS.STUDIO_ACTION, { roomCode, action });
+    },
+    [socket, roomCode]
+  );
+
+  // Studio: report mic state (listening/idle) so the TV game-master can react.
+  // Reuses the voice-state channel; the faked studio mic drives it on press/release.
+  const sendVoiceState = useCallback(
+    (state: 'idle' | 'listening') => {
+      if (!socket || !roomCode) return;
+      socket.emit(SOCKET_EVENTS.VOICE_STATE, { roomCode, state });
+    },
+    [socket, roomCode]
+  );
+
+  // Studio gameplay: send the tapped answer option to the TV.
+  const sendStudioAnswer = useCallback(
+    (index: number) => {
+      if (!socket || !roomCode) return;
+      socket.emit(SOCKET_EVENTS.STUDIO_ANSWER, { roomCode, index });
+    },
+    [socket, roomCode]
+  );
+
   const leaveRoom = useCallback(() => {
     setIsPaired(false);
     setRoomCode('');
@@ -116,8 +181,18 @@ export function useSocket() {
     roomCode,
     isPaired,
     tvScreen,
+    studioPhase,
+    studioVersion,
+    studioTitle,
+    studioKind,
+    studioGame,
+    studioExitConfirm,
     joinRoom,
     sendNavigationInput,
+    sendStudioSubmit,
+    sendStudioAction,
+    sendVoiceState,
+    sendStudioAnswer,
     leaveRoom,
     disconnect,
   };

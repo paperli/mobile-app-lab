@@ -23,7 +23,28 @@ export type {
   VoiceConfirmPromptPayload,
   VoiceConfirmResponsePayload,
   VoiceStatePayload,
+  StudioPhase,
+  StudioGameKind,
+  StudioStatePayload,
+  StudioSubmitPayload,
+  StudioAction,
+  StudioActionPayload,
+  StudioPlayStatus,
+  StudioQuestion,
+  StudioGameStatePayload,
+  StudioAnswerPayload,
 } from './types.js';
 
 // Export all constants
-export { SOCKET_EVENTS, CONFIG, PLACEHOLDER_GAMES } from './constants.js';
+export {
+  SOCKET_EVENTS,
+  CONFIG,
+  PLACEHOLDER_GAMES,
+  STUDIO_IDEAS,
+  STUDIO_ITERATIONS,
+  STUDIO_QUESTIONS,
+  STUDIO_ROUND_LENGTH,
+  STUDIO_POINTS_PER_CORRECT,
+  STUDIO_REVEAL_MS,
+  deriveStudioGame,
+} from './constants.js';

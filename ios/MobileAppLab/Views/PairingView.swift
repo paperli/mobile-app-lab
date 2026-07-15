@@ -7,6 +7,7 @@ struct PairingView: View {
 
     @State private var showScanner = false
     @State private var showCodeEntry = false
+    @State private var showServerSettings = false
     @State private var pendingCode: String?
     @State private var pendingSourceURL: URL?
 
@@ -85,7 +86,19 @@ struct PairingView: View {
                 }
 
                 Spacer()
-                Spacer()
+
+                // Dev server configuration — set once per network (or auto-remembered
+                // from a scanned QR), so a changing IP never needs an app rebuild.
+                Button(action: { showServerSettings = true }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "server.rack")
+                            .font(.system(size: 11))
+                        Text(serverHostDisplay)
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundColor(.gray.opacity(0.7))
+                }
+                .padding(.bottom, 8)
             }
             .padding()
         }
@@ -114,6 +127,94 @@ struct PairingView: View {
             CodeEntryView { code in
                 pendingCode = code
                 showCodeEntry = false
+            }
+        }
+        .sheet(isPresented: $showServerSettings) {
+            ServerSettingsView()
+        }
+    }
+
+    private var serverHostDisplay: String {
+        if let comps = URLComponents(string: AppConfig.currentDevServerBaseURL), let host = comps.host {
+            let port = comps.port.map { ":\($0)" } ?? ""
+            return "Server: \(host)\(port)"
+        }
+        return "Server settings"
+    }
+}
+
+// MARK: - Server Settings
+
+/// Lets the user set the dev server host at runtime (no rebuild on IP change).
+struct ServerSettingsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var text: String = AppConfig.currentDevServerBaseURL
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color(hex: "1a1a2e").ignoresSafeArea()
+
+                VStack(alignment: .leading, spacing: 20) {
+                    Text("Enter your Mac's address (IP or hostname). The port defaults to 5174.")
+                        .font(.system(size: 15))
+                        .foregroundColor(.gray)
+
+                    TextField("https://192.168.1.20:5174", text: $text)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled(true)
+                        .keyboardType(.URL)
+                        .font(.system(size: 17, design: .monospaced))
+                        .foregroundColor(.white)
+                        .padding(16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(hex: "16213e"))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                                )
+                        )
+
+                    Text("Tip: scanning a QR code sets this automatically.")
+                        .font(.system(size: 13))
+                        .foregroundColor(.gray.opacity(0.7))
+
+                    Button(action: {
+                        AppConfig.saveServerBaseURL(text)
+                        HapticService.shared.trigger(.success)
+                        dismiss()
+                    }) {
+                        Text("Save")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(RoundedRectangle(cornerRadius: 12).fill(Color(hex: "e94560")))
+                    }
+
+                    Button(action: {
+                        AppConfig.saveServerBaseURL("")
+                        text = AppConfig.currentDevServerBaseURL
+                        HapticService.shared.trigger(.light)
+                    }) {
+                        Text("Reset to default")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.gray)
+                            .frame(maxWidth: .infinity)
+                    }
+
+                    Spacer()
+                }
+                .padding(24)
+            }
+            .navigationTitle("Server")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundColor(Color(hex: "e94560"))
+                }
             }
         }
     }

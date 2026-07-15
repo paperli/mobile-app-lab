@@ -17,12 +17,30 @@ import { TopBar } from './components/TopBar';
 import { SettingsPanel } from './components/SettingsPanel';
 import { VoiceDebugOverlay } from './components/VoiceDebugOverlay';
 import { PreviewShell } from './preview/PreviewShell';
+import { StudioController } from './components/studio/StudioController';
 import { HapticFeedback } from './utils/haptics';
 
 type AppMode = 'dpad' | 'game' | 'theme';
 
 function MainMobileApp() {
-  const { socket, connectionStatus, isPaired, roomCode, tvScreen, joinRoom, sendNavigationInput, leaveRoom } = useSocket();
+  const {
+    socket,
+    connectionStatus,
+    isPaired,
+    roomCode,
+    tvScreen,
+    studioPhase,
+    studioVersion,
+    studioTitle,
+    studioGame,
+    studioExitConfirm,
+    joinRoom,
+    sendNavigationInput,
+    sendStudioSubmit,
+    sendStudioAction,
+    sendVoiceState,
+    leaveRoom,
+  } = useSocket();
   // Always-on voice. Mic is the mobile's; matcher lives on the TV.
   useVoiceTransport({ socket, isPaired, roomCode });
   const [controllerMode, setControllerMode] = useState<ControllerMode>('square-hybrid');
@@ -144,6 +162,24 @@ function MainMobileApp() {
   // Show pairing screen if not paired
   if (!isPaired) {
     return <PairingScreen onPair={handlePair} isConnecting={isConnecting} error={error} />;
+  }
+
+  // Game Studio takes over the controller while the TV is in the create flow.
+  if (tvScreen === 'studio') {
+    return (
+      <StudioController
+        phase={studioPhase}
+        version={studioVersion}
+        title={studioTitle}
+        game={studioGame}
+        exitConfirm={studioExitConfirm}
+        onSubmit={sendStudioSubmit}
+        onAction={sendStudioAction}
+        onVoiceState={sendVoiceState}
+        onNavigate={handleNavigate}
+        onNavAction={handleAction}
+      />
+    );
   }
 
   const settingsPanel = showSettings ? (
