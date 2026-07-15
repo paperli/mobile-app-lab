@@ -345,6 +345,8 @@ interface GameHubProps {
   onCreateGame?: () => void;
   /** Games built this session, shown in the Studio "My games" row (temp cache). */
   createdGames?: StudioCreatedGame[];
+  /** Which top-nav page to open on (mount). Defaults to Home. */
+  initialPage?: Page;
   /** Show the QR pairing panel. Off by default (hidden on the mockup). */
   showPairing?: boolean;
   /** Prototype phase (?phase=N). Falls back to 1 for unknown values. */
@@ -391,7 +393,7 @@ function useFitScale(framed: boolean) {
 }
 
 export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
-  { roomCode, onLaunch, onCreateGame, createdGames, showPairing = false, phase = 1, variation = 1, frame = false },
+  { roomCode, onLaunch, onCreateGame, createdGames, initialPage, showPairing = false, phase = 1, variation = 1, frame = false },
   ref
 ) {
   // Kept in a ref so the imperative OK handler (doAction) can fire it without
@@ -465,7 +467,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // is on the top nav bar. On launch focus starts in the hero (content), not the
   // nav; the Home tab is the default when the user does move up to the nav.
   const hasTopNav = !isPhase0;
-  const [page, setPage] = useState<Page>('home');
+  const [page, setPage] = useState<Page>(initialPage ?? 'home');
   const [navFocus, setNavFocus] = useState(false);
   const [navCol, setNavCol] = useState(HOME_TAB);
   // Search page state: query text, on-screen keyboard cursor, and which zone
@@ -2437,7 +2439,9 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                   Or find a game on Home and add it to your favorites.
                 </p>
               </div>
-              <div style={{ display: 'flex', gap: TILE.lg.gap, transform: 'scale(0.9)', transformOrigin: 'center' }}>
+              {/* Recommended tiles are shrunk here only (scale wrapper) — this
+                  does not change TILE.lg used by the large "viral" row. */}
+              <div style={{ display: 'flex', gap: TILE.lg.gap, transform: 'scale(0.66)', transformOrigin: 'center' }}>
                 {recommendedGames.map((g, i) => (
                   <Tile
                     key={g.id}

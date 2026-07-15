@@ -140,6 +140,9 @@ function MainTvApp() {
 
   // Screen state
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('hub');
+  // Which hub top-nav page to land on when we return to the hub. The Studio flow
+  // is entered from the Studio tab, so exiting it returns there (not Home).
+  const [hubInitialPage, setHubInitialPage] = useState<'home' | 'studio'>('home');
 
   // Game Studio state (only meaningful while currentScreen === 'studio').
   //   phase   — connect → prompt → generating → game (see StudioPhase)
@@ -203,6 +206,7 @@ function MainTvApp() {
     setStudioExitConfirm(false);
     setStudioExitFocus(0);
     setStudioDeveloping(false);
+    setHubInitialPage('studio'); // exiting Studio returns to the Studio tab
     setCurrentScreen('studio');
   }, []);
 
@@ -723,6 +727,7 @@ function MainTvApp() {
   // Hub OK / voice "play X" → launch. Only Song Quiz has a real flow today;
   // every launch routes through the shared loading screen for now.
   const handleHubLaunch = useCallback(() => {
+    setHubInitialPage('home'); // a hub-game launch returns to Home on exit
     setCurrentScreen('loading');
   }, []);
 
@@ -982,6 +987,7 @@ function MainTvApp() {
         onLaunch={handleHubLaunch}
         onCreateGame={handleCreateGame}
         createdGames={studioCreatedGames}
+        initialPage={hubInitialPage}
         showPairing={showPairing}
         phase={hubPhase}
         variation={hubVariation}
