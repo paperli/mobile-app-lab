@@ -6,6 +6,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { GameHub, type HubHandle } from '../components/GameHub';
 import type { HubGame } from '../prototype/hub/games';
 import { HeroExample, SmallGameRow, LargeGameRow, PromoBanner, GameGridKit, SongQuizBanner } from './ComponentKit';
+import Simulator from '../simulator/Simulator';
+import HowItWorks from '../simulator/HowItWorks';
 
 interface LayoutOption {
   phase: number;
@@ -100,6 +102,8 @@ function optionHref(o: LayoutOption): string {
 
 export default function DemoApp() {
   const params = new URLSearchParams(window.location.search);
+  if (params.get('view') === 'simulator') return <Simulator />;
+  if (params.get('view') === 'how-it-works') return <HowItWorks />;
   if (params.get('view') === 'components') return <Playground />;
   if (!params.has('variation') && !params.has('phase')) return <Gallery />;
   const phase = params.has('phase') ? Number(params.get('phase')) : 1;
@@ -319,24 +323,43 @@ function Gallery() {
           to explore it — <b>arrow keys</b> navigate, <b>Enter</b> selects, <b>Esc</b> goes back.
         </p>
 
-        <a
-          href="?view=components"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 10,
-            marginTop: 26,
-            padding: '12px 20px',
-            borderRadius: 999,
-            textDecoration: 'none',
-            fontSize: 15,
-            fontWeight: 700,
-            color: '#0b0c0e',
-            background: '#e9eaec',
-          }}
-        >
-          Component kit — the row &amp; grid types →
-        </a>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 26 }}>
+          <a
+            href="?view=simulator"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '13px 22px',
+              borderRadius: 999,
+              textDecoration: 'none',
+              fontSize: 15,
+              fontWeight: 800,
+              color: '#04241a',
+              background: 'linear-gradient(90deg, #34d399, #22d3ee)',
+              boxShadow: '0 6px 22px rgba(52,211,153,0.28)',
+            }}
+          >
+            🎛️ Personalization Simulator — cold/warm hub + profile infographics →
+          </a>
+          <a
+            href="?view=components"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '13px 20px',
+              borderRadius: 999,
+              textDecoration: 'none',
+              fontSize: 15,
+              fontWeight: 700,
+              color: '#0b0c0e',
+              background: '#e9eaec',
+            }}
+          >
+            Component kit — the row &amp; grid types →
+          </a>
+        </div>
 
         {/* User stories — the jobs these layouts are designed to serve. */}
         <section style={{ marginTop: 56 }}>
