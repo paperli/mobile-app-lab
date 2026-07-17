@@ -179,7 +179,33 @@ function MoveBtn({ dir, disabled, onClick }: { dir: 'up' | 'down'; disabled: boo
 
 const TILE_W = 232;
 
-function Tile({ item, onPlay }: { item: Recommendation; onPlay: PlayFn }) {
+// Responsive full-catalog grid, ranked by the engine. Reuses the same tile as
+// the rows (score meter, hover-to-play, "why this pick?" breakdown), so the
+// grid visibly reorders as the profile / party context changes.
+export function GameGrid({ items, onPlay }: { items: Recommendation[]; onPlay: PlayFn }) {
+  if (items.length === 0) {
+    return (
+      <div style={{ padding: '40px 0', color: UI.muted, fontSize: 14 }}>
+        No games in the current library — increase the library size.
+      </div>
+    );
+  }
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(auto-fill, minmax(${TILE_W}px, 1fr))`,
+        gap: 20,
+      }}
+    >
+      {items.map((item, i) => (
+        <Tile key={item.game.id} item={item} onPlay={onPlay} fill rank={i + 1} />
+      ))}
+    </div>
+  );
+}
+
+function Tile({ item, onPlay, fill, rank }: { item: Recommendation; onPlay: PlayFn; fill?: boolean; rank?: number }) {
   const [hover, setHover] = useState(false);
   const [info, setInfo] = useState(false);
   const [infoRect, setInfoRect] = useState<DOMRect | null>(null);
@@ -204,7 +230,7 @@ function Tile({ item, onPlay }: { item: Recommendation; onPlay: PlayFn }) {
         setHover(false);
         setInfo(false);
       }}
-      style={{ position: 'relative', flex: '0 0 auto', width: TILE_W }}
+      style={{ position: 'relative', flex: fill ? undefined : '0 0 auto', width: fill ? '100%' : TILE_W }}
     >
       {/* Art tile (hub generated art) */}
       <div style={{ position: 'relative', borderRadius: 6, overflow: 'hidden' }}>
@@ -329,6 +355,23 @@ function Tile({ item, onPlay }: { item: Recommendation; onPlay: PlayFn }) {
       {/* Meta */}
       <div style={{ marginTop: 9 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {rank != null && (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 800,
+                color: UI.ink70,
+                background: UI.cardAlt,
+                border: `1px solid ${UI.border}`,
+                borderRadius: 6,
+                padding: '1px 6px',
+                flex: '0 0 auto',
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              #{rank}
+            </span>
+          )}
           <span style={{ width: 8, height: 8, borderRadius: 2, background: GENRE_COLOR[game.genre], flex: '0 0 auto' }} />
           <span
             style={{

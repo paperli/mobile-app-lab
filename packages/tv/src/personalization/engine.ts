@@ -283,6 +283,32 @@ function coldReason(
   return reason('NEUTRAL_RECOMMENDATION', `Recommended for you.`, 0.45, 'NEUTRAL');
 }
 
+// Warm-mode reason for a single game, independent of any row bucket — used by
+// the "All Games" grid so every tile can explain its warm ranking.
+function warmReason(
+  profile: PlayerProfile,
+  game: Game,
+  ctx: SessionContext,
+  prev: Game | undefined,
+): RecommendationReason {
+  const n = ctx.activePlayerCount;
+  if (!partyCompatible(game, n)) {
+    return reason('PARTY_SIZE_MATCH', `Needs ${game.minPlayers}–${game.maxPlayers} players — not a fit for ${n}.`, 0.3, 'PARTY');
+  }
+  const prevSim = prev ? gameSimilarity(prev, game) : 0;
+  if (prev && prevSim > 0.35) {
+    return reason('PREVIOUS_GAME_SIMILARITY', `Because your group played ${prev.title}.`, round(0.6 + prevSim * 0.35), 'PARTY');
+  }
+  if (bandRecommended(game, n)) {
+    return reason('PARTY_SIZE_MATCH', `Made for ${bandLabel(n)}.`, round(0.7 + tasteAffinity(profile, game) * 0.2), 'PARTY');
+  }
+  const taste = tasteAffinity(profile, game);
+  if (taste > 0.4) {
+    return reason('TAXONOMY_AFFINITY', `Matches your taste and works for ${n}.`, round(0.5 + taste * 0.3), 'PROFILE');
+  }
+  return reason('CONTEXTUAL_POPULARITY', `Works for your group of ${n}.`, round(0.5 + game.trending * 0.3), 'CONTEXTUAL');
+}
+
 function reason(
   code: RecommendationReason['code'],
   message: string,
@@ -534,6 +560,37 @@ export function buildWarmHub(
   rows.push(...general);
 
   return { state: 'warm', rows, confidence };
+}
+
+/**
+ * Rank the ENTIRE catalog by overall predicted interest — no row bucketing, no
+ * diversity trimming, no per-row limit. Powers the "All Games" grid, so the full
+ * library visibly reorders as the profile / party context changes.
+ *
+ * Pass `ctx` to rank in Warm mode (party-aware scoring); pass `null` for Cold.
+ */
+export function rankAllGames(
+  profile: PlayerProfile,
+  household: HouseholdProfile,
+  library: Game[],
+  ctx: SessionContext | null,
+): { items: Recommendation[]; confidence: number } {
+  const confidence = profileStats(profile, library).confidence;
+
+  if (ctx) {
+    const prev = library.find((g) => g.id === ctx.previousGameId);
+    const items = library
+      .map((g) => warmScore(profile, household, g, ctx, prev, confidence))
+      .sort((a, b) => b.score - a.score)
+      .map((s) => toRec(s, warmReason(profile, s.game, ctx, prev)));
+    return { items, confidence };
+  }
+
+  const items = library
+    .map((g) => coldScore(profile, g, confidence))
+    .sort((a, b) => b.score - a.score)
+    .map((s) => toRec(s, coldReason(profile, s.game, confidence)));
+  return { items, confidence };
 }
 
 // ── internals ───────────────────────────────────────────────────────────────

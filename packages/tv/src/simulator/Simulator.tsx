@@ -16,6 +16,7 @@ import {
   MAX_LIBRARY,
   profileStats,
   randomProfile,
+  rankAllGames,
   recordPlay,
   type Game,
   type HouseholdProfile,
@@ -23,7 +24,7 @@ import {
   type SessionContext,
 } from '../personalization';
 import { Card, GenreLegend, GenreRadar, InteractionBars, MotivationBars, PartyDonut, StatTile, TopGamesBars } from './Charts';
-import { HubRows, loadRowOrder, DEFAULT_ORDER, ROW_ORDER_KEY } from './GameRows';
+import { GameGrid, HubRows, loadRowOrder, DEFAULT_ORDER, ROW_ORDER_KEY } from './GameRows';
 import { FONT, UI } from './theme';
 
 type Mode = 'cold' | 'warm';
@@ -74,6 +75,12 @@ export default function Simulator() {
 
   const hub = useMemo(
     () => (mode === 'cold' ? buildColdHub(profile, household, library) : buildWarmHub(profile, household, library, ctx)),
+    [mode, profile, household, library, ctx],
+  );
+
+  // Full catalog ranked by the same engine — powers the "All Games" grid.
+  const allGames = useMemo(
+    () => rankAllGames(profile, household, library, mode === 'cold' ? null : ctx),
     [mode, profile, household, library, ctx],
   );
 
@@ -297,7 +304,7 @@ export default function Simulator() {
                 textDecoration: 'none',
               }}
             >
-              📊 How it works — events &amp; profile model ↗
+              📊 How it works ↗
             </a>
             <button
               onClick={() => setProfileOpen((o) => !o)}
@@ -365,6 +372,19 @@ export default function Simulator() {
         />
         <div style={{ marginTop: 22 }}>
           <HubRows hub={hub} onPlay={play} order={rowOrder} onOrderChange={changeRowOrder} />
+        </div>
+
+        {/* All Games — the full catalog, ranked by the same engine */}
+        <SectionTitle
+          title={`All Games — ranked (${allGames.items.length})`}
+          desc={
+            mode === 'cold'
+              ? 'The entire catalog scored on long-term taste, recency, editorial and popularity — no row bucketing or diversity trimming, so you can see the raw ordering the engine produces.'
+              : `The entire catalog re-scored for a party of ${partySize}. Games that don't fit the current player count sink to the bottom. Hover any tile for its score breakdown.`
+          }
+        />
+        <div style={{ marginTop: 22 }}>
+          <GameGrid items={allGames.items} onPlay={play} />
         </div>
       </div>
       </div>

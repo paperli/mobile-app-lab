@@ -340,7 +340,7 @@ function Gallery() {
               boxShadow: '0 6px 22px rgba(52,211,153,0.28)',
             }}
           >
-            🎛️ Personalization Simulator — cold/warm hub + profile infographics →
+            🎛️ Personalization Simulator →
           </a>
           <a
             href="?view=components"
@@ -357,7 +357,7 @@ function Gallery() {
               background: '#e9eaec',
             }}
           >
-            Component kit — the row &amp; grid types →
+            Component Kit →
           </a>
         </div>
 
