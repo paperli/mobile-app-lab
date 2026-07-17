@@ -24,7 +24,7 @@ import {
 } from '../personalization';
 import { Card, GenreLegend, GenreRadar, InteractionBars, MotivationBars, PartyDonut, StatTile, TopGamesBars } from './Charts';
 import { HubRows, loadRowOrder, DEFAULT_ORDER, ROW_ORDER_KEY } from './GameRows';
-import { FONT, GENRE_COLOR, UI } from './theme';
+import { FONT, UI } from './theme';
 
 type Mode = 'cold' | 'warm';
 
@@ -154,7 +154,7 @@ export default function Simulator() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '22px 22px 64px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: UI.muted }}>
-          Player profile
+          Controls
         </span>
         <button
           onClick={() => setProfileOpen(false)}
@@ -175,6 +175,24 @@ export default function Simulator() {
           ✕ Close
         </button>
       </div>
+
+      <Controls
+        size={size}
+        setSize={setSize}
+        onGenerate={generate}
+        onReset={reset}
+        players={players}
+        setPlayers={setPlayers}
+        prevId={previousGameId}
+        setPrevId={setPrevId}
+        library={library}
+      />
+
+      <div style={{ height: 1, background: UI.border, margin: '6px 0 2px' }} />
+
+      <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: UI.muted }}>
+        Player profile
+      </span>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <StatTile label="Persona" value={profile.label.split(' ')[0]} sub={profile.label} accent={UI.accent} />
@@ -314,20 +332,6 @@ export default function Simulator() {
           a tile to see the score breakdown and the recommendation reason that placed it.
         </p>
 
-        {/* Controls */}
-        <Controls
-          size={size}
-          setSize={setSize}
-          onGenerate={generate}
-          onReset={reset}
-          players={players}
-          setPlayers={setPlayers}
-          prevId={previousGameId}
-          setPrevId={setPrevId}
-          library={library}
-          personaLabel={profile.label}
-        />
-
         {/* Hub output */}
         <SectionTitle
           title={mode === 'cold' ? 'Cold hub — party unknown' : `Warm hub — ${partySize} active players`}
@@ -461,82 +465,68 @@ function Controls(props: {
   prevId: string;
   setPrevId: (id: string) => void;
   library: Game[];
-  personaLabel: string;
 }) {
   const { size, setSize, onGenerate, onReset, players, setPlayers, prevId, setPrevId, library } = props;
+  const rowLabel: CSSProperties = { fontSize: 12.5, fontWeight: 700, color: UI.ink };
   return (
-    <div
-      style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 20,
-        marginTop: 28,
-        background: 'rgba(10,11,13,0.86)',
-        backdropFilter: 'blur(10px)',
-        border: `1px solid ${UI.border}`,
-        borderRadius: 16,
-        padding: '16px 18px',
-        display: 'flex',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-        gap: 16,
-      }}
-    >
-      <button onClick={onGenerate} style={btnPrimary}>
-        🎲 Generate profile
-      </button>
-      <button onClick={onReset} style={btnGhost}>
-        🧹 Clean profile
-      </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={onGenerate} style={{ ...btnPrimary, flex: 1, justifyContent: 'center', padding: '10px 12px' }}>
+          🎲 Shuffle
+        </button>
+        <button onClick={onReset} style={{ ...btnGhost, flex: 1, justifyContent: 'center', padding: '10px 12px' }}>
+          🧹 Reset
+        </button>
+      </div>
 
-      <div style={divider} />
-
-      <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, color: UI.ink70 }}>
-        <span style={{ fontWeight: 700, color: UI.ink }}>Library</span>
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+          <span style={rowLabel}>Library</span>
+          <span style={{ fontSize: 12.5, color: UI.ink70, fontVariantNumeric: 'tabular-nums' }}>{size} games</span>
+        </div>
         <input
           type="range"
           min={6}
           max={MAX_LIBRARY}
           value={size}
           onChange={(e) => setSize(Number(e.target.value))}
-          style={{ width: 140, accentColor: UI.accent }}
+          style={{ width: '100%', accentColor: UI.accent }}
         />
-        <span style={{ fontVariantNumeric: 'tabular-nums', width: 58, color: UI.ink }}>{size} games</span>
-      </label>
-
-      <div style={divider} />
+      </div>
 
       {/* Players — 0 = Cold hub (party unknown), 1–8 = Warm hub */}
-      <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, color: UI.ink70 }}>
-        <span style={{ fontWeight: 700, color: UI.ink }}>Players</span>
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+          <span style={rowLabel}>Players</span>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: players === 0 ? UI.ink70 : '#f4b740' }}>
+            {players === 0 ? '❄ Cold · unknown' : `🔥 ${players} player${players > 1 ? 's' : ''}`}
+          </span>
+        </div>
         <input
           type="range"
           min={0}
           max={8}
           value={players}
           onChange={(e) => setPlayers(Number(e.target.value))}
-          style={{ width: 150, accentColor: players === 0 ? UI.muted : '#f4b740' }}
+          style={{ width: '100%', accentColor: players === 0 ? UI.muted : '#f4b740' }}
         />
-        <span style={{ width: 148, fontSize: 13, fontWeight: 700, color: players === 0 ? UI.ink70 : '#f4b740' }}>
-          {players === 0 ? '❄ Cold · unknown' : `🔥 ${players} player${players > 1 ? 's' : ''}`}
-        </span>
-      </label>
+      </div>
 
       {players >= 1 && (
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: UI.ink70 }}>
-          <span style={{ fontWeight: 700, color: UI.ink }}>Last game</span>
+        <div>
+          <div style={{ ...rowLabel, marginBottom: 6 }}>Last game</div>
           <select
             value={prevId}
             onChange={(e) => setPrevId(e.target.value)}
             style={{
+              width: '100%',
               background: UI.cardAlt,
               color: UI.ink,
               border: `1px solid ${UI.border}`,
               borderRadius: 8,
-              padding: '7px 10px',
+              padding: '8px 10px',
               fontFamily: FONT,
               fontSize: 13.5,
-              maxWidth: 200,
             }}
           >
             {library.map((g) => (
@@ -545,13 +535,8 @@ function Controls(props: {
               </option>
             ))}
           </select>
-        </label>
+        </div>
       )}
-
-      <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, color: UI.muted }}>
-        <span style={{ width: 8, height: 8, borderRadius: 999, background: GENRE_COLOR.Trivia }} />
-        {props.personaLabel}
-      </span>
     </div>
   );
 }
@@ -610,4 +595,3 @@ const btnBase: CSSProperties = {
 };
 const btnPrimary: CSSProperties = { ...btnBase, background: '#e9eaec', color: '#0b0c0e' };
 const btnGhost: CSSProperties = { ...btnBase, background: 'transparent', color: UI.ink, borderColor: UI.borderStrong };
-const divider: CSSProperties = { width: 1, height: 26, background: UI.border };
