@@ -14,8 +14,8 @@ type PlayFn = (game: Game, playerCount: number) => void;
 // Persisted row-order preference. Recently Played is the default highest
 // priority; the rest follow party-then-general. Users can reorder and it's
 // saved to localStorage.
-const ROW_ORDER_KEY = 'weekend-sim-row-order';
-const DEFAULT_ORDER = [
+export const ROW_ORDER_KEY = 'weekend-sim-row-order';
+export const DEFAULT_ORDER = [
   'recently_played',
   'keep_party_going',
   'more_for_n',
@@ -28,7 +28,7 @@ const DEFAULT_ORDER = [
   'hidden_gems',
 ];
 
-function loadOrder(): string[] {
+export function loadRowOrder(): string[] {
   try {
     const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(ROW_ORDER_KEY) : null;
     const saved = raw ? (JSON.parse(raw) as string[]) : [];
@@ -40,9 +40,17 @@ function loadOrder(): string[] {
   }
 }
 
-export function HubRows({ hub, onPlay }: { hub: HubResult; onPlay: PlayFn }) {
-  const [order, setOrder] = useState<string[]>(loadOrder);
-
+export function HubRows({
+  hub,
+  onPlay,
+  order,
+  onOrderChange,
+}: {
+  hub: HubResult;
+  onPlay: PlayFn;
+  order: string[];
+  onOrderChange: (next: string[]) => void;
+}) {
   if (hub.rows.length === 0) {
     return (
       <div style={{ padding: '40px 0', color: UI.muted, fontSize: 14 }}>
@@ -61,12 +69,7 @@ export function HubRows({ hub, onPlay }: { hub: HubResult; onPlay: PlayFn }) {
     const a = next.indexOf(strategy);
     const b = next.indexOf(target);
     [next[a], next[b]] = [next[b], next[a]];
-    setOrder(next);
-    try {
-      localStorage.setItem(ROW_ORDER_KEY, JSON.stringify(next));
-    } catch {
-      /* ignore */
-    }
+    onOrderChange(next);
   };
 
   return (

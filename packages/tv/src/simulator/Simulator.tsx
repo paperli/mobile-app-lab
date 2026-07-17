@@ -6,7 +6,7 @@
 //  Warm hub, and watch the categorized rows + profile infographics update live.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   buildColdHub,
   buildLibrary,
@@ -23,7 +23,7 @@ import {
   type SessionContext,
 } from '../personalization';
 import { Card, GenreLegend, GenreRadar, InteractionBars, MotivationBars, PartyDonut, StatTile, TopGamesBars } from './Charts';
-import { HubRows } from './GameRows';
+import { HubRows, loadRowOrder, DEFAULT_ORDER, ROW_ORDER_KEY } from './GameRows';
 import { FONT, GENRE_COLOR, UI } from './theme';
 
 type Mode = 'cold' | 'warm';
@@ -47,6 +47,7 @@ export default function Simulator() {
   const partySize = Math.max(1, players);
   const [prevId, setPrevId] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(true);
+  const [rowOrder, setRowOrder] = useState<string[]>(loadRowOrder);
   const [panelWidth, setPanelWidth] = useState(380);
   const [dragging, setDragging] = useState(false);
   const [winW, setWinW] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1440));
@@ -127,6 +128,24 @@ export default function Simulator() {
     setState((s) => recordPlay(s.profile, s.household, game, count));
     flash(`▶ Played ${game.title} with ${count} player${count > 1 ? 's' : ''} — profile updated`);
   };
+
+  const changeRowOrder = (next: string[]) => {
+    setRowOrder(next);
+    try {
+      localStorage.setItem(ROW_ORDER_KEY, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  };
+  const resetRowOrder = () => {
+    setRowOrder([...DEFAULT_ORDER]);
+    try {
+      localStorage.removeItem(ROW_ORDER_KEY);
+    } catch {
+      /* ignore */
+    }
+  };
+  const orderCustomized = rowOrder.join('|') !== DEFAULT_ORDER.join('|');
 
   const prevGame = library.find((g) => g.id === previousGameId);
 
@@ -318,9 +337,30 @@ export default function Simulator() {
               : `Party context carried back from ${prevGame?.title ?? 'the last game'}. Party-specific rows enforce hard player-count compatibility.`
           }
           accent
+          action={
+            orderCustomized ? (
+              <button
+                onClick={resetRowOrder}
+                title="Reset order"
+                style={{
+                  fontFamily: FONT,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: UI.ink70,
+                  background: 'transparent',
+                  border: `1px solid ${UI.borderStrong}`,
+                  borderRadius: 999,
+                  padding: '4px 12px',
+                  cursor: 'pointer',
+                }}
+              >
+                ↺ Reset order
+              </button>
+            ) : undefined
+          }
         />
         <div style={{ marginTop: 22 }}>
-          <HubRows hub={hub} onPlay={play} />
+          <HubRows hub={hub} onPlay={play} order={rowOrder} onOrderChange={changeRowOrder} />
         </div>
       </div>
       </div>
@@ -527,21 +567,24 @@ function PanelIcon({ open }: { open: boolean }) {
   );
 }
 
-function SectionTitle({ title, desc, accent }: { title: string; desc: string; accent?: boolean }) {
+function SectionTitle({ title, desc, accent, action }: { title: string; desc: string; accent?: boolean; action?: ReactNode }) {
   return (
     <div style={{ marginTop: 48 }}>
-      <h2
-        style={{
-          margin: 0,
-          fontSize: 13,
-          fontWeight: 800,
-          letterSpacing: '0.12em',
-          textTransform: 'uppercase',
-          color: accent ? '#f4b740' : UI.muted,
-        }}
-      >
-        {title}
-      </h2>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <h2
+          style={{
+            margin: 0,
+            fontSize: 13,
+            fontWeight: 800,
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            color: accent ? '#f4b740' : UI.muted,
+          }}
+        >
+          {title}
+        </h2>
+        {action}
+      </div>
       <p style={{ margin: '10px 0 0', fontSize: 15, lineHeight: 1.5, color: UI.ink70, maxWidth: 780 }}>{desc}</p>
     </div>
   );
