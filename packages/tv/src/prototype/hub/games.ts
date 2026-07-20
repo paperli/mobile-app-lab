@@ -20,6 +20,7 @@ export type Interaction =
   | 'Gesture Controlled'
   | 'Motion Capture'
   | 'Touch Controlled'
+  | 'Typing'
   | 'Buzzer';
 
 /** Background pattern motif used by GameArt. */

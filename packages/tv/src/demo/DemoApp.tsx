@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { GameHub, type HubHandle } from '../components/GameHub';
 import type { HubGame } from '../prototype/hub/games';
+import { HUB9_CONTENT } from '../prototype/hub9/games9';
 import { HeroExample, SmallGameRow, LargeGameRow, PromoBanner, GameGridKit, SongQuizBanner } from './ComponentKit';
 import Simulator from '../simulator/Simulator';
 import HowItWorks from '../simulator/HowItWorks';
@@ -105,6 +106,7 @@ export default function DemoApp() {
   if (params.get('view') === 'simulator') return <Simulator />;
   if (params.get('view') === 'how-it-works') return <HowItWorks />;
   if (params.get('view') === 'components') return <Playground />;
+  if (params.get('view') === 'hub9') return <Hub9View />;
   if (!params.has('variation') && !params.has('phase')) return <Gallery />;
   const phase = params.has('phase') ? Number(params.get('phase')) : 1;
   const variation = params.has('variation') ? Number(params.get('variation')) : 1;
@@ -202,6 +204,178 @@ function HubView({ phase, variation, pairing }: { phase: number; variation: numb
         }}
       >
         ◀ ▲ ▼ ▶ navigate · Enter select · Esc back / gallery
+      </div>
+    </>
+  );
+}
+
+// The "9 games" hub exploration (prototype/hub9). Driven the same way as
+// HubView, but Hub9 owns its own layout so it takes no phase/variation.
+function Hub9View() {
+  const hubRef = useRef<HubHandle>(null);
+  const [launching, setLaunching] = useState<string | null>(null);
+
+  // ?newRow=false hides the "New on Weekend" shelf (shown by default).
+  const showNewRow = new URLSearchParams(window.location.search).get('newRow') !== 'false';
+  const content = showNewRow ? HUB9_CONTENT : { ...HUB9_CONTENT, shelves: [] };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const h = hubRef.current;
+      if (!h) return;
+      switch (e.key) {
+        case 'ArrowUp':
+          e.preventDefault();
+          h.navigate('up');
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          h.navigate('down');
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          h.navigate('left');
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          h.navigate('right');
+          break;
+        case 'Enter':
+        case 'Return':
+          e.preventDefault();
+          h.action('ok');
+          break;
+        case 'Escape':
+        case 'Backspace':
+          e.preventDefault();
+          if (h.wantsBack()) h.action('back');
+          else window.location.href = window.location.pathname; // back to the gallery
+          break;
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  return (
+    <>
+      <GameHub
+        ref={hubRef}
+        roomCode="WKND42"
+        content={content}
+        frame
+        onLaunch={(g: HubGame) => {
+          setLaunching(g.title);
+          window.setTimeout(() => setLaunching(null), 1400);
+        }}
+      />
+      {launching && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 100,
+            display: 'grid',
+            placeItems: 'center',
+            background: 'rgba(0,0,0,0.72)',
+            color: '#f3f4f1',
+            fontFamily: FONT,
+          }}
+        >
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.02em' }}>Launching {launching}…</div>
+            <div style={{ marginTop: 10, fontSize: 16, color: '#b9babe' }}>(demo — no game to load)</div>
+          </div>
+        </div>
+      )}
+      <div
+        style={{
+          position: 'fixed',
+          bottom: 12,
+          left: 0,
+          right: 0,
+          zIndex: 90,
+          textAlign: 'center',
+          fontFamily: FONT,
+          fontSize: 13,
+          color: '#8a8a9a',
+          pointerEvents: 'none',
+        }}
+      >
+        ◀ ▲ ▼ ▶ navigate · Enter select · Esc back / gallery
+      </div>
+    </>
+  );
+}
+
+// Gallery card for the curated 9-game hub (its own layout, not a phase/variation).
+function Hub9Card() {
+  return (
+    <>
+      <div
+        style={{
+          marginTop: 56,
+          fontSize: 13,
+          fontWeight: 700,
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+          color: '#8a8a9a',
+        }}
+      >
+        Prototypes — 9 games
+      </div>
+      <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 377px))', justifyContent: 'start', gap: 24 }}>
+        <a
+          href="?view=hub9"
+          style={{
+            display: 'block',
+            position: 'relative',
+            textDecoration: 'none',
+            color: 'inherit',
+            background: '#141518',
+            border: '1px solid #2b2c30',
+            borderRadius: 18,
+            padding: '26px 26px 28px',
+            transition: 'border-color 160ms ease, transform 160ms ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = '#6a6b70';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = '#2b2c30';
+            e.currentTarget.style.transform = 'translateY(0)';
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              top: 16,
+              right: 16,
+              fontSize: 12,
+              fontWeight: 800,
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              color: '#0b0c0e',
+              background: '#ffda0a',
+              borderRadius: 999,
+              padding: '5px 13px',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+            }}
+          >
+            New
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', color: '#8a8a9a', textTransform: 'uppercase' }}>
+            Curated 9-game hub
+          </div>
+          <div style={{ marginTop: 10, fontSize: 26, fontWeight: 800, letterSpacing: '-0.01em' }}>Hero + New Games + grid</div>
+          <p style={{ margin: '12px 0 0', fontSize: 15.5, lineHeight: 1.5, color: 'rgba(243,244,241,0.68)' }}>
+            A tight nine-title catalog rendered through the same GameHub elements as the other variations. The hero carousel
+            promotes the 7-day free trial plus Guess the Emoji, Werds and Wheel of Fortune, above a “New Games” shelf (Guess
+            the Emoji &amp; Werds tagged NEW) and an All Games grid. The focused game previews in the top area; OK launches it.
+          </p>
+          <div style={{ marginTop: 18, fontSize: 15, fontWeight: 700, color: '#f3f4f1' }}>Open →</div>
+        </a>
       </div>
     </>
   );
@@ -417,6 +591,9 @@ function Gallery() {
             ))}
           </div>
         </section>
+
+        {/* Newest exploration: the curated 9-game hub. */}
+        <Hub9Card />
 
         {/* Phase 0 prototypes first (smaller catalog), then phase 1. */}
         <PrototypeGroup title="Prototypes — 12–20 games" options={OPTIONS.filter((o) => o.phase === 0)} />

@@ -8,6 +8,7 @@ const INTERACTION_GLYPH: Record<Interaction, string> = {
   'Gesture Controlled': '✋',
   'Motion Capture': '🕺',
   'Touch Controlled': '👆',
+  Typing: '⌨️',
   Buzzer: '🔔',
 };
 

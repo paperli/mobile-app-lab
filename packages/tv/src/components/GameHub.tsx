@@ -50,7 +50,7 @@ const reduceMotion =
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ── Content model — edit these to mock new categories ──────────────────────
-type TileVariant = 'sm' | 'lg' | 'grid';
+export type TileVariant = 'sm' | 'lg' | 'grid';
 interface RowDef {
   key: string;
   title: string;
@@ -304,6 +304,13 @@ const HERO_ANIM_CSS = `
   50%  { transform: translateY(-8px) rotate(10deg); opacity: 0.7; }
   100% { transform: translateY(6px) rotate(-12deg); opacity: 0.25; }
 }
+/* Guess the Emoji hero: emoji glyphs drift up and down around the poster. */
+@keyframes hubEmojiFloat {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50%      { transform: translateY(-26px) rotate(4deg); }
+}
+/* Werds hero: the typed-answer caret blinks on each phone. */
+@keyframes hubWerdsCaret { 50% { opacity: 0; } }
 `;
 
 // ── Imperative handle exposed to App.tsx ────────────────────────────────────
@@ -337,6 +344,25 @@ export const HUB_PHASES = [0, 1] as const;
  */
 export const HUB_VARIATIONS = [1, 2, 3] as const;
 
+/**
+ * A curated home layout for a bespoke hub (e.g. the 9-game exploration). When
+ * passed to GameHub via `content`, it drives a preview-mode home page — the hero
+ * (free-trial promo + these game slides), the shelves and the grid — reusing all
+ * the standard hub elements and behaviors, with no top nav (like phase-0 v3).
+ */
+export interface HubContent {
+  /** Full catalog for this hub — feeds the promo montage, preview and search. */
+  catalog: HubGame[];
+  /** Hero game slides (the free-trial promo is prepended automatically). */
+  heroGames: HubGame[];
+  /** Shelves shown above the grid (standard sm rows). */
+  shelves: { key: string; title: string; games: HubGame[] }[];
+  /** The "All Games" grid (5 across). */
+  grid: HubGame[];
+  /** Game ids that show a NEW badge on their tile (any shelf/grid). */
+  newIds?: string[];
+}
+
 interface GameHubProps {
   roomCode: string;
   /** Fired when the user presses OK on the hero CTA or a tile. */
@@ -359,6 +385,11 @@ interface GameHubProps {
    * TV renders full-bleed); the static demo turns it on.
    */
   frame?: boolean;
+  /**
+   * Curated home content (a bespoke hub). When set, GameHub renders a preview-mode
+   * home layout from it — reusing every standard element — with no top nav.
+   */
+  content?: HubContent;
 }
 
 interface NavState {
@@ -393,13 +424,22 @@ function useFitScale(framed: boolean) {
 }
 
 export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
-  { roomCode, onLaunch, onCreateGame, createdGames, initialPage, showPairing = false, phase = 1, variation = 1, frame = false },
+  { roomCode, onLaunch, onCreateGame, createdGames, initialPage, showPairing = false, phase = 1, variation = 1, frame = false, content },
   ref
 ) {
   // Kept in a ref so the imperative OK handler (doAction) can fire it without
   // re-subscribing on every render.
   const onCreateGameRef = useRef(onCreateGame);
   onCreateGameRef.current = onCreateGame;
+  // Curated-hub mode: a bespoke content set drives a preview-mode home page with
+  // no top nav, reusing every standard element. Catalog + hero games fall back to
+  // the built-in 30-game defaults when no content is provided.
+  const customHub = !!content;
+  const catalog = content?.catalog ?? HUB_CATALOG;
+  const heroGames = content?.heroGames ?? HERO_GAMES;
+  const newIdSet = content?.newIds ? new Set(content.newIds) : null;
+  const heroGamesRef = useRef(heroGames);
+  heroGamesRef.current = heroGames;
   // Unknown values fall back to 1. Future phases/variations branch on these.
   const resolvedPhase = (HUB_PHASES as readonly number[]).includes(phase) ? phase : 1;
   const resolvedVariation = (HUB_VARIATIONS as readonly number[]).includes(variation) ? variation : 1;
@@ -408,8 +448,9 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // focused, and launch directly on OK (no side panel). Phase 0 strips the hub
   // down to the All Games grid — variation 1 uses the top preview, variation 2
   // opens the game-info side panel on select instead. Kept in refs for input.
+  // A curated hub always uses preview mode (like phase-0 v3).
   const isPhase0 = resolvedPhase === 0;
-  const previewMode = resolvedVariation === 3 || (isPhase0 && resolvedVariation === 1);
+  const previewMode = customHub || resolvedVariation === 3 || (isPhase0 && resolvedVariation === 1);
   const isV3 = previewMode; // preview-mode behaviour (hero preview + direct launch)
   const isV3Ref = useRef(isV3);
   isV3Ref.current = isV3;
@@ -418,14 +459,14 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // is in-memory only, so a hard refresh always returns to this logged-out state.
   const [signedIn, setSignedIn] = useState(false);
 
-  // Free-trial promo as the first hero slide. Phase 0/variation 1 always shows
-  // it; phase-1 variations show it only while signed out (signed-in users have
-  // already claimed the trial).
-  const showPromoSlide = isPhase0 ? true : !signedIn;
+  // Free-trial promo as the first hero slide. Phase 0 and the curated hub always
+  // show it; phase-1 variations show it only while signed out (signed-in users
+  // have already claimed the trial).
+  const showPromoSlide = isPhase0 || customHub ? true : !signedIn;
   const promoOffset = showPromoSlide ? 1 : 0;
-  const heroSlideCount = HERO_GAMES.length + promoOffset;
+  const heroSlideCount = heroGames.length + promoOffset;
   const isPromoSlide = (i: number) => showPromoSlide && i === 0;
-  const heroGameAt = (i: number) => HERO_GAMES[i - promoOffset];
+  const heroGameAt = (i: number) => heroGames[i - promoOffset];
   const isPromoSlideRef = useRef(isPromoSlide);
   isPromoSlideRef.current = isPromoSlide;
   const heroSlideCountRef = useRef(heroSlideCount);
@@ -466,7 +507,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // Top navigation (phase 1 only): Search / Home / My Games. `navFocus` = focus
   // is on the top nav bar. On launch focus starts in the hero (content), not the
   // nav; the Home tab is the default when the user does move up to the nav.
-  const hasTopNav = !isPhase0;
+  const hasTopNav = !isPhase0 && !customHub;
   const [page, setPage] = useState<Page>(initialPage ?? 'home');
   const [navFocus, setNavFocus] = useState(false);
   const [navCol, setNavCol] = useState(HOME_TAB);
@@ -575,8 +616,8 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   //   phase 0: just the (12-game) grid, then the promo banner — no shelves.
   //   phase 1: shelves; variations 2 & 3 drop Party/Brain for an All Games
   //            grid, with the banner below Community Crafted Games.
-  const gridGames = isPhase0 ? HUB_CATALOG.slice(0, 12) : ALL_GAMES;
-  const gridChunks = isPhase0 || resolvedVariation >= 2 ? chunk(gridGames, GRID_COLS) : [];
+  const gridGames = customHub ? content!.grid : isPhase0 ? HUB_CATALOG.slice(0, 12) : ALL_GAMES;
+  const gridChunks = customHub || isPhase0 || resolvedVariation >= 2 ? chunk(gridGames, GRID_COLS) : [];
   // The full categorized shelf set (New on Weekend + Games That Go Viral + genre
   // rows) is used by phase-1 v1 and the new phase-0 v3; other variations trim to
   // just New on Weekend + Games That Go Viral. ("Jump Back On" is hidden here.)
@@ -598,7 +639,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     (g): g is HubGame => !!g
   );
   // The Home "Jump Back On" row (phase 1) appears once the user has play history.
-  const homeJumpBack = !isPhase0 && jumpBackGames.length > 0;
+  const homeJumpBack = !isPhase0 && !customHub && jumpBackGames.length > 0;
 
   // Studio page (prototype): the user's created games (this session's temp cache)
   // and a grid of "all community games" (faked with the catalog for now).
@@ -625,7 +666,19 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     | { kind: 'puzzle' }
     | { kind: 'grid'; games: HubGame[]; gridIndex: number; gridTitle?: string };
   const sections: SectionDef[] = [];
-  if (page === 'search') {
+  if (customHub) {
+    // Curated hub: the configured shelves (e.g. "New Games") then the All Games
+    // grid — standard sm shelves + grid, with the hero above and preview-on-focus.
+    content!.shelves.forEach((sh) =>
+      sections.push({
+        kind: 'shelf',
+        row: { key: sh.key, title: sh.title, variant: 'sm', slideshow: false, games: sh.games },
+      })
+    );
+    gridChunks.forEach((games, gridIndex) =>
+      sections.push({ kind: 'grid', games, gridIndex, gridTitle: gridIndex === 0 ? 'All Games' : undefined })
+    );
+  } else if (page === 'search') {
     // Search renders its own body (keyboard + results) — no scrolling sections.
   } else if (page === 'studio') {
     // Studio: a "My games" shelf led by the Create-new-game tile (then any
@@ -764,7 +817,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       }
       const game =
         cur.sec === 0
-          ? HERO_GAMES[cur.heroSlide - promoOffset]
+          ? heroGamesRef.current[cur.heroSlide - promoOffset]
           : navRowsRef.current[cur.sec - 1]?.games[cur.col];
       if (game) launchGame(game, autoDelay);
     },
@@ -793,7 +846,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const openHeroInfo = useCallback(() => {
     const cur = navRef.current;
     if (isPromoSlideRef.current(cur.heroSlide)) return;
-    const g = HERO_GAMES[cur.heroSlide - promoOffset];
+    const g = heroGamesRef.current[cur.heroSlide - promoOffset];
     if (g) openPanel(g);
   }, [openPanel, promoOffset]);
 
@@ -1409,7 +1462,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           return;
         }
       }
-      const hIdx = HERO_GAMES.findIndex((g) => g.id === id);
+      const hIdx = heroGamesRef.current.findIndex((g) => g.id === id);
       if (hIdx >= 0) {
         const next = { ...navRef.current, sec: 0, heroSlide: hIdx + promoOffset };
         navRef.current = next;
@@ -2261,6 +2314,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                     pressing={pressing && focusedHere && i === col}
                     slideshow={false}
                     shot={shot}
+                    badge={newIdSet?.has(game.id) ? 'NEW' : undefined}
                     onClick={() => selectTile(sectionIndex, i, s.games[i])}
                   />
                 ))}
@@ -2331,7 +2385,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                     slideshow={row.slideshow}
                     slideshowReady={slideshowReady}
                     shot={shot}
-                    badge={row.newTag ? 'NEW' : undefined}
+                    badge={newIdSet?.has(game.id) || row.newTag ? 'NEW' : undefined}
                     onClick={() => selectTile(sectionIndex, i + lead, row.games[i])}
                   />
                 ))}
@@ -2499,7 +2553,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
               key={`hero-in-${nav.heroSlide}`}
               promo={isPromoSlide(nav.heroSlide)}
               game={heroGame}
-              promoGames={HUB_CATALOG}
+              promoGames={catalog}
               trialUrl={trialUrl}
               phase={heroTransFrom !== null ? 'in' : 'idle'}
               heroFocused={nav.sec === 0 && !navFocus}
@@ -2513,7 +2567,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                 key={`hero-out-${heroTransFrom}`}
                 promo={isPromoSlide(heroTransFrom)}
                 game={heroGameAt(heroTransFrom)}
-                promoGames={HUB_CATALOG}
+                promoGames={catalog}
                 trialUrl={trialUrl}
                 phase="out"
                 heroFocused={nav.sec === 0 && !navFocus}
@@ -2732,7 +2786,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
               transition: 'opacity 1200ms ease',
             }}
           >
-            <TileMontage games={HUB_CATALOG} />
+            <TileMontage games={catalog} />
             <div
               aria-hidden
               style={{
@@ -3539,14 +3593,14 @@ function TileMontage({ games }: { games: HubGame[] }) {
 // ── Preview hero (variation 3) ───────────────────────────────────────────────
 // A pinned top band that mirrors the hero styling but reflects the focused
 // game (no CTA, no carousel). Re-keyed by game id so it cross-fades on focus.
-interface PreviewHeroProps {
+export interface PreviewHeroProps {
   game: HubGame;
   showPairing: boolean;
   roomCode: string;
   mobileUrl: string;
 }
 
-function PreviewHero({ game, showPairing, roomCode, mobileUrl }: PreviewHeroProps) {
+export function PreviewHero({ game, showPairing, roomCode, mobileUrl }: PreviewHeroProps) {
   return (
     <div
       style={{
@@ -3917,10 +3971,172 @@ function SongQuizParty({ focused }: { focused: boolean }) {
   );
 }
 
-// ── Hero slide ───────────────────────────────────────────────────────────────
-type HeroPhase = 'idle' | 'in' | 'out';
+// ── Guess the Emoji hero art ─────────────────────────────────────────────────
+// Emoji glyphs floating around the right side of the poster (per the brief).
+const EMOJI_FLOATERS: { e: string; x: number; y: number; size: number; delay: number; dur: number }[] = [
+  { e: '🎬', x: 60, y: 12, size: 118, delay: 0, dur: 7 },
+  { e: '🍕', x: 82, y: 26, size: 96, delay: 1.2, dur: 8.5 },
+  { e: '🐶', x: 70, y: 52, size: 104, delay: 0.6, dur: 6.5 },
+  { e: '🌈', x: 90, y: 60, size: 90, delay: 2.1, dur: 9 },
+  { e: '⚽', x: 56, y: 72, size: 82, delay: 1.6, dur: 7.5 },
+  { e: '🚀', x: 76, y: 6, size: 78, delay: 0.3, dur: 8 },
+  { e: '🎸', x: 94, y: 20, size: 86, delay: 2.6, dur: 7 },
+  { e: '🦄', x: 64, y: 34, size: 98, delay: 1.9, dur: 8.2 },
+  { e: '🍔', x: 88, y: 44, size: 82, delay: 0.9, dur: 6.8 },
+  { e: '🎉', x: 74, y: 70, size: 92, delay: 2.3, dur: 9.4 },
+];
 
-interface HeroSlideProps {
+function EmojiFloaters({ focused }: { focused: boolean }) {
+  return (
+    <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+      {EMOJI_FLOATERS.map((f, i) => (
+        <span
+          key={i}
+          style={{
+            position: 'absolute',
+            left: `${f.x}%`,
+            top: `${f.y}%`,
+            fontSize: f.size,
+            lineHeight: 1,
+            filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.45))',
+            animation: focused && !reduceMotion ? `hubEmojiFloat ${f.dur}s ease-in-out ${f.delay}s infinite` : undefined,
+          }}
+        >
+          {f.e}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// ── Werds hero art ───────────────────────────────────────────────────────────
+// A TV showing a phrase puzzle, with 3 phones below running the on-screen
+// keyboard (each with a hand on it) — a mock of the typing-game flow (per brief).
+const WERDS_KB_ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
+
+function WerdsPhone({ tilt, hand, lift }: { tilt: number; hand: string; lift: number }) {
+  return (
+    <div
+      style={{
+        position: 'relative',
+        width: 176,
+        height: 292,
+        transform: `translateY(${lift}px) rotate(${tilt}deg)`,
+        borderRadius: 28,
+        background: 'linear-gradient(160deg, #3a3b40 0%, #1a1b1f 100%)',
+        border: '3px solid #45464c',
+        boxShadow: '0 26px 44px rgba(0,0,0,0.55)',
+        padding: 9,
+        boxSizing: 'border-box',
+      }}
+    >
+      <div style={{ position: 'relative', width: '100%', height: '100%', borderRadius: 20, background: '#16241f', overflow: 'hidden' }}>
+        {/* Answer field */}
+        <div style={{ margin: '16px 12px 0', height: 34, borderRadius: 9, background: '#12211c', border: '1px solid #1f9d5744', display: 'flex', alignItems: 'center', padding: '0 10px', gap: 5 }}>
+          <span style={{ fontFamily: FONT, fontWeight: 800, fontSize: 17, color: '#e9eaec', letterSpacing: '0.12em' }}>SPARK</span>
+          <span style={{ width: 2, height: 18, background: '#fde047', animation: reduceMotion ? undefined : 'hubWerdsCaret 1s step-end infinite' }} />
+        </div>
+        {/* On-screen keyboard */}
+        <div style={{ position: 'absolute', left: 7, right: 7, bottom: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
+          {WERDS_KB_ROWS.map((row, r) => (
+            <div key={r} style={{ display: 'flex', justifyContent: 'center', gap: 3 }}>
+              {row.split('').map((k) => (
+                <span
+                  key={k}
+                  style={{ flex: '1 1 0', maxWidth: 15, height: 22, borderRadius: 4, background: '#3b3d47', color: '#eceded', fontFamily: FONT, fontSize: 10, fontWeight: 700, display: 'grid', placeItems: 'center' }}
+                >
+                  {k}
+                </span>
+              ))}
+            </div>
+          ))}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 3 }}>
+            <span style={{ flex: 1, height: 22, borderRadius: 4, background: '#3b3d47' }} />
+            <span style={{ flex: 3, height: 22, borderRadius: 4, background: '#4a4c56' }} />
+            <span style={{ flex: 1.4, height: 22, borderRadius: 4, background: '#1f9d57', color: '#04241a', fontFamily: FONT, fontSize: 9, fontWeight: 800, display: 'grid', placeItems: 'center' }}>GO</span>
+          </div>
+        </div>
+      </div>
+      {/* Hand on the glass */}
+      <span aria-hidden style={{ position: 'absolute', right: -6, bottom: -10, fontSize: 66, transform: 'rotate(8deg)', filter: 'drop-shadow(0 8px 12px rgba(0,0,0,0.5))' }}>
+        {hand}
+      </span>
+    </div>
+  );
+}
+
+function WerdsTv() {
+  // Phrase "BRIGHT SPARK" — some letters revealed, others blank tiles.
+  const phrase = [
+    ['B', 'R', 'I', 'G', 'H', 'T'],
+    ['S', 'P', 'A', 'R', 'K'],
+  ];
+  const revealed = new Set(['B', 'T', 'S', 'K']);
+  return (
+    <div
+      style={{
+        width: 500,
+        borderRadius: 16,
+        background: 'linear-gradient(160deg, #1b1d22 0%, #0c0d10 100%)',
+        border: '9px solid #17181c',
+        boxShadow: '0 30px 60px rgba(0,0,0,0.6)',
+        padding: '20px 26px 24px',
+        boxSizing: 'border-box',
+      }}
+    >
+      <div style={{ fontFamily: FONT, fontWeight: 800, fontSize: 16, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#fde047' }}>
+        Phrase · Sunny words
+      </div>
+      <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 11 }}>
+        {phrase.map((word, w) => (
+          <div key={w} style={{ display: 'flex', gap: 7 }}>
+            {word.map((ch, i) => {
+              const on = revealed.has(ch) && !(w === 0 && ch === 'R' && i === 1);
+              return (
+                <span
+                  key={i}
+                  style={{
+                    width: 46,
+                    height: 56,
+                    borderRadius: 7,
+                    display: 'grid',
+                    placeItems: 'center',
+                    fontFamily: FONT,
+                    fontWeight: 900,
+                    fontSize: 30,
+                    color: on ? '#0b0c0e' : 'rgba(255,255,255,0.25)',
+                    background: on ? '#f3f4f1' : 'transparent',
+                    border: on ? 'none' : '2px solid rgba(255,255,255,0.28)',
+                  }}
+                >
+                  {on ? ch : ''}
+                </span>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function WerdsDevices() {
+  return (
+    <div style={{ position: 'absolute', right: 120, top: 24, width: 560, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <WerdsTv />
+      <div style={{ display: 'flex', gap: 26, marginTop: 18 }}>
+        <WerdsPhone tilt={-7} hand="👆" lift={20} />
+        <WerdsPhone tilt={0} hand="✋" lift={0} />
+        <WerdsPhone tilt={7} hand="👆" lift={20} />
+      </div>
+    </div>
+  );
+}
+
+// ── Hero slide ───────────────────────────────────────────────────────────────
+export type HeroPhase = 'idle' | 'in' | 'out';
+
+export interface HeroSlideProps {
   /** Free-trial promo slide (panning tiles + QR) instead of a game. */
   promo?: boolean;
   game?: HubGame;
@@ -3937,7 +4153,7 @@ interface HeroSlideProps {
   onMoreInfo: () => void;
 }
 
-function HeroSlide({
+export function HeroSlide({
   promo,
   game,
   promoGames = [],
@@ -3951,6 +4167,9 @@ function HeroSlide({
 }: HeroSlideProps) {
   const isWof = !promo && game?.id === WOF_ID;
   const isSongQuiz = !promo && game?.id === 'song-quiz';
+  // Bespoke posters for the two new games (per the brief).
+  const isEmoji = !promo && game?.id === 'guess-the-emoji';
+  const isWerds = !promo && game?.id === 'werds';
   // The CTA re-selects (unselected → selected) as the new slide settles, so the
   // change reads clearly. Incoming slides start unselected then flip; otherwise
   // the button just mirrors whether the hero is focused.
@@ -4043,6 +4262,17 @@ function HeroSlide({
             )}
             <SongQuizParty focused={heroFocused && phase !== 'out'} />
           </>
+        ) : isEmoji || isWerds ? (
+          // New-game posters: themed backdrop; the focal art (floating emojis /
+          // Werds devices) is layered on top of the fades below so it stays crisp.
+          game && (
+            <GameArt
+              game={game}
+              variant="hero"
+              hideMotif
+              style={{ position: 'absolute', top: 0, left: 0, width: STAGE_W, height: 620 }}
+            />
+          )
         ) : (
           game && (
             <GameArt
@@ -4071,6 +4301,9 @@ function HeroSlide({
             background: `linear-gradient(to top, ${STAGE_BG} 2%, transparent 46%)`,
           }}
         />
+        {/* Focal poster art for the new games — over the fades so it stays crisp. */}
+        {isEmoji && <EmojiFloaters focused={heroFocused && phase !== 'out'} />}
+        {isWerds && <WerdsDevices />}
       </div>
 
       {/* Text column (fades only) */}
@@ -4346,7 +4579,7 @@ function fakePlayingCount(id: string): number {
   return 103 + (h % (999 - 103 + 1));
 }
 
-interface TileProps {
+export interface TileProps {
   game: HubGame;
   variant: TileVariant;
   focused: boolean;
@@ -4360,7 +4593,7 @@ interface TileProps {
   badge?: string;
 }
 
-function Tile({
+export function Tile({
   game,
   variant,
   focused,

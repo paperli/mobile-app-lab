@@ -1,0 +1,130 @@
+// ─────────────────────────────────────────────────────────────────────────
+//  Hub prototype — 9-game dataset
+//
+//  A focused, curated catalog for the "9 games" hub variation. Reuses the
+//  shared GameTheme / art system (GameArt / GameLogo) so every title renders a
+//  stylized hero, tile and logo at runtime — no raster assets. Player counts
+//  and interaction methods are set per this prototype's brief (they may differ
+//  from the 30-game catalog in prototype/hub/games.ts), and two brand-new
+//  titles — Guess the Emoji and Werds — carry a NEW tag.
+// ─────────────────────────────────────────────────────────────────────────
+import type { HubGame } from '../hub/games';
+import type { HubContent } from '../../components/GameHub';
+
+/** A hub game with the prototype's per-tile NEW flag. */
+export interface Hub9Game extends HubGame {
+  /** Freshly-added title — shows a NEW badge on its tile. */
+  isNew?: boolean;
+}
+
+// Order matches the requested grid order:
+// Jeopardy!, Song Quiz, Wheel of Fortune, Wit's End, CoComelon, Spot On,
+// Sketchy AF, Guess the Emoji, Werds.
+export const HUB9_GAMES: Hub9Game[] = [
+  {
+    id: 'jeopardy',
+    title: 'Jeopardy!',
+    description: 'The iconic answer-and-question quiz show, now on your TV.',
+    players: '1–3 Players',
+    interaction: 'Voice Controlled',
+    theme: { base: '#03113f', from: '#061a5c', to: '#1e49c7', accent: '#f7c948', pattern: 'grid', logo: 'serif', motif: '💡' },
+  },
+  {
+    id: 'song-quiz',
+    title: 'Song Quiz',
+    description: 'Name the hit song from a short clip before your friends do.',
+    players: '1–4 Players',
+    interaction: 'Voice Controlled',
+    theme: { base: '#1a0b3d', from: '#3a0f7a', to: '#7b2ff7', accent: '#22d3ee', pattern: 'bars', logo: 'block', motif: '🎵' },
+  },
+  {
+    id: 'wheel-of-fortune',
+    title: 'Wheel of Fortune',
+    description: 'Spin the wheel, solve the puzzle and win big.',
+    players: '1–3 Players',
+    interaction: 'Voice Controlled',
+    theme: { base: '#0c1f14', from: '#123a24', to: '#1f9d57', accent: '#ffd23f', pattern: 'grid', logo: 'serif', motif: '🎡' },
+  },
+  {
+    id: 'wits-end',
+    title: "Wit's End",
+    description: 'A fantasy trivia adventure for the quickest thinkers.',
+    players: '1–3 Players',
+    interaction: 'Voice Controlled',
+    theme: { base: '#100b06', from: '#241a10', to: '#5a3d1f', accent: '#e0a94f', pattern: 'rays', logo: 'serif', motif: '🪓' },
+  },
+  {
+    id: 'cocomelon',
+    title: 'CoComelon',
+    description: 'Sing, dance and play along with JJ and friends.',
+    players: 'Single Player',
+    interaction: 'Voice Controlled',
+    theme: { base: '#1a7fd4', from: '#3aa0e8', to: '#8fd14f', accent: '#ffd23f', ink: '#0a2a4a', light: true, pattern: 'dots', logo: 'rounded', motif: '🍉' },
+  },
+  {
+    id: 'spot-on',
+    title: 'Spot On',
+    description: 'Race to pinpoint places on a spinning globe.',
+    players: '1–4 Players',
+    interaction: 'Gesture Controlled',
+    theme: { base: '#02040f', from: '#071634', to: '#155e9c', accent: '#f5b642', pattern: 'waves', logo: 'block', motif: '🌍' },
+  },
+  {
+    id: 'sketchy-af',
+    title: 'Sketchy AF',
+    description: 'Draw it, guess it, then laugh about it together.',
+    players: '1–4 Players',
+    interaction: 'Voice Controlled',
+    theme: { base: '#efeee9', from: '#f7f6f2', to: '#e3e2dc', accent: '#f72149', ink: '#141414', light: true, pattern: 'sketch', logo: 'script', motif: '✏️' },
+  },
+  {
+    id: 'guess-the-emoji',
+    title: 'Guess the Emoji',
+    description: 'Crack the phrase hiding inside a string of emoji.',
+    players: '1–6 Players',
+    interaction: 'Voice Controlled',
+    isNew: true,
+    theme: { base: '#1a0b2e', from: '#6d28d9', to: '#f472b6', accent: '#fde047', pattern: 'confetti', logo: 'rounded', motif: '😄' },
+  },
+  {
+    id: 'werds',
+    title: 'Werds',
+    description: 'Type the answer faster than the room to steal the round.',
+    players: '1–4 Players',
+    interaction: 'Typing',
+    isNew: true,
+    theme: { base: '#07231f', from: '#0c3a33', to: '#14b8a6', accent: '#fde047', pattern: 'grid', logo: 'block', motif: '⌨️' },
+  },
+];
+
+export const getHub9Game = (id: string): Hub9Game => {
+  const g = HUB9_GAMES.find((x) => x.id === id);
+  if (!g) throw new Error(`hub9: unknown game id "${id}"`);
+  return g;
+};
+
+/** The "New Games" shelf, in the requested order. */
+export const HUB9_NEW_ROW: Hub9Game[] = [
+  'guess-the-emoji',
+  'werds',
+  'wheel-of-fortune',
+  'sketchy-af',
+  'spot-on',
+].map(getHub9Game);
+
+/** The "All Games" grid, in the requested order (5 across). */
+export const HUB9_GRID: Hub9Game[] = HUB9_GAMES;
+
+/**
+ * Curated content for the 9-game hub, fed to GameHub's `content` prop so it
+ * renders through all the standard hub elements. The hero shows the existing
+ * free-trial promo slide plus Guess the Emoji, Werds and Wheel of Fortune as new
+ * game slides; below it, a "New Games" shelf and the All Games grid.
+ */
+export const HUB9_CONTENT: HubContent = {
+  catalog: HUB9_GAMES,
+  heroGames: ['guess-the-emoji', 'werds', 'wheel-of-fortune'].map(getHub9Game),
+  shelves: [{ key: 'new', title: 'New on Weekend', games: HUB9_NEW_ROW }],
+  grid: HUB9_GRID,
+  newIds: ['guess-the-emoji', 'werds'],
+};
