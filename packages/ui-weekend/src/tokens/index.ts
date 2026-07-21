@@ -51,6 +51,21 @@ export const layout = {
     /** 2x standard — spotlight/viral rows. */
     wFeatured: 736,
   },
+  /**
+   * Merchandising hero band (the rotating billboard at the top of the hub).
+   * Shared @1x geometry so every prototype composes the same hero — the live
+   * GameHub carousel and the Component Kit's Hero example both read from here.
+   */
+  hero: {
+    /** Hero section height (@1x, of the 1920×1080 stage). */
+    sectionH: 900,
+    /** Game-art band height; the art fades into the content/rows below it. */
+    artH: 820,
+    /** Content column (logo / description / pills / CTA) bottom offset. */
+    contentBottom: 150,
+    /** Carousel dots bottom offset. */
+    dotsBottom: 44,
+  },
 } as const;
 
 /** Height of a 16:9 tile for a given width. */

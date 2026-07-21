@@ -217,8 +217,10 @@ const KB_GRID: string[][] = [
   ['SPACE', 'DELETE', 'CLEAR'],
 ];
 
-// Height of the hero band, and (variation 3) the pinned top preview height.
-const HERO_SECTION_H = 700;
+// Merch-hero geometry lives in the shared @weekend/ui tokens (layout.hero) so
+// every prototype composes the same hero. The v3 top-preview height is separate.
+const HERO_SECTION_H = layout.hero.sectionH;
+const HERO_ART_H = layout.hero.artH;
 const PREVIEW_H = 480;
 // Clearance below the v3 preview so a focused row's ring/scale isn't clipped.
 const PREVIEW_GAP = 28;
@@ -842,14 +844,6 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     soundManager.playNavigationSound();
   }, []);
 
-  // MORE INFO on a game hero slide → open that game's info side panel.
-  const openHeroInfo = useCallback(() => {
-    const cur = navRef.current;
-    if (isPromoSlideRef.current(cur.heroSlide)) return;
-    const g = heroGamesRef.current[cur.heroSlide - promoOffset];
-    if (g) openPanel(g);
-  }, [openPanel, promoOffset]);
-
   const openAllGames = useCallback(() => {
     const n = { row: 0, col: 0 };
     agNavRef.current = n;
@@ -1361,26 +1355,10 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
 
     if (dx !== 0) {
       if (prev.sec === 0) {
-        // Hero: ◀▶ move between CTAs (PLAY NOW / MORE INFO); at the edges,
-        // cycle slides. Promo slides have a single CTA (maxCol 0).
+        // Hero: every slide has a single CTA now, so ◀▶ just cycles slides.
         const count = heroSlideCountRef.current;
-        const maxCol = isPromoSlideRef.current(prev.heroSlide) ? 0 : 1;
-        // When cycling to an adjacent slide, keep the same CTA focused (clamped
-        // to that slide's CTAs — the promo slide only has one).
-        const slideCol = (ns: number) => Math.min(prev.col, isPromoSlideRef.current(ns) ? 0 : 1);
-        if (dx > 0) {
-          if (prev.col < maxCol) next = { ...prev, col: prev.col + 1 };
-          else {
-            const ns = (prev.heroSlide + 1) % count;
-            next = { ...prev, heroSlide: ns, col: slideCol(ns) };
-          }
-        } else {
-          if (prev.col > 0) next = { ...prev, col: prev.col - 1 };
-          else {
-            const ns = (prev.heroSlide - 1 + count) % count;
-            next = { ...prev, heroSlide: ns, col: slideCol(ns) };
-          }
-        }
+        const ns = (prev.heroSlide + (dx > 0 ? 1 : -1) + count) % count;
+        next = { ...prev, heroSlide: ns, col: 0 };
         sound = 'nav';
       } else if (rows[prev.sec - 1]?.banner) {
         sound = 'bounce'; // banner is a single full-width item
@@ -1618,10 +1596,9 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       if (action === 'ok') {
         const cur = navRef.current;
         if (cur.sec === 0) {
-          // Game hero: col 1 = MORE INFO (side panel); col 0 = PLAY NOW. Promo
-          // slide has a single CTA that opens the upsell (via launch).
-          if (!isPromoSlideRef.current(cur.heroSlide) && cur.col === 1) openHeroInfo();
-          else launch();
+          // Hero has a single CTA: game slides PLAY NOW (launch), the promo slide
+          // opens the upsell — both handled by launch().
+          launch();
           return;
         }
         const row = navRowsRef.current[cur.sec - 1];
@@ -1671,7 +1648,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     },
     [
       closePanel, closeAllGames, closeUpsell, openUpsell, openAllGames, launchGame, toggleFavorite, launch, openPanel,
-      goToPage, applyKey, toNav, openHeroInfo, openProfile, closeProfileMenu, openSettings, closeSettings, openSwitch,
+      goToPage, applyKey, toNav, openProfile, closeProfileMenu, openSettings, closeSettings, openSwitch,
       closeSwitch, selectProfile, startEdit, commitEdit, applyEditKey, openSignOutConfirm, closeSignOutConfirm, doSignOut,
     ]
   );
@@ -2290,7 +2267,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           return (
             <div key={`all-games-${s.gridIndex}`}>
               {s.gridIndex === 0 && (
-                <div style={{ padding: `0 ${SHELF_PAD}px`, margin: `${layout.shelfRowGap}px 0 ${layout.shelfHeaderGap}px` }}>
+                <div style={{ padding: `0 ${SHELF_PAD}px`, margin: `${si === 0 && pageHasHero ? 0 : layout.shelfRowGap}px 0 ${layout.shelfHeaderGap}px` }}>
                   <h2 style={{ margin: 0, fontSize: 32, fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>
                     {s.gridTitle ?? 'All Games'}
                   </h2>
@@ -2344,7 +2321,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           <section
             key={row.key}
             ref={(el) => (rowRefs.current[sectionIndex - 1] = el)}
-            style={{ marginTop: layout.shelfRowGap, paddingBottom: 12 }}
+            style={{ marginTop: si === 0 && pageHasHero ? 0 : layout.shelfRowGap, paddingBottom: 12 }}
           >
             <div style={{ padding: `0 ${SHELF_PAD}px`, marginBottom: layout.shelfHeaderGap }}>
               <h2 style={{ margin: 0, fontSize: 32, fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>{row.title}</h2>
@@ -2560,7 +2537,6 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
               heroCol={nav.col}
               pressing={pressing}
               onPlay={handleHeroPlay}
-              onMoreInfo={openHeroInfo}
             />
             {heroTransFrom !== null && (
               <HeroSlide
@@ -2574,7 +2550,6 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                 heroCol={nav.col}
                 pressing={false}
                 onPlay={handleHeroPlay}
-                onMoreInfo={openHeroInfo}
               />
             )}
 
@@ -2639,7 +2614,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
             <div
               style={{
                 position: 'absolute',
-                bottom: 44,
+                bottom: layout.hero.dotsBottom,
                 left: '50%',
                 transform: 'translateX(-50%)',
                 display: 'flex',
@@ -3864,7 +3839,7 @@ function SongQuizParty({ focused }: { focused: boolean }) {
   ];
   const emojis = ['🎉', '🎊', '✨', '🎵', '🎈', '🎉', '🎵', '✨'];
   return (
-    <div style={{ position: 'absolute', right: 120, top: 40, width: 760, height: 520 }}>
+    <div style={{ position: 'absolute', right: 120, top: (HERO_ART_H - 520) / 2, width: 760, height: 520 }}>
       {/* Confetti scattered behind the players */}
       {confetti.map((c, i) => (
         <span
@@ -4146,11 +4121,10 @@ export interface HeroSlideProps {
   phase: HeroPhase;
   /** Whether the hero section currently holds D-pad focus. */
   heroFocused: boolean;
-  /** Focused CTA within the hero: 0 = PLAY NOW, 1 = MORE INFO (game slides). */
+  /** Focused CTA within the hero (single CTA per slide → always 0). */
   heroCol: number;
   pressing: boolean;
   onPlay: () => void;
-  onMoreInfo: () => void;
 }
 
 export function HeroSlide({
@@ -4163,7 +4137,6 @@ export function HeroSlide({
   heroCol,
   pressing,
   onPlay,
-  onMoreInfo,
 }: HeroSlideProps) {
   const isWof = !promo && game?.id === WOF_ID;
   const isSongQuiz = !promo && game?.id === 'song-quiz';
@@ -4207,7 +4180,7 @@ export function HeroSlide({
         top: 0,
         left: 0,
         width: STAGE_W,
-        height: 700,
+        height: HERO_SECTION_H,
         pointerEvents: phase === 'out' ? 'none' : undefined,
       }}
     >
@@ -4216,7 +4189,7 @@ export function HeroSlide({
         {promo ? (
           <>
             {/* Panning montage — tilted multi-row wall of game tiles. */}
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 620, overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: HERO_ART_H, overflow: 'hidden' }}>
               <TileMontage games={promoGames} />
             </div>
             {/* QR code popping over the montage */}
@@ -4243,10 +4216,10 @@ export function HeroSlide({
               <GameArt
                 game={game}
                 variant="hero"
-                style={{ position: 'absolute', top: 0, left: 0, width: STAGE_W, height: 620 }}
+                style={{ position: 'absolute', top: 0, left: 0, width: STAGE_W, height: HERO_ART_H }}
               />
             )}
-            <div style={{ position: 'absolute', right: 210, top: 300, transform: 'translateY(-50%)' }}>
+            <div style={{ position: 'absolute', right: 210, top: HERO_ART_H / 2, transform: 'translateY(-50%)' }}>
               <WofWheel focused={heroFocused && phase !== 'out'} />
             </div>
           </>
@@ -4257,7 +4230,7 @@ export function HeroSlide({
                 game={game}
                 variant="hero"
                 hideMotif
-                style={{ position: 'absolute', top: 0, left: 0, width: STAGE_W, height: 620 }}
+                style={{ position: 'absolute', top: 0, left: 0, width: STAGE_W, height: HERO_ART_H }}
               />
             )}
             <SongQuizParty focused={heroFocused && phase !== 'out'} />
@@ -4270,7 +4243,7 @@ export function HeroSlide({
               game={game}
               variant="hero"
               hideMotif
-              style={{ position: 'absolute', top: 0, left: 0, width: STAGE_W, height: 620 }}
+              style={{ position: 'absolute', top: 0, left: 0, width: STAGE_W, height: HERO_ART_H }}
             />
           )
         ) : (
@@ -4278,7 +4251,7 @@ export function HeroSlide({
             <GameArt
               game={game}
               variant="hero"
-              style={{ position: 'absolute', top: 0, left: 0, width: STAGE_W, height: 620 }}
+              style={{ position: 'absolute', top: 0, left: 0, width: STAGE_W, height: HERO_ART_H }}
             />
           )
         )}
@@ -4297,7 +4270,7 @@ export function HeroSlide({
             left: 0,
             right: 0,
             top: 0,
-            height: 620,
+            height: HERO_ART_H,
             background: `linear-gradient(to top, ${STAGE_BG} 2%, transparent 46%)`,
           }}
         />
@@ -4311,7 +4284,7 @@ export function HeroSlide({
         style={{
           position: 'absolute',
           left: SHELF_PAD,
-          bottom: 150,
+          bottom: layout.hero.contentBottom,
           width: 820,
           display: 'flex',
           flexDirection: 'column',
@@ -4344,8 +4317,14 @@ export function HeroSlide({
         ) : (
           game && (
             <>
-              <div style={{ maxWidth: 640, position: 'relative', display: 'inline-block' }}>
-                <GameLogo title={game.title} theme={game.theme} onDark style={{ fontSize: 92, whiteSpace: 'normal' }} />
+              <div style={{ maxWidth: isEmoji ? 'none' : 640, position: 'relative', display: 'inline-block' }}>
+                <GameLogo
+                  title={game.title}
+                  theme={game.theme}
+                  onDark
+                  // Guess the Emoji reads as a single line; others may wrap (e.g. WoF).
+                  style={{ fontSize: isEmoji ? 76 : 92, whiteSpace: isEmoji ? 'nowrap' : 'normal' }}
+                />
                 {/* "NEW RELEASE" sticker pinned to the top-right edge of the title. */}
                 {isWof && (
                   <span
@@ -4366,6 +4345,28 @@ export function HeroSlide({
                     }}
                   >
                     NEW RELEASE
+                  </span>
+                )}
+                {/* "NEW GAME" sticker for the freshly-added titles. */}
+                {(isEmoji || isWerds) && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: -22,
+                      right: -46,
+                      transform: 'rotate(12deg)',
+                      fontSize: 15,
+                      fontWeight: 800,
+                      letterSpacing: '0.14em',
+                      color: '#111',
+                      background: INK,
+                      borderRadius: 8,
+                      padding: '8px 16px',
+                      boxShadow: '0 8px 22px rgba(0,0,0,0.55)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    NEW GAME
                   </span>
                 )}
                 {/* Song Quiz: "Party Mode" as a second title line with a NEW
@@ -4448,19 +4449,16 @@ export function HeroSlide({
                     boxShadow: 'none',
                   }),
             });
+            // Promo (free-trial) slide keeps its single MORE INFO button; game
+            // slides show only PLAY NOW (MORE INFO removed).
             return promo ? (
               <button onClick={onPlay} style={ctaStyle(true)}>
                 MORE INFO
               </button>
             ) : (
-              <>
-                <button onClick={onPlay} style={ctaStyle(heroCol === 0)}>
-                  PLAY NOW
-                </button>
-                <button onClick={onMoreInfo} style={ctaStyle(heroCol === 1)}>
-                  MORE INFO
-                </button>
-              </>
+              <button onClick={onPlay} style={ctaStyle(heroCol === 0)}>
+                PLAY NOW
+              </button>
             );
           })()}
         </div>

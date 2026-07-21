@@ -431,16 +431,18 @@ export function SongQuizBanner() {
 // ── Hero ──────────────────────────────────────────────────────────────────────
 export function HeroExample() {
   const game = HUB_GAMES[2]; // a light-brand game to show the onDark title handling
+  // Shared merch-hero geometry (see @weekend/ui layout.hero) — matches GameHub.
+  const { sectionH, artH, contentBottom } = layout.hero;
   const textCol: CSSProperties = {
-    position: 'absolute', left: SHELF_PAD, bottom: 96, width: 900,
+    position: 'absolute', left: SHELF_PAD, bottom: contentBottom, width: 900,
     display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 24,
   };
   return (
-    <ScaledStage designW={1920} designH={620}>
-      <div style={{ position: 'relative', width: 1920, height: 620 }}>
-        <GameArt game={game} variant="hero" style={{ position: 'absolute', top: 0, left: 0, width: 1920, height: 560 }} />
+    <ScaledStage designW={1920} designH={sectionH}>
+      <div style={{ position: 'relative', width: 1920, height: sectionH }}>
+        <GameArt game={game} variant="hero" style={{ position: 'absolute', top: 0, left: 0, width: 1920, height: artH }} />
         <div aria-hidden style={{ position: 'absolute', inset: 0, background: `linear-gradient(to right, ${STAGE_BG} 0%, ${STAGE_BG} 24%, transparent 56%)` }} />
-        <div aria-hidden style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 560, background: `linear-gradient(to top, ${STAGE_BG} 2%, transparent 46%)` }} />
+        <div aria-hidden style={{ position: 'absolute', left: 0, right: 0, top: 0, height: artH, background: `linear-gradient(to top, ${STAGE_BG} 2%, transparent 46%)` }} />
         <div style={textCol}>
           <div style={{ maxWidth: 640 }}>
             <GameLogo title={game.title} theme={game.theme} onDark style={{ fontSize: 88, whiteSpace: 'normal' }} />
