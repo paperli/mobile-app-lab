@@ -31,6 +31,8 @@ export const space = {
 } as const;
 
 export const layout = {
+  /** Fixed design width of the TV stage (1080p). */
+  stageW: 1920,
   /** Leading inset shared by every row/grid — the page's left alignment line. */
   shelfGutter: space[10], // 80
   /** Gap between tiles, identical for every role. */
@@ -41,6 +43,8 @@ export const layout = {
   shelfRowGap: space[7], // 40
   /** Edge-fade mask width — the "more ->" peek cue. */
   shelfFade: 130,
+  /** All-Games grid columns (gutter-to-gutter). */
+  gridCols: 5,
   tile: {
     /** One corner radius for every tile. */
     radius: 16,
@@ -70,3 +74,11 @@ export const layout = {
 
 /** Height of a 16:9 tile for a given width. */
 export const tileHeight = (w: number) => (w * 9) / 16;
+
+/**
+ * All-Games grid tile width: `cols` tiles fit gutter-to-gutter across the stage,
+ * with `shelfGutter` on both sides and `shelfGap` between. Defaults to the
+ * standard 5-up grid on the 1920 stage → 326.4px.
+ */
+export const gridTileWidth = (cols: number = layout.gridCols, stageW: number = layout.stageW): number =>
+  (stageW - 2 * layout.shelfGutter - (cols - 1) * layout.shelfGap) / cols;

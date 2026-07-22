@@ -23,7 +23,7 @@ import {
 } from 'react';
 import type { CSSProperties } from 'react';
 import type { NavigationAction, NavigationDirection } from '@mobile-app-lab/shared';
-import { layout, tileHeight } from '@weekend/ui';
+import { layout, tileHeight, gridTileWidth } from '@weekend/ui';
 import { QRCodeSVG } from 'qrcode.react';
 import { HUB_GAMES, type HubGame, type GameTheme } from '../prototype/hub/games';
 import { GameArt } from '../prototype/hub/GameArt';
@@ -100,12 +100,11 @@ const HERO_GAMES = (() => {
 })();
 
 // "All Games" grid: every game in the catalog, GRID_COLS per row. The grid tile
-// width is derived so exactly GRID_COLS tiles + gaps fill the stage between the
-// shared side gutters — i.e. the left and right margins both equal shelfGutter.
-//   (GRID_COLS·w + (GRID_COLS−1)·gap + 2·gutter = STAGE_W)
+// width fits exactly GRID_COLS tiles + gaps between the shared side gutters —
+// derived from the shared @weekend/ui tokens so the Component Kit matches.
 const ALL_GAMES = HUB_CATALOG;
-const GRID_COLS = 5;
-const GRID_TILE_W = (STAGE_W - 2 * layout.shelfGutter - (GRID_COLS - 1) * layout.shelfGap) / GRID_COLS;
+const GRID_COLS = layout.gridCols;
+const GRID_TILE_W = gridTileWidth();
 
 function chunk<T>(arr: readonly T[], size: number): T[][] {
   const out: T[][] = [];

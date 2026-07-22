@@ -3,7 +3,7 @@
 // primitives used inside GameHub (Tile / category shelf / All-Games grid / promo
 // banner / hero) so the playground documents the *real* component types.
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { layout, tileHeight } from '@weekend/ui';
+import { layout, tileHeight, gridTileWidth } from '@weekend/ui';
 import { QRCodeSVG } from 'qrcode.react';
 import { HUB_GAMES, type HubGame } from '../prototype/hub/games';
 import { GameArt } from '../prototype/hub/GameArt';
@@ -19,13 +19,14 @@ const STAGE_BG = '#0a0b0d';
 // playground documents the real geometry: one gap / radius / gutter for every
 // role, standard + grid share a width, featured uses the 2x tile.
 const SHELF_PAD = layout.shelfGutter;
-const GRID_COLS = 4;
+const GRID_COLS = layout.gridCols; // 5-up All-Games grid, matches GameHub
+const GRID_W = gridTileWidth(); // 326.4 — grid tiles are narrower than shelf tiles
 
 type TileVariant = 'sm' | 'lg' | 'grid';
 const TILE = {
   sm: { w: layout.tile.w, h: tileHeight(layout.tile.w), r: layout.tile.radius, gap: layout.shelfGap },
   lg: { w: layout.tile.wFeatured, h: tileHeight(layout.tile.wFeatured), r: layout.tile.radius, gap: layout.shelfGap },
-  grid: { w: layout.tile.w, h: tileHeight(layout.tile.w), r: layout.tile.radius, gap: layout.shelfGap },
+  grid: { w: GRID_W, h: tileHeight(GRID_W), r: layout.tile.radius, gap: layout.shelfGap },
 } as const;
 
 /* Faked "live players" count for the PLAYING chip — deterministic per game (so
