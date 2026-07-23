@@ -1512,17 +1512,22 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
         const count = heroSlideCountRef.current;
         const merch = merchSlidesRef.current;
         if (merch) {
-          // Merch carousel: ◀▶ step through a filmstrip of focusable tiles —
-          // the promo slide has 1 (its CTA), each merch slide has 2 game tiles.
-          // Crossing a slide boundary swaps the visible slide; dots follow it.
-          const flat: { s: number; c: number }[] = [];
-          for (let s = 0; s < count; s++) {
-            const tiles = promoOffsetRef.current && s === 0 ? 1 : 2;
-            for (let c = 0; c < tiles; c++) flat.push({ s, c });
+          // Merch carousel: ◀▶ toggles between a slide's two game tiles; at a
+          // slide edge it crosses to the adjacent slide and lands on its FIRST
+          // tile (col 0). The promo slide has a single focusable (its CTA).
+          const s = prev.heroSlide;
+          const c = prev.col;
+          const isPromo = promoOffsetRef.current > 0 && s === 0;
+          let ns = s;
+          let nc = c;
+          if (dx > 0) {
+            if (!isPromo && c === 0) nc = 1; // within slide → 2nd tile
+            else { ns = (s + 1) % count; nc = 0; } // cross → next slide, 1st tile
+          } else {
+            if (!isPromo && c === 1) nc = 0; // within slide → 1st tile
+            else { ns = (s - 1 + count) % count; nc = 0; } // cross → prev slide, 1st tile
           }
-          const curIdx = Math.max(0, flat.findIndex((f) => f.s === prev.heroSlide && f.c === prev.col));
-          const ni = (curIdx + (dx > 0 ? 1 : -1) + flat.length) % flat.length;
-          next = { ...prev, heroSlide: flat[ni].s, col: flat[ni].c };
+          next = { ...prev, heroSlide: ns, col: nc };
         } else {
           // Plain hero: every slide has a single CTA, so ◀▶ just cycles slides.
           const ns = (prev.heroSlide + (dx > 0 ? 1 : -1) + count) % count;
