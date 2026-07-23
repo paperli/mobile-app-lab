@@ -62,6 +62,20 @@ export interface GameTheme {
   motif: string;
 }
 
+/**
+ * Real exported art for a game. When present, the art system (GameArt /
+ * GameLogo) renders these raster assets instead of the procedural theme art:
+ *   · tile    — fully-composed 16:9 tile (logo baked in)
+ *   · preview — wide "Top Game Preview" scene for the hero/preview band
+ *   · logo    — transparent wordmark PNG (overlaid on the preview band)
+ * Any missing field falls back to the procedural `theme` rendering.
+ */
+export interface GameArtAssets {
+  tile?: string;
+  preview?: string;
+  logo?: string;
+}
+
 export interface HubGame {
   id: string;
   title: string;
@@ -73,6 +87,8 @@ export interface HubGame {
   /** Mirrors a real Figma hub title — gets bespoke palette tuning. */
   featured?: boolean;
   theme: GameTheme;
+  /** Real exported art; falls back to the procedural `theme` when absent. */
+  art?: GameArtAssets;
 }
 
 // ── Featured 7 (match the Figma hub art) ───────────────────────────────────

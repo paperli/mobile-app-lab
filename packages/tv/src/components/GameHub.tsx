@@ -29,6 +29,7 @@ import { HUB_GAMES, type HubGame, type GameTheme } from '../prototype/hub/games'
 import { GameArt } from '../prototype/hub/GameArt';
 import { GameLogo } from '../prototype/hub/GameLogo';
 import { GameMetaPills } from '../prototype/hub/MetadataPill';
+import { ARCADE_THEME, MOCKUP_THEME, HubThemeContext, useHubTheme } from '../prototype/hub/hubTheme';
 import { Screenshot, SHOT_VARIANTS } from '../prototype/hub/Screenshot';
 import { soundManager } from '../utils/sounds';
 import { getMobileUrl } from '../utils/getMobileUrl';
@@ -41,13 +42,127 @@ const FRAME_MARGIN = 28; // breathing room between the TV and the viewport edge
 const FRAME_BEZEL = 18; // frame thickness on top / left / right
 const FRAME_CHIN = 16; // extra thickness on the bottom edge (for the brand/LED)
 const FONT = "'Weekend Repro', ui-sans-serif, system-ui, sans-serif";
+// Weekend DS colors (from @weekend/ui / arcade-foundation tokens):
+//   fg = Warm White #F3F4F1, dim = warm-white @ ~62%, surface = Midnight Blue
+//   #0A0322. The curated hub renders these in full color; the procedural
+//   B&W mockups desaturate them via the stage grayscale filter.
 const INK = '#F3F4F1';
-const INK_DIM = '#c9cacc';
-const STAGE_BG = '#0a0b0d';
+const INK_DIM = 'rgba(243,244,241,0.62)';
+const STAGE_BG = '#0A0322';
 
 const reduceMotion =
   typeof window !== 'undefined' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Real Weekend brand wordmark (canary script logo) — exported from Figma
+// (Game Preview Creation Kit, node 13802-17500), served from public/brand.
+// Replaces the placeholder "weekend" text. Native art is 192×47; rendered at
+// 48px tall, left-anchored to the given position.
+const WEEKEND_LOGO_SRC = '/brand/weekend-logo.svg';
+// Brand wordmark. The `arcade` theme renders the real Canary logo asset; the
+// `mockup` theme keeps the original plain "weekend" text.
+function BrandMark({ left, top }: { left: number; top: number }) {
+  const { brandLogo } = useHubTheme();
+  if (brandLogo) {
+    return (
+      <img
+        src={WEEKEND_LOGO_SRC}
+        alt="Weekend"
+        style={{
+          position: 'absolute',
+          left,
+          top,
+          height: 48,
+          width: 'auto',
+          display: 'block',
+          filter: 'drop-shadow(0 2px 20px rgba(0,0,0,0.5))',
+        }}
+      />
+    );
+  }
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left,
+        top,
+        fontFamily: FONT,
+        fontWeight: 800,
+        fontSize: 44,
+        letterSpacing: '-0.02em',
+        color: INK,
+        textShadow: '0 2px 20px rgba(0,0,0,0.6)',
+      }}
+    >
+      weekend
+    </div>
+  );
+}
+
+// DS action + focus colors (from @weekend/ui / arcade-foundation tokens). The
+// DS primary/CTA is a Canary gradient on Midnight-Blue ink; the focus frame is
+// a radial Limon→Sky gradient stroke with a Sky halo (mirrors @weekend/ui
+// FOCUS_FRAME + the FocusableButton "focus" state). Applied for color only —
+// sizes/shapes are unchanged.
+const CANARY = '#FFDA0A';
+const CANARY_300 = '#FFF09E';
+const CTA_GRADIENT = `linear-gradient(180deg, ${CANARY_300} 0%, ${CANARY} 100%)`;
+const CTA_GLOW = '0 5.533px 22.133px 0 rgba(255,228,1,0.35)';
+// Focus ring: a subtle Canary gradient (light → base → deep canary) + Canary halo.
+const FOCUS_STROKE = 'linear-gradient(150deg, #FFF09E 0%, #FFDA0A 52%, #D9B908 100%)';
+const FOCUS_HALO = '0 0 22px 2px rgba(255,218,10,0.5)'; // Canary glow
+
+// Ring-only mask (paints just the padding band, hollow center) — used for both
+// the gap fill and the gradient stroke so neither covers the tile art.
+const RING_MASK = {
+  WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+  WebkitMaskComposite: 'xor',
+  mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+  maskComposite: 'exclude',
+} as const;
+
+/**
+ * Focus ring — two concentric bands floated OUTSIDE the focused element: an
+ * inner Midnight-Blue `gap` band (a solid DS-bg spacer so the ring reads over
+ * any tile art and hides the glow bleed) and a Canary gradient stroke. Both are
+ * masked to their band only (hollow center), so the tile art is never covered.
+ * Rendered outside the element's clip; pair with FOCUS_HALO for the glow.
+ */
+function FocusRing({ radius, width = 5, gap = 6 }: { radius: number; width?: number; gap?: number }) {
+  const grow = gap + width;
+  return (
+    <>
+      {/* Midnight-blue gap band (DS background) */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: -gap,
+          borderRadius: radius + gap,
+          padding: gap,
+          background: STAGE_BG,
+          ...RING_MASK,
+          pointerEvents: 'none',
+          zIndex: 4,
+        }}
+      />
+      {/* Canary gradient stroke */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: -grow,
+          borderRadius: radius + grow,
+          padding: width,
+          background: FOCUS_STROKE,
+          ...RING_MASK,
+          pointerEvents: 'none',
+          zIndex: 5,
+        }}
+      />
+    </>
+  );
+}
 
 // ── Content model — edit these to mock new categories ──────────────────────
 export type TileVariant = 'sm' | 'lg' | 'grid';
@@ -221,6 +336,15 @@ const KB_GRID: string[][] = [
 const HERO_SECTION_H = layout.hero.sectionH;
 const HERO_ART_H = layout.hero.artH;
 const PREVIEW_H = 480;
+// Exported "Top Game Preview" art is authored at this native size and rendered
+// 1:1, right-anchored, in the 1920-wide band (see GameArt). Its left edge sits
+// at STAGE_W − PREVIEW_IMG_W; the left fade goes fully solid up to that edge so
+// the image blends in with no visible hard edge.
+const PREVIEW_IMG_W = 1422;
+const PREVIEW_IMG_EDGE_PCT = ((STAGE_W - PREVIEW_IMG_W) / STAGE_W) * 100; // ≈25.9%
+// Left fade: opaque stage bg out to the image's left edge, then to transparent
+// ~30% further right (over the image's left portion).
+const HERO_LEFT_FADE = `linear-gradient(to right, ${STAGE_BG} 0%, ${STAGE_BG} ${PREVIEW_IMG_EDGE_PCT}%, transparent ${PREVIEW_IMG_EDGE_PCT + 30}%)`;
 // Clearance below the v3 preview so a focused row's ring/scale isn't clipped.
 const PREVIEW_GAP = 28;
 
@@ -436,6 +560,11 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // no top nav, reusing every standard element. Catalog + hero games fall back to
   // the built-in 30-game defaults when no content is provided.
   const customHub = !!content;
+  // Curated hub (hub9) renders in the production `arcade` DS theme; every other
+  // variation uses the low-fi `mockup` theme. Provided via context so the shared
+  // hub components (HeroSlide / PreviewHero / Tile / pills / brand mark) pick it
+  // up without prop-drilling.
+  const theme = customHub ? ARCADE_THEME : MOCKUP_THEME;
   const catalog = content?.catalog ?? HUB_CATALOG;
   const heroGames = content?.heroGames ?? HERO_GAMES;
   const newIdSet = content?.newIds ? new Set(content.newIds) : null;
@@ -2430,7 +2559,9 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           // Framed: anchor to the clip box's top-left so the scaled stage fills
           // it exactly. Full-bleed: scale about the centre and letterbox.
           transformOrigin: framed ? 'top left' : 'center center',
-          filter: 'grayscale(1) contrast(1.03)', // B&W guarantee
+          // B&W guarantee for the exploratory procedural mockups; a curated hub
+          // (real exported color art) renders in full color for eye-checking.
+          filter: theme.grayscale ? 'grayscale(1) contrast(1.03)' : undefined,
           fontFamily: FONT,
         }}
       >
@@ -2552,24 +2683,9 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
               />
             )}
 
-            {/* Brand wordmark — phase 1 shows it in the top nav bar instead. */}
-            {!hasTopNav && (
-              <div
-                style={{
-                  position: 'absolute',
-                  left: SHELF_PAD,
-                  top: 44,
-                  fontFamily: FONT,
-                  fontWeight: 800,
-                  fontSize: 44,
-                  letterSpacing: '-0.02em',
-                  color: INK,
-                  textShadow: '0 2px 20px rgba(0,0,0,0.6)',
-                }}
-              >
-                weekend
-              </div>
-            )}
+            {/* Brand wordmark — phase 1 shows it in the top nav bar instead.
+                DS (hub9) uses the real logo asset; other variations keep text. */}
+            {!hasTopNav && <BrandMark left={SHELF_PAD} top={44} />}
 
             {/* Pairing panel — hidden by default; enable with ?pairing=true */}
             {showPairing && (
@@ -2646,7 +2762,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                           position: 'absolute',
                           inset: 0,
                           borderRadius: 9999,
-                          background: INK,
+                          background: theme.dsAccent ? CANARY : INK,
                           transformOrigin: 'left center',
                           ...(countdown
                             ? { animation: `hubHeroDotFill ${HERO_AUTOPLAY_MS}ms linear forwards` }
@@ -2769,21 +2885,8 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                 background: `linear-gradient(to right, ${STAGE_BG} 0%, ${STAGE_BG} 30%, transparent 62%)`,
               }}
             />
-            {/* Weekend wordmark */}
-            <div
-              style={{
-                position: 'absolute',
-                left: 140,
-                top: 64,
-                fontFamily: FONT,
-                fontWeight: 800,
-                fontSize: 44,
-                letterSpacing: '-0.02em',
-                color: INK,
-              }}
-            >
-              weekend
-            </div>
+            {/* Weekend wordmark — real logo in DS mode (hub9), text otherwise. */}
+            <BrandMark left={140} top={64} />
             {/* Title + subtitle */}
             <div style={{ position: 'absolute', left: 140, top: 232, width: 760 }}>
               <h2 style={{ margin: 0, fontFamily: FONT, fontWeight: 800, fontSize: 60, lineHeight: 1.08, letterSpacing: '-0.02em', color: INK }}>
@@ -3409,6 +3512,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   );
 
   return (
+    <HubThemeContext.Provider value={theme}>
     <div
       style={{
         position: 'fixed',
@@ -3471,6 +3575,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
         stageEl
       )}
     </div>
+    </HubThemeContext.Provider>
   );
 });
 
@@ -3600,7 +3705,7 @@ export function PreviewHero({ game, showPairing, roomCode, mobileUrl }: PreviewH
           style={{
             position: 'absolute',
             inset: 0,
-            background: `linear-gradient(to right, ${STAGE_BG} 0%, ${STAGE_BG} 24%, transparent 56%)`,
+            background: HERO_LEFT_FADE,
           }}
         />
         <div
@@ -3616,22 +3721,8 @@ export function PreviewHero({ game, showPairing, roomCode, mobileUrl }: PreviewH
         />
       </div>
 
-      {/* Weekend wordmark */}
-      <div
-        style={{
-          position: 'absolute',
-          left: SHELF_PAD,
-          top: 44,
-          fontFamily: FONT,
-          fontWeight: 800,
-          fontSize: 44,
-          letterSpacing: '-0.02em',
-          color: INK,
-          textShadow: '0 2px 20px rgba(0,0,0,0.6)',
-        }}
-      >
-        weekend
-      </div>
+      {/* Weekend wordmark (real brand logo) */}
+      <BrandMark left={SHELF_PAD} top={44} />
 
       {/* Pairing panel — hidden by default; enable with ?pairing=true */}
       {showPairing && (
@@ -3677,12 +3768,12 @@ export function PreviewHero({ game, showPairing, roomCode, mobileUrl }: PreviewH
         }}
       >
         <div style={{ maxWidth: 760 }}>
-          <GameLogo title={game.title} theme={game.theme} onDark style={{ fontSize: 80, whiteSpace: 'normal' }} />
+          <GameLogo title={game.title} theme={game.theme} onDark src={game.art?.logo} style={{ fontSize: 80, whiteSpace: 'normal' }} />
         </div>
         <p
           style={{
             margin: 0,
-            maxWidth: 620,
+            maxWidth: 760,
             fontSize: 24,
             lineHeight: 1.35,
             color: 'rgba(243,244,241,0.82)',
@@ -3694,7 +3785,7 @@ export function PreviewHero({ game, showPairing, roomCode, mobileUrl }: PreviewH
         >
           {game.description}
         </p>
-        <GameMetaPills players={game.players} interaction={game.interaction} size={40} />
+        <GameMetaPills players={game.players} interaction={game.interaction} />
       </div>
     </div>
   );
@@ -4137,11 +4228,16 @@ export function HeroSlide({
   pressing,
   onPlay,
 }: HeroSlideProps) {
+  const { dsAccent } = useHubTheme();
   const isWof = !promo && game?.id === WOF_ID;
   const isSongQuiz = !promo && game?.id === 'song-quiz';
   // Bespoke posters for the two new games (per the brief).
   const isEmoji = !promo && game?.id === 'guess-the-emoji';
   const isWerds = !promo && game?.id === 'werds';
+  // Real exported preview art carries the full scene, so the procedural focal
+  // overlays (spinning wheel, floaters, devices, party) are suppressed in favor
+  // of the raster art below.
+  const hasHeroArt = !promo && !!game?.art?.preview;
   // The CTA re-selects (unselected → selected) as the new slide settles, so the
   // change reads clearly. Incoming slides start unselected then flip; otherwise
   // the button just mirrors whether the hero is focused.
@@ -4218,9 +4314,11 @@ export function HeroSlide({
                 style={{ position: 'absolute', top: 0, left: 0, width: STAGE_W, height: HERO_ART_H }}
               />
             )}
-            <div style={{ position: 'absolute', right: 210, top: HERO_ART_H / 2, transform: 'translateY(-50%)' }}>
-              <WofWheel focused={heroFocused && phase !== 'out'} />
-            </div>
+            {!hasHeroArt && (
+              <div style={{ position: 'absolute', right: 210, top: HERO_ART_H / 2, transform: 'translateY(-50%)' }}>
+                <WofWheel focused={heroFocused && phase !== 'out'} />
+              </div>
+            )}
           </>
         ) : isSongQuiz ? (
           <>
@@ -4232,7 +4330,7 @@ export function HeroSlide({
                 style={{ position: 'absolute', top: 0, left: 0, width: STAGE_W, height: HERO_ART_H }}
               />
             )}
-            <SongQuizParty focused={heroFocused && phase !== 'out'} />
+            {!hasHeroArt && <SongQuizParty focused={heroFocused && phase !== 'out'} />}
           </>
         ) : isEmoji || isWerds ? (
           // New-game posters: themed backdrop; the focal art (floating emojis /
@@ -4259,7 +4357,7 @@ export function HeroSlide({
           style={{
             position: 'absolute',
             inset: 0,
-            background: `linear-gradient(to right, ${STAGE_BG} 0%, ${STAGE_BG} 24%, transparent 56%)`,
+            background: HERO_LEFT_FADE,
           }}
         />
         <div
@@ -4274,8 +4372,8 @@ export function HeroSlide({
           }}
         />
         {/* Focal poster art for the new games — over the fades so it stays crisp. */}
-        {isEmoji && <EmojiFloaters focused={heroFocused && phase !== 'out'} />}
-        {isWerds && <WerdsDevices />}
+        {isEmoji && !hasHeroArt && <EmojiFloaters focused={heroFocused && phase !== 'out'} />}
+        {isWerds && !hasHeroArt && <WerdsDevices />}
       </div>
 
       {/* Text column (fades only) */}
@@ -4316,11 +4414,12 @@ export function HeroSlide({
         ) : (
           game && (
             <>
-              <div style={{ maxWidth: isEmoji ? 'none' : 640, position: 'relative', display: 'inline-block' }}>
+              <div style={{ maxWidth: game.art?.logo ? 720 : isEmoji ? 'none' : 640, position: 'relative', display: 'inline-block' }}>
                 <GameLogo
                   title={game.title}
                   theme={game.theme}
                   onDark
+                  src={game.art?.logo}
                   // Guess the Emoji reads as a single line; others may wrap (e.g. WoF).
                   style={{ fontSize: isEmoji ? 76 : 92, whiteSpace: isEmoji ? 'nowrap' : 'normal' }}
                 />
@@ -4399,7 +4498,7 @@ export function HeroSlide({
               <p
                 style={{
                   margin: 0,
-                  maxWidth: 620,
+                  maxWidth: 760,
                   fontSize: 26,
                   lineHeight: 1.35,
                   color: 'rgba(243,244,241,0.82)',
@@ -4413,7 +4512,7 @@ export function HeroSlide({
                   ? 'Up to 4 friends go head-to-head to name the hit song first.'
                   : game.description}
               </p>
-              <GameMetaPills players={game.players} interaction={game.interaction} size={42} />
+              <GameMetaPills players={game.players} interaction={game.interaction} />
             </>
           )
         )}
@@ -4432,21 +4531,40 @@ export function HeroSlide({
               letterSpacing: '0.02em',
               transition:
                 'transform 220ms cubic-bezier(.22,.61,.36,1), background 220ms ease, box-shadow 220ms ease, color 220ms ease, border-color 220ms ease',
+              // DS (hub9): FocusableButton — focused/selected = Canary gradient on
+              // Midnight-Blue ink + cta-glow, else a warm-white 10% fill. Other
+              // variations keep the original white/dark CTA.
               ...(btnFocused && selected
-                ? {
-                    background: INK,
-                    color: '#000',
-                    border: '1px solid #fff',
-                    transform: pressing ? 'scale(0.96)' : 'scale(1.04)',
-                    boxShadow: '0 0 0 4px #fff, 0 12px 30px rgba(0,0,0,0.6)',
-                  }
-                : {
-                    background: '#141518',
-                    color: INK,
-                    border: '1px solid #3a3b3f',
-                    transform: 'scale(1)',
-                    boxShadow: 'none',
-                  }),
+                ? dsAccent
+                  ? {
+                      background: CTA_GRADIENT,
+                      color: STAGE_BG,
+                      border: 'none',
+                      transform: pressing ? 'scale(0.96)' : 'scale(1.04)',
+                      boxShadow: `${CTA_GLOW}, 0 12px 30px rgba(0,0,0,0.5)`,
+                    }
+                  : {
+                      background: INK,
+                      color: '#000',
+                      border: '1px solid #fff',
+                      transform: pressing ? 'scale(0.96)' : 'scale(1.04)',
+                      boxShadow: '0 0 0 4px #fff, 0 12px 30px rgba(0,0,0,0.6)',
+                    }
+                : dsAccent
+                  ? {
+                      background: 'rgba(243,244,241,0.10)',
+                      color: INK,
+                      border: 'none',
+                      transform: 'scale(1)',
+                      boxShadow: 'none',
+                    }
+                  : {
+                      background: '#141518',
+                      color: INK,
+                      border: '1px solid #3a3b3f',
+                      transform: 'scale(1)',
+                      boxShadow: 'none',
+                    }),
             });
             // Promo (free-trial) slide keeps its single MORE INFO button; game
             // slides show only PLAY NOW (MORE INFO removed).
@@ -4603,6 +4721,9 @@ export function Tile({
 }: TileProps) {
   const t = TILE[variant];
   const showShots = slideshow && focused && slideshowReady;
+  // Focus treatment follows the hub theme: `arcade` = Canary gradient ring + gap;
+  // `mockup` = the original white ring.
+  const dsFocus = useHubTheme().dsAccent;
 
   const captionStyle: CSSProperties = {
     position: 'absolute',
@@ -4628,14 +4749,23 @@ export function Tile({
         width: t.w,
         height: t.h,
         borderRadius: t.r,
-        overflow: 'hidden',
         background: '#141518',
         transform: focused ? (pressing ? 'scale(0.98)' : 'scale(1.06)') : 'scale(1)',
         transition: 'transform 240ms cubic-bezier(.22,.61,.36,1), box-shadow 240ms ease',
-        boxShadow: focused ? '0 0 0 4px #fff, 0 26px 60px rgba(0,0,0,0.7)' : 'none',
+        // DS (hub9): Canary halo + drop shadow (the Canary gradient stroke with a
+        // gap is the FocusRing below). Other variations keep the original white
+        // ring. Both float outside the art, which has its own inner clip.
+        boxShadow: focused
+          ? dsFocus
+            ? `${FOCUS_HALO}, 0 26px 60px rgba(0,0,0,0.7)`
+            : '0 0 0 4px #fff, 0 26px 60px rgba(0,0,0,0.7)'
+          : 'none',
         zIndex: focused ? 3 : 1,
       }}
     >
+      {dsFocus && focused && <FocusRing radius={t.r} gap={variant === 'grid' ? 5 : 6} width={variant === 'grid' ? 4 : 5} />}
+      {/* Inner clip: rounds/masks the art while the focus ring floats outside it. */}
+      <div style={{ position: 'absolute', inset: 0, borderRadius: t.r, overflow: 'hidden' }}>
       {/* Corner tag (e.g. "NEW") pinned above the art. */}
       {badge && (
         <span
@@ -4657,7 +4787,8 @@ export function Tile({
           {badge}
         </span>
       )}
-      {/* Base tile art with the game name centered as the logotype */}
+      {/* Base tile art. Procedural tiles center the game name as the logotype;
+          a real composed tile already bakes the wordmark in, so skip the overlay. */}
       <GameArt
         game={game}
         variant="tile"
@@ -4669,28 +4800,30 @@ export function Tile({
           transition: 'opacity 500ms ease',
         }}
       >
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '0 10%',
-          }}
-        >
-          <GameLogo
-            title={game.title}
-            theme={game.theme}
+        {!game.art?.tile && (
+          <div
             style={{
-              fontSize: variant === 'lg' ? '15cqh' : '18cqh',
-              maxWidth: '86%',
-              whiteSpace: 'normal',
-              textAlign: 'center',
-              lineHeight: 1,
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0 10%',
             }}
-          />
-        </div>
+          >
+            <GameLogo
+              title={game.title}
+              theme={game.theme}
+              style={{
+                fontSize: variant === 'lg' ? '15cqh' : '18cqh',
+                maxWidth: '86%',
+                whiteSpace: 'normal',
+                textAlign: 'center',
+                lineHeight: 1,
+              }}
+            />
+          </div>
+        )}
       </GameArt>
 
       {/* Slideshow screenshots (loop while focused) */}
@@ -4758,6 +4891,7 @@ export function Tile({
           {fakePlayingCount(game.id)} PLAYING
         </div>
       )}
+      </div>
     </button>
   );
 }

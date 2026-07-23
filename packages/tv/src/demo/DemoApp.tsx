@@ -288,22 +288,6 @@ function Hub9View() {
           </div>
         </div>
       )}
-      <div
-        style={{
-          position: 'fixed',
-          bottom: 12,
-          left: 0,
-          right: 0,
-          zIndex: 90,
-          textAlign: 'center',
-          fontFamily: FONT,
-          fontSize: 13,
-          color: '#8a8a9a',
-          pointerEvents: 'none',
-        }}
-      >
-        ◀ ▲ ▼ ▶ navigate · Enter select · Esc back / gallery
-      </div>
     </>
   );
 }

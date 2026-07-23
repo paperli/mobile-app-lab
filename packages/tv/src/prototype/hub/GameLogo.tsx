@@ -90,9 +90,35 @@ interface GameLogoProps {
   style?: CSSProperties;
   /** The wordmark sits on a dark backdrop (hero/preview); force a legible ink. */
   onDark?: boolean;
+  /** Real exported wordmark PNG. When set, renders the image at its designed
+   *  size (contain-fit within the runbook's max box) instead of procedural type. */
+  src?: string;
+  /** Max box for the raster wordmark (hero-v3 "Top Game Preview" default:
+   *  ≤720×180). The logo is shown as-is up to this box; never upscaled. */
+  maxLogoW?: number;
+  maxLogoH?: number;
 }
 
-export function GameLogo({ title, theme, className, style, onDark }: GameLogoProps) {
+// hero-v3 "Top Game Preview" logo box — contain-fit ≤ 720×180, min height 80.
+// https://volley-inc.github.io/arcade-runbook/hero-v3.html
+const LOGO_MAX_W = 720;
+const LOGO_MAX_H = 180;
+
+export function GameLogo({ title, theme, className, style, onDark, src, maxLogoW = LOGO_MAX_W, maxLogoH = LOGO_MAX_H }: GameLogoProps) {
+  if (src) {
+    // Show the wordmark at its designed size, contain-fit within the max box
+    // (both max-width and max-height set → the browser scales down
+    // proportionally to fit either bound). Intrinsic size is never upscaled, so
+    // "as is" holds for logos already inside the box.
+    return (
+      <img
+        src={src}
+        alt={title}
+        className={className}
+        style={{ display: 'block', width: 'auto', height: 'auto', maxWidth: maxLogoW, maxHeight: maxLogoH, ...style }}
+      />
+    );
+  }
   return (
     <span className={className} style={{ ...logoCss(theme, onDark), ...style }}>
       {title}

@@ -17,10 +17,19 @@ export interface Hub9Game extends HubGame {
   isNew?: boolean;
 }
 
+// Real exported v3 art (v2 for CoComelon — no v3 yet), served from
+// packages/tv/public/games/hub9/<id>/. The art system prefers these over the
+// procedural theme fallback; `theme` is retained for palette/pill accents.
+const artFor = (id: string) => ({
+  tile: `/games/hub9/${id}/tile.png`,
+  preview: `/games/hub9/${id}/preview.jpg`,
+  logo: `/games/hub9/${id}/logo.png`,
+});
+
 // Order matches the requested grid order:
 // Jeopardy!, Song Quiz, Wheel of Fortune, Wit's End, CoComelon, Spot On,
 // Sketchy AF, Guess the Emoji, Werds.
-export const HUB9_GAMES: Hub9Game[] = [
+const HUB9_GAMES_BASE: Hub9Game[] = [
   {
     id: 'jeopardy',
     title: 'Jeopardy!',
@@ -96,6 +105,9 @@ export const HUB9_GAMES: Hub9Game[] = [
     theme: { base: '#07231f', from: '#0c3a33', to: '#14b8a6', accent: '#fde047', pattern: 'grid', logo: 'block', motif: '⌨️' },
   },
 ];
+
+/** Each game with its real exported art attached. */
+export const HUB9_GAMES: Hub9Game[] = HUB9_GAMES_BASE.map((g) => ({ ...g, art: artFor(g.id) }));
 
 export const getHub9Game = (id: string): Hub9Game => {
   const g = HUB9_GAMES.find((x) => x.id === id);

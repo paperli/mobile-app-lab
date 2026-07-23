@@ -20,6 +20,38 @@ interface GameArtProps {
 
 export function GameArt({ game, variant = 'tile', children, className, style, hideMotif }: GameArtProps) {
   const { theme } = game;
+
+  // Real exported art short-circuits the procedural surface. Tiles use the
+  // composed 16:9 tile (logo baked in), cover-filled. The hero/preview band uses
+  // the exported "Top Game Preview" scene, which is authored at its native size
+  // (1422×480, matching the 480 band height): render it 1:1 — no upscaling —
+  // anchored to the right with the focal subject, vertically centered. The left
+  // gap holds the content stack + left fade, per the hero-v3 runbook.
+  // Callers suppress redundant overlays (e.g. a tile's baked-in wordmark) when
+  // real art is present — see GameTile / HeroSlide.
+  const src = variant === 'tile' ? game.art?.tile : game.art?.preview;
+  if (src) {
+    const isTile = variant === 'tile';
+    return (
+      <div
+        className={className}
+        style={{ position: 'relative', overflow: 'hidden', containerType: 'size', background: theme.base, ...style }}
+      >
+        <img
+          src={src}
+          alt=""
+          aria-hidden
+          style={
+            isTile
+              ? { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }
+              : { position: 'absolute', top: '50%', right: 0, transform: 'translateY(-50%)', width: 'auto', height: 'auto', maxWidth: '100%', display: 'block' }
+          }
+        />
+        {children}
+      </div>
+    );
+  }
+
   const bg =
     variant === 'hero' ? heroBackground(theme) : variant === 'plain' ? plainBackground(theme) : tileBackground(theme);
 
