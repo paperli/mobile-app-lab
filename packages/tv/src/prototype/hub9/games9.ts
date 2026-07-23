@@ -10,6 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 import type { HubGame } from '../hub/games';
 import type { HubContent } from '../../components/GameHub';
+import { assetUrl } from '../../utils/assetUrl';
 
 /** A hub game with the prototype's per-tile NEW flag. */
 export interface Hub9Game extends HubGame {
@@ -20,10 +21,11 @@ export interface Hub9Game extends HubGame {
 // Real exported v3 art (v2 for CoComelon — no v3 yet), served from
 // packages/tv/public/games/hub9/<id>/. The art system prefers these over the
 // procedural theme fallback; `theme` is retained for palette/pill accents.
+// Paths go through assetUrl so they resolve under the demo's relative base.
 const artFor = (id: string) => ({
-  tile: `/games/hub9/${id}/tile.png`,
-  preview: `/games/hub9/${id}/preview.jpg`,
-  logo: `/games/hub9/${id}/logo.png`,
+  tile: assetUrl(`/games/hub9/${id}/tile.png`),
+  preview: assetUrl(`/games/hub9/${id}/preview.jpg`),
+  logo: assetUrl(`/games/hub9/${id}/logo.png`),
 });
 
 // Order matches the requested grid order:

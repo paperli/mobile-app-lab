@@ -30,6 +30,7 @@ import { GameArt } from '../prototype/hub/GameArt';
 import { GameLogo } from '../prototype/hub/GameLogo';
 import { GameMetaPills } from '../prototype/hub/MetadataPill';
 import { ARCADE_THEME, MOCKUP_THEME, HubThemeContext, useHubTheme } from '../prototype/hub/hubTheme';
+import { assetUrl } from '../utils/assetUrl';
 import { Screenshot, SHOT_VARIANTS } from '../prototype/hub/Screenshot';
 import { soundManager } from '../utils/sounds';
 import { getMobileUrl } from '../utils/getMobileUrl';
@@ -58,7 +59,7 @@ const reduceMotion =
 // (Game Preview Creation Kit, node 13802-17500), served from public/brand.
 // Replaces the placeholder "weekend" text. Native art is 192×47; rendered at
 // 48px tall, left-anchored to the given position.
-const WEEKEND_LOGO_SRC = '/brand/weekend-logo.svg';
+const WEEKEND_LOGO_SRC = assetUrl('/brand/weekend-logo.svg');
 // Brand wordmark. The `arcade` theme renders the real Canary logo asset; the
 // `mockup` theme keeps the original plain "weekend" text.
 function BrandMark({ left, top }: { left: number; top: number }) {

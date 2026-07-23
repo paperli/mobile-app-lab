@@ -8,15 +8,16 @@
 //                       opts in via `ds`.
 import type { Interaction } from './games';
 import { useHubTheme } from './hubTheme';
+import { assetUrl } from '../../utils/assetUrl';
 
 const FONT = "'Weekend Repro', ui-sans-serif, system-ui, sans-serif";
 
-// DS glyph assets (canary SVGs) — served from public/brand/icons.
+// DS glyph assets (canary SVGs) — served from public/brand/icons (base-aware).
 const ICON = {
-  players: '/brand/icons/players.svg',
-  player: '/brand/icons/player.svg',
-  voice: '/brand/icons/voice.svg',
-  gesture: '/brand/icons/gesture.svg',
+  players: assetUrl('/brand/icons/players.svg'),
+  player: assetUrl('/brand/icons/player.svg'),
+  voice: assetUrl('/brand/icons/voice.svg'),
+  gesture: assetUrl('/brand/icons/gesture.svg'),
 } as const;
 
 // Interactions with a DS glyph; others fall back to the emoji glyph below.
