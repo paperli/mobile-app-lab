@@ -481,6 +481,12 @@ export interface HubContent {
   catalog: HubGame[];
   /** Hero game slides (the free-trial promo is prepended automatically). */
   heroGames: HubGame[];
+  /**
+   * Curated merch-hero slides (hub9): each a full-bleed creative background with
+   * two game tiles overlaid and no CTA. When set, these replace `heroGames` as
+   * the billboard carousel slides (after the free-trial promo).
+   */
+  heroMerch?: { key: string; bg: string; games: [string, string] }[];
   /** Shelves shown above the grid (standard sm rows). */
   shelves: { key: string; title: string; games: HubGame[] }[];
   /** The "All Games" grid (5 across). */
@@ -595,13 +601,24 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // have already claimed the trial).
   const showPromoSlide = isPhase0 || customHub ? true : !signedIn;
   const promoOffset = showPromoSlide ? 1 : 0;
-  const heroSlideCount = heroGames.length + promoOffset;
+  // Curated merch slides (hub9) replace the plain game slides as the carousel.
+  const merchSlides = content?.heroMerch ?? null;
+  const heroSlideCount = (merchSlides ? merchSlides.length : heroGames.length) + promoOffset;
   const isPromoSlide = (i: number) => showPromoSlide && i === 0;
   const heroGameAt = (i: number) => heroGames[i - promoOffset];
+  /** The merch slide shown at carousel index `i` (undefined for the promo slide). */
+  const merchAt = (i: number) => (merchSlides ? merchSlides[i - promoOffset] : undefined);
+  const gameById = (id: string) => catalog.find((g) => g.id === id);
   const isPromoSlideRef = useRef(isPromoSlide);
   isPromoSlideRef.current = isPromoSlide;
   const heroSlideCountRef = useRef(heroSlideCount);
   heroSlideCountRef.current = heroSlideCount;
+  const merchSlidesRef = useRef(merchSlides);
+  merchSlidesRef.current = merchSlides;
+  const promoOffsetRef = useRef(promoOffset);
+  promoOffsetRef.current = promoOffset;
+  const gameByIdRef = useRef(gameById);
+  gameByIdRef.current = gameById;
 
   const { scale, framed } = useFitScale(frame);
   const [nav, setNav] = useState<NavState>({ sec: 0, col: 0, heroSlide: 0 });
@@ -944,6 +961,14 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       // MORE INFO on the promo hero slide opens the full-screen upsell page.
       if (cur.sec === 0 && isPromoSlideRef.current(cur.heroSlide)) {
         openUpsell();
+        return;
+      }
+      // Curated merch slide: OK launches the focused tile's game (nav.col = tile).
+      if (cur.sec === 0 && merchSlidesRef.current) {
+        const slide = merchSlidesRef.current[cur.heroSlide - promoOffsetRef.current];
+        const gid = slide?.games[cur.col] ?? slide?.games[0];
+        const g = gid ? gameByIdRef.current(gid) : undefined;
+        if (g) launchGame(g, autoDelay);
         return;
       }
       const game =
@@ -1484,10 +1509,25 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
 
     if (dx !== 0) {
       if (prev.sec === 0) {
-        // Hero: every slide has a single CTA now, so ◀▶ just cycles slides.
         const count = heroSlideCountRef.current;
-        const ns = (prev.heroSlide + (dx > 0 ? 1 : -1) + count) % count;
-        next = { ...prev, heroSlide: ns, col: 0 };
+        const merch = merchSlidesRef.current;
+        if (merch) {
+          // Merch carousel: ◀▶ step through a filmstrip of focusable tiles —
+          // the promo slide has 1 (its CTA), each merch slide has 2 game tiles.
+          // Crossing a slide boundary swaps the visible slide; dots follow it.
+          const flat: { s: number; c: number }[] = [];
+          for (let s = 0; s < count; s++) {
+            const tiles = promoOffsetRef.current && s === 0 ? 1 : 2;
+            for (let c = 0; c < tiles; c++) flat.push({ s, c });
+          }
+          const curIdx = Math.max(0, flat.findIndex((f) => f.s === prev.heroSlide && f.c === prev.col));
+          const ni = (curIdx + (dx > 0 ? 1 : -1) + flat.length) % flat.length;
+          next = { ...prev, heroSlide: flat[ni].s, col: flat[ni].c };
+        } else {
+          // Plain hero: every slide has a single CTA, so ◀▶ just cycles slides.
+          const ns = (prev.heroSlide + (dx > 0 ? 1 : -1) + count) % count;
+          next = { ...prev, heroSlide: ns, col: 0 };
+        }
         sound = 'nav';
       } else if (rows[prev.sec - 1]?.banner) {
         sound = 'bounce'; // banner is a single full-width item
@@ -2022,6 +2062,9 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
 
   const mobileUrl = `${getMobileUrl()}?code=${roomCode}`;
   const heroGame = heroGameAt(nav.heroSlide);
+  // Resolve a merch slide's two game ids to catalog games (for HeroSlide tiles).
+  const heroMerchGames = (m: { games: [string, string] } | undefined) =>
+    m ? ([gameById(m.games[0]), gameById(m.games[1])] as (HubGame | undefined)[]) : undefined;
   const trialUrl = 'https://weekend.tv/free-trial';
 
   // Keep rendering the last game while the panel slides out (panel.game → null).
@@ -2661,6 +2704,9 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
               key={`hero-in-${nav.heroSlide}`}
               promo={isPromoSlide(nav.heroSlide)}
               game={heroGame}
+              merch={merchAt(nav.heroSlide)}
+              merchGames={heroMerchGames(merchAt(nav.heroSlide))}
+              focusedTile={nav.col}
               promoGames={catalog}
               trialUrl={trialUrl}
               phase={heroTransFrom !== null ? 'in' : 'idle'}
@@ -2674,6 +2720,9 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                 key={`hero-out-${heroTransFrom}`}
                 promo={isPromoSlide(heroTransFrom)}
                 game={heroGameAt(heroTransFrom)}
+                merch={merchAt(heroTransFrom)}
+                merchGames={heroMerchGames(merchAt(heroTransFrom))}
+                focusedTile={nav.col}
                 promoGames={catalog}
                 trialUrl={trialUrl}
                 phase="out"
@@ -4206,6 +4255,12 @@ export interface HeroSlideProps {
   /** Free-trial promo slide (panning tiles + QR) instead of a game. */
   promo?: boolean;
   game?: HubGame;
+  /** Curated merch slide: full-bleed creative + 2 game tiles (hub9). */
+  merch?: { key: string; bg: string; games: [string, string] };
+  /** The two games for the merch slide, resolved to catalog entries. */
+  merchGames?: (HubGame | undefined)[];
+  /** Which merch tile is focused (0 | 1). */
+  focusedTile?: number;
   /** Games to pan across the promo slide's art. */
   promoGames?: HubGame[];
   trialUrl?: string;
@@ -4221,6 +4276,9 @@ export interface HeroSlideProps {
 export function HeroSlide({
   promo,
   game,
+  merch,
+  merchGames,
+  focusedTile = 0,
   promoGames = [],
   trialUrl = '',
   phase,
@@ -4268,6 +4326,79 @@ export function HeroSlide({
       : phase === 'in'
         ? 'hubHeroFadeIn 440ms ease 160ms both'
         : undefined;
+
+  // ── Curated merch slide (hub9) ─────────────────────────────────────────────
+  // A full-bleed creative (photo + headline + subtitle + baked-in left fade,
+  // exported from the Figma [EDIT THIS] frame) with two navigable game tiles
+  // overlaid — no CTA button. The Weekend logo + carousel dots are stage chrome.
+  if (merch) {
+    const tiles = merchGames ?? [];
+    return (
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: STAGE_W,
+          height: HERO_SECTION_H,
+          pointerEvents: phase === 'out' ? 'none' : undefined,
+        }}
+      >
+        {/* Creative background (slides on carousel change). */}
+        <div style={{ position: 'absolute', inset: 0, animation: artAnim }}>
+          <img
+            src={merch.bg}
+            alt=""
+            aria-hidden
+            style={{ position: 'absolute', top: 0, left: 0, width: STAGE_W, height: HERO_SECTION_H, objectFit: 'cover', display: 'block' }}
+          />
+          {/* Bottom fade → blends the billboard into the rows below. Opaque to the
+              very bottom edge (bottom:-1, solid to 8%) so no hairline leaks. */}
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: -1,
+              height: 220,
+              background: `linear-gradient(to top, ${STAGE_BG} 0%, ${STAGE_BG} 8%, transparent 100%)`,
+            }}
+          />
+        </div>
+        {/* Two game tiles — filmstrip focus; OK launches the focused one. */}
+        <div style={{ position: 'absolute', inset: 0, animation: contentAnim }}>
+          {[0, 1].map((i) => {
+            const g = tiles[i];
+            if (!g) return null;
+            const focused = heroFocused && focusedTile === i && phase !== 'out';
+            return (
+              <div
+                key={i}
+                style={{
+                  position: 'absolute',
+                  left: i === 0 ? 94 : 397,
+                  top: 569,
+                  width: 254,
+                  height: 143,
+                  transform: focused ? (pressing ? 'scale(0.98)' : 'scale(1.06)') : 'scale(1)',
+                  boxShadow: focused ? `${FOCUS_HALO}, 0 26px 60px rgba(0,0,0,0.7)` : 'none',
+                  transition: 'transform 240ms cubic-bezier(.22,.61,.36,1), box-shadow 240ms ease',
+                  zIndex: focused ? 3 : 1,
+                  borderRadius: 16,
+                }}
+              >
+                {focused && <FocusRing radius={16} gap={6} width={5} />}
+                <div style={{ position: 'absolute', inset: 0, borderRadius: 16, overflow: 'hidden' }}>
+                  <GameArt game={g} variant="tile" hideMotif style={{ position: 'absolute', inset: 0 }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -4368,8 +4499,10 @@ export function HeroSlide({
             left: 0,
             right: 0,
             top: 0,
-            height: HERO_ART_H,
-            background: `linear-gradient(to top, ${STAGE_BG} 2%, transparent 46%)`,
+            // Extend 1px past the art band and hold solid bg for the bottom ~6%
+            // so the montage's hard clip edge never leaks a hairline under the fade.
+            height: HERO_ART_H + 1,
+            background: `linear-gradient(to top, ${STAGE_BG} 0%, ${STAGE_BG} 6%, transparent 46%)`,
           }}
         />
         {/* Focal poster art for the new games — over the fades so it stays crisp. */}

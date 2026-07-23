@@ -130,6 +130,27 @@ export const HUB9_NEW_ROW: Hub9Game[] = [
 export const HUB9_GRID: Hub9Game[] = HUB9_GAMES;
 
 /**
+ * Curated merch-hero slides (the tall billboard carousel). Each is a full-bleed
+ * lifestyle creative (exported from the Figma "Merchandise Hero" [EDIT THIS]
+ * frames — photo + headline + subtitle + baked-in left fade) with two game tiles
+ * overlaid; there's no CTA button. The free-trial promo is still prepended as
+ * slide 1 by GameHub.
+ */
+export interface Hub9MerchSlide {
+  key: string;
+  /** Full-bleed creative background (1920×900). */
+  bg: string;
+  /** The two games offered on this slide (left, right). */
+  games: [string, string];
+}
+
+export const HUB9_MERCH: Hub9MerchSlide[] = [
+  { key: 'game-night', bg: assetUrl('/games/hub9/merch/game-night.jpg'), games: ['jeopardy', 'song-quiz'] },
+  { key: 'shout-out', bg: assetUrl('/games/hub9/merch/shout-out.jpg'), games: ['guess-the-emoji', 'sketchy-af'] },
+  { key: 'personal-time', bg: assetUrl('/games/hub9/merch/personal-time.jpg'), games: ['wheel-of-fortune', 'spot-on'] },
+];
+
+/**
  * Curated content for the 9-game hub, fed to GameHub's `content` prop so it
  * renders through all the standard hub elements. The hero shows the existing
  * free-trial promo slide plus Guess the Emoji, Werds and Wheel of Fortune as new
@@ -138,6 +159,7 @@ export const HUB9_GRID: Hub9Game[] = HUB9_GAMES;
 export const HUB9_CONTENT: HubContent = {
   catalog: HUB9_GAMES,
   heroGames: ['guess-the-emoji', 'werds', 'wheel-of-fortune'].map(getHub9Game),
+  heroMerch: HUB9_MERCH,
   shelves: [{ key: 'new', title: 'New on Weekend', games: HUB9_NEW_ROW }],
   grid: HUB9_GRID,
   newIds: ['guess-the-emoji', 'werds'],
