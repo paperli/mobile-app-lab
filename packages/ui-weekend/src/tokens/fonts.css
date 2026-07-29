@@ -21,3 +21,14 @@
   font-style: normal;
   font-display: swap;
 }
+
+/* Karl ST — the DS secondary face, used for playful accents (e.g. the
+   WEEKEND / PREMIUM stickers on the hub's free-trial hero). Only Bold is
+   loaded; add Medium here if a component needs it. */
+@font-face {
+  font-family: 'Karl ST';
+  src: url('./fonts/KarlST_Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}

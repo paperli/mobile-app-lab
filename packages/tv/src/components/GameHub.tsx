@@ -43,6 +43,8 @@ const FRAME_MARGIN = 28; // breathing room between the TV and the viewport edge
 const FRAME_BEZEL = 18; // frame thickness on top / left / right
 const FRAME_CHIN = 16; // extra thickness on the bottom edge (for the brand/LED)
 const FONT = "'Weekend Repro', ui-sans-serif, system-ui, sans-serif";
+// DS secondary face, for playful accents (the free-trial hero's sticker tags).
+const FONT_KARL = "'Karl ST', 'Weekend Repro', ui-sans-serif, system-ui, sans-serif";
 // Weekend DS colors (from @weekend/ui / arcade-foundation tokens):
 //   fg = Warm White #F3F4F1, dim = warm-white @ ~62%, surface = Midnight Blue
 //   #0A0322. The curated hub renders these in full color; the procedural
@@ -3778,7 +3780,8 @@ function PromoStickers() {
         >
           <span
             style={{
-              fontSize: 24,
+              fontFamily: FONT_KARL,
+              fontSize: 28,
               fontWeight: 700,
               lineHeight: 1,
               letterSpacing: '2.1px',
