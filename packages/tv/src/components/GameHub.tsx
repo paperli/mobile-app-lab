@@ -3724,6 +3724,78 @@ function TileMontage({ games }: { games: HubGame[] }) {
   );
 }
 
+// ── Free-trial promo copy (Figma merch-hero spec) ────────────────────────────
+// The promo hero's left column is positioned absolutely so it matches the Figma
+// "screenshot_Free Trial — Merch Hero" frame 1:1 (Game Preview Creation Kit).
+// The two headline lines set `line-height: 1`, so their CSS line-box top sits
+// above the glyph ink by (fontAscent - inkAscent + halfLeading). These values
+// back that offset out of the Figma ink bounds (380.5 / 457.9) using the real
+// Weekend Repro metrics, so the rendered text lands on Figma's baseline grid.
+const PROMO_X = 94;
+const PROMO_TOP = { plate: 258, line1: 369.5, line2: 442, subtitle: 553.5, cta: 620 };
+/** Canary → orange, left to right (the DS headline gradient). */
+const PROMO_TITLE_GRADIENT = 'linear-gradient(90deg, #FFE84A 0%, #FB7928 100%)';
+const PROMO_LINE: CSSProperties = {
+  position: 'absolute',
+  left: PROMO_X,
+  lineHeight: 1,
+  letterSpacing: '-1.6px',
+  whiteSpace: 'nowrap',
+  color: '#fff',
+};
+
+/**
+ * The "VIP Gold Plate" badge — a glassy engraved plate carrying the gold
+ * WEEKEND PREMIUM wordmark. 350×80 @ r20, on the hero's x=94 line.
+ */
+function VipPlate() {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: PROMO_X,
+        top: PROMO_TOP.plate,
+        width: 350,
+        height: 80,
+        borderRadius: 20,
+        display: 'grid',
+        placeItems: 'center',
+        background: 'rgba(196,196,196,0.01)',
+        backdropFilter: 'blur(11.65px)',
+        WebkitBackdropFilter: 'blur(11.65px)',
+        boxShadow: [
+          'inset 0 0.129px 5.178px rgba(227,222,255,0.2)',
+          'inset 0 0.518px 2.33px rgba(154,146,210,0.3)',
+          'inset 0 12.685px 12.944px -6.213px rgba(202,172,255,0.3)',
+          'inset 0 -10.614px 8.802px -8.284px rgba(96,68,145,0.3)',
+          'inset 0 0.906px 1.424px -0.518px rgba(255,255,255,1)',
+          'inset 0 5.048px 7.249px -4.66px rgba(255,255,255,0.5)',
+        ].join(', '),
+      }}
+    >
+      <span
+        style={{
+          fontSize: 24,
+          fontWeight: 700,
+          letterSpacing: '2.1px',
+          // Flat Canary gold with one narrow highlight streak, as on the Figma
+          // instance — the streak stays tight so the gold reads saturated.
+          background:
+            'linear-gradient(100deg, #FFDA0A 0%, #FFDA0A 40%, #FFEF93 47%, #FFDA0A 54%, #FFDA0A 100%)',
+          WebkitBackgroundClip: 'text',
+          backgroundClip: 'text',
+          color: 'transparent',
+          // No text-shadow here: with `background-clip: text` a shadow bleeds
+          // through the antialiased glyph edges and dulls the gold. Figma's
+          // engraved look is carried by the plate's inset shadows instead.
+        }}
+      >
+        WEEKEND PREMIUM
+      </span>
+    </div>
+  );
+}
+
 // ── Preview hero (variation 3) ───────────────────────────────────────────────
 // A pinned top band that mirrors the hero styling but reflects the focused
 // game (no CTA, no carousel). Re-keyed by game id so it cross-fades on focus.
@@ -4515,7 +4587,75 @@ export function HeroSlide({
         {isWerds && !hasHeroArt && <WerdsDevices />}
       </div>
 
-      {/* Text column (fades only) */}
+      {/* ── Free-trial promo copy ──────────────────────────────────────────────
+          Absolute geometry lifted from the Figma merch-hero frame ("Game Preview
+          Creation Kit" → screenshot_Free Trial — Merch Hero): everything sits on
+          the x=94 line, VIP plate at y=258, the two headline lines at 381 / 459,
+          subtitle at 553 and the CTA at 620 (all @1x of the 900px hero band).
+          Game slides keep the shared bottom-anchored flex column below. */}
+      {promo ? (
+        <div style={{ position: 'absolute', inset: 0, animation: contentAnim, fontFamily: FONT }}>
+          <VipPlate />
+          <span style={{ ...PROMO_LINE, top: PROMO_TOP.line1, fontWeight: 400, fontSize: 65 }}>
+            Unlimited access to
+          </span>
+          <span
+            style={{
+              ...PROMO_LINE,
+              top: PROMO_TOP.line2,
+              fontWeight: 700,
+              fontSize: 96,
+              background: PROMO_TITLE_GRADIENT,
+              WebkitBackgroundClip: 'text',
+              backgroundClip: 'text',
+              color: 'transparent',
+            }}
+          >
+            All Games
+          </span>
+          <p
+            style={{
+              position: 'absolute',
+              left: PROMO_X,
+              top: PROMO_TOP.subtitle,
+              margin: 0,
+              fontSize: 26,
+              lineHeight: 1.35,
+              whiteSpace: 'nowrap',
+              color: 'rgba(243,244,241,0.82)',
+            }}
+          >
+            Scan and start your unlimited fun.
+          </p>
+          <button
+            onClick={onPlay}
+            style={{
+              position: 'absolute',
+              left: PROMO_X,
+              top: PROMO_TOP.cta,
+              appearance: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              height: 56,
+              padding: '0 24px',
+              border: 'none',
+              borderRadius: 9999,
+              cursor: 'pointer',
+              fontFamily: FONT,
+              fontSize: 24,
+              fontWeight: 500,
+              lineHeight: 1.2,
+              color: STAGE_BG,
+              background: CTA_GRADIENT,
+              boxShadow: `${CTA_GLOW}, 0 12px 30px rgba(0,0,0,0.5)`,
+              transform: pressing ? 'scale(0.96)' : 'scale(1)',
+              transition: 'transform 220ms cubic-bezier(.22,.61,.36,1)',
+            }}
+          >
+            Claim your free week
+          </button>
+        </div>
+      ) : (
       <div
         style={{
           position: 'absolute',
@@ -4529,28 +4669,7 @@ export function HeroSlide({
           animation: contentAnim,
         }}
       >
-        {promo ? (
-          <>
-            <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.14em', color: '#b9babe' }}>
-              WEEKEND PREMIUM
-            </span>
-            <span
-              style={{
-                fontFamily: FONT,
-                fontWeight: 800,
-                fontSize: 84,
-                letterSpacing: '-0.02em',
-                lineHeight: 1.02,
-                color: INK,
-              }}
-            >
-              7-day free trial
-            </span>
-            <p style={{ margin: 0, maxWidth: 620, fontSize: 26, lineHeight: 1.35, color: 'rgba(243,244,241,0.82)' }}>
-              Unlimited access to every game. Scan the code to start.
-            </p>
-          </>
-        ) : (
+        {(
           game && (
             <>
               <div style={{ maxWidth: game.art?.logo ? 720 : isEmoji ? 'none' : 640, position: 'relative', display: 'inline-block' }}>
@@ -4705,13 +4824,9 @@ export function HeroSlide({
                       boxShadow: 'none',
                     }),
             });
-            // Promo (free-trial) slide keeps its single MORE INFO button; game
-            // slides show only PLAY NOW (MORE INFO removed).
-            return promo ? (
-              <button onClick={onPlay} style={ctaStyle(true)}>
-                MORE INFO
-              </button>
-            ) : (
+            // Game slides show only PLAY NOW (MORE INFO removed). The promo
+            // slide has its own "Claim your free week" CTA above.
+            return (
               <button onClick={onPlay} style={ctaStyle(heroCol === 0)}>
                 PLAY NOW
               </button>
@@ -4719,6 +4834,7 @@ export function HeroSlide({
           })()}
         </div>
       </div>
+      )}
     </div>
   );
 }
