@@ -3732,7 +3732,19 @@ function TileMontage({ games }: { games: HubGame[] }) {
 // back that offset out of the Figma ink bounds (380.5 / 457.9) using the real
 // Weekend Repro metrics, so the rendered text lands on Figma's baseline grid.
 const PROMO_X = 94;
-const PROMO_TOP = { plate: 258, line1: 369.5, line2: 442, subtitle: 553.5, cta: 620 };
+const PROMO_TOP = { line1: 369.5, line2: 442, subtitle: 553.5, cta: 620 };
+
+/**
+ * The two tilted sticker badges heading the slide. Each is placed by the centre
+ * of its rotated bounding box (for a rectangle the AABB centre *is* the rotated
+ * rect's centre, so this is exact), then rotated about that centre. Figma's
+ * rotation is counter-clockwise-positive, CSS's is clockwise-positive, so the
+ * signs are inverted from the Figma values (+11.35° / -7.99°).
+ */
+const PROMO_STICKERS = [
+  { label: 'WEEKEND', w: 201.2, h: 66, cx: 182.1, cy: 296.15, deg: -11.35, bg: '#95C8D3' },
+  { label: 'PREMIUM', w: 190, h: 66, cx: 401.65, cy: 328.9, deg: 7.99, bg: '#EEA0EE' },
+];
 /** Canary → orange, left to right (the DS headline gradient). */
 const PROMO_TITLE_GRADIENT = 'linear-gradient(90deg, #FFE84A 0%, #FB7928 100%)';
 const PROMO_LINE: CSSProperties = {
@@ -3744,55 +3756,40 @@ const PROMO_LINE: CSSProperties = {
   color: '#fff',
 };
 
-/**
- * The "VIP Gold Plate" badge — a glassy engraved plate carrying the gold
- * WEEKEND PREMIUM wordmark. 350×80 @ r20, on the hero's x=94 line.
- */
-function VipPlate() {
+/** The tilted WEEKEND / PREMIUM sticker pair heading the free-trial slide. */
+function PromoStickers() {
   return (
-    <div
-      style={{
-        position: 'absolute',
-        left: PROMO_X,
-        top: PROMO_TOP.plate,
-        width: 350,
-        height: 80,
-        borderRadius: 20,
-        display: 'grid',
-        placeItems: 'center',
-        background: 'rgba(196,196,196,0.01)',
-        backdropFilter: 'blur(11.65px)',
-        WebkitBackdropFilter: 'blur(11.65px)',
-        boxShadow: [
-          'inset 0 0.129px 5.178px rgba(227,222,255,0.2)',
-          'inset 0 0.518px 2.33px rgba(154,146,210,0.3)',
-          'inset 0 12.685px 12.944px -6.213px rgba(202,172,255,0.3)',
-          'inset 0 -10.614px 8.802px -8.284px rgba(96,68,145,0.3)',
-          'inset 0 0.906px 1.424px -0.518px rgba(255,255,255,1)',
-          'inset 0 5.048px 7.249px -4.66px rgba(255,255,255,0.5)',
-        ].join(', '),
-      }}
-    >
-      <span
-        style={{
-          fontSize: 24,
-          fontWeight: 700,
-          letterSpacing: '2.1px',
-          // Flat Canary gold with one narrow highlight streak, as on the Figma
-          // instance — the streak stays tight so the gold reads saturated.
-          background:
-            'linear-gradient(100deg, #FFDA0A 0%, #FFDA0A 40%, #FFEF93 47%, #FFDA0A 54%, #FFDA0A 100%)',
-          WebkitBackgroundClip: 'text',
-          backgroundClip: 'text',
-          color: 'transparent',
-          // No text-shadow here: with `background-clip: text` a shadow bleeds
-          // through the antialiased glyph edges and dulls the gold. Figma's
-          // engraved look is carried by the plate's inset shadows instead.
-        }}
-      >
-        WEEKEND PREMIUM
-      </span>
-    </div>
+    <>
+      {PROMO_STICKERS.map((s) => (
+        <div
+          key={s.label}
+          style={{
+            position: 'absolute',
+            left: s.cx - s.w / 2,
+            top: s.cy - s.h / 2,
+            width: s.w,
+            height: s.h,
+            display: 'grid',
+            placeItems: 'center',
+            borderRadius: 8,
+            background: s.bg,
+            transform: `rotate(${s.deg}deg)`,
+          }}
+        >
+          <span
+            style={{
+              fontSize: 24,
+              fontWeight: 700,
+              lineHeight: 1,
+              letterSpacing: '2.1px',
+              color: STAGE_BG,
+            }}
+          >
+            {s.label}
+          </span>
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -4590,12 +4587,12 @@ export function HeroSlide({
       {/* ── Free-trial promo copy ──────────────────────────────────────────────
           Absolute geometry lifted from the Figma merch-hero frame ("Game Preview
           Creation Kit" → screenshot_Free Trial — Merch Hero): everything sits on
-          the x=94 line, VIP plate at y=258, the two headline lines at 381 / 459,
+          the x=94 line (bar the tilted stickers), the headline lines at 381 / 459,
           subtitle at 553 and the CTA at 620 (all @1x of the 900px hero band).
           Game slides keep the shared bottom-anchored flex column below. */}
       {promo ? (
         <div style={{ position: 'absolute', inset: 0, animation: contentAnim, fontFamily: FONT }}>
-          <VipPlate />
+          <PromoStickers />
           <span style={{ ...PROMO_LINE, top: PROMO_TOP.line1, fontWeight: 400, fontSize: 65 }}>
             Unlimited access to
           </span>
