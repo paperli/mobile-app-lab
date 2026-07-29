@@ -154,13 +154,13 @@ export const HUB9_MERCH: Hub9MerchSlide[] = [
  * Curated content for the 9-game hub, fed to GameHub's `content` prop so it
  * renders through all the standard hub elements. The hero shows the existing
  * free-trial promo slide plus Guess the Emoji, Werds and Wheel of Fortune as new
- * game slides; below it, a "New Games" shelf and the All Games grid.
+ * game slides; below it, a "Featured" shelf and the All Games grid.
  */
 export const HUB9_CONTENT: HubContent = {
   catalog: HUB9_GAMES,
   heroGames: ['guess-the-emoji', 'werds', 'wheel-of-fortune'].map(getHub9Game),
   heroMerch: HUB9_MERCH,
-  shelves: [{ key: 'new', title: 'New on Weekend', games: HUB9_NEW_ROW }],
+  shelves: [{ key: 'new', title: 'Featured', games: HUB9_NEW_ROW }],
   grid: HUB9_GRID,
   newIds: ['guess-the-emoji', 'werds'],
 };

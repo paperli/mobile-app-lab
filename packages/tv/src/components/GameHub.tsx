@@ -337,6 +337,14 @@ const KB_GRID: string[][] = [
 // Merch-hero geometry lives in the shared @weekend/ui tokens (layout.hero) so
 // every prototype composes the same hero. The v3 top-preview height is separate.
 const HERO_SECTION_H = layout.hero.sectionH;
+/**
+ * How far the curated hub's first shelf is pulled up into the hero band. The
+ * hero section is 900 tall but its art stops at 820, so the tail is empty and
+ * the gap above the first row reads too wide. Pulling the shelf (rather than
+ * shrinking `layout.hero.sectionH`) leaves the hero's own carousel dots, which
+ * are anchored to its bottom edge, where they are.
+ */
+const CURATED_FIRST_SHELF_PULL = -20;
 const HERO_ART_H = layout.hero.artH;
 const PREVIEW_H = 480;
 // Exported "Top Game Preview" art is authored at this native size and rendered
@@ -2500,7 +2508,16 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           <section
             key={row.key}
             ref={(el) => (rowRefs.current[sectionIndex - 1] = el)}
-            style={{ marginTop: si === 0 && pageHasHero ? 0 : layout.shelfRowGap, paddingBottom: 12 }}
+            style={{
+              marginTop:
+                si === 0 && pageHasHero ? (customHub ? CURATED_FIRST_SHELF_PULL : 0) : layout.shelfRowGap,
+              paddingBottom: 12,
+              // The hero <section> is positioned, so a static shelf would paint
+              // *under* it and the pull above would clip the row title against
+              // the hero's opaque bottom fade. Positioning the shelf too puts it
+              // on top (later sibling wins).
+              position: 'relative',
+            }}
           >
             <div style={{ padding: `0 ${SHELF_PAD}px`, marginBottom: layout.shelfHeaderGap }}>
               <h2 style={{ margin: 0, fontSize: 32, fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>{row.title}</h2>
