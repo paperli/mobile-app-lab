@@ -354,6 +354,10 @@ const PREVIEW_GAP = 28;
 // How long each hero slide stays before auto-advancing. The active dot fills
 // over this same duration as a countdown.
 const HERO_AUTOPLAY_MS = 6000;
+// Any d-pad input suspends the hero countdown; it resumes once the user has been
+// idle this long. Keeps the carousel from advancing out from under someone who is
+// actively browsing the hero.
+const HERO_IDLE_RESUME_MS = 1000;
 // Per-shot dwell for the game-info panel's screenshot slideshow (+ dot countdown).
 const PANEL_SHOT_MS = 2600;
 
@@ -1226,7 +1230,23 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     soundManager.playSelectionSound();
   }, []);
 
+  // ── Hero autoplay: pause on input, resume on idle ──────────────────────────
+  // Any d-pad input freezes the hero countdown (and its dot fill); after
+  // HERO_IDLE_RESUME_MS of quiet it picks up where it left off. `heroCycle`
+  // carries the time left in the current slide's countdown across those pauses
+  // so the dot and the timer never drift apart.
+  const [heroPaused, setHeroPaused] = useState(false);
+  const heroCycleRef = useRef({ slide: -1, remain: HERO_AUTOPLAY_MS });
+  const heroIdleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const nudgeHeroIdle = useCallback(() => {
+    setHeroPaused(true);
+    clearTimeout(heroIdleTimerRef.current);
+    heroIdleTimerRef.current = setTimeout(() => setHeroPaused(false), HERO_IDLE_RESUME_MS);
+  }, []);
+  useEffect(() => () => clearTimeout(heroIdleTimerRef.current), []);
+
   const move = useCallback((dx: number, dy: number) => {
+    nudgeHeroIdle();
     // Full-screen screenshot carousel: ◀▶ swap shots.
     if (shotViewerOpenRef.current) {
       if (dx !== 0) {
@@ -1589,7 +1609,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       navRef.current = next;
       setNav(next);
     }
-  }, [toNav, enterContent]); // profile-overlay branches use refs + stable setters only
+  }, [toNav, enterContent, nudgeHeroIdle]); // profile-overlay branches use refs + stable setters only
 
   const navigate = useCallback(
     (direction: NavigationDirection) => {
@@ -1868,18 +1888,38 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
 
   // Hero auto-advance while the hero is focused. A per-slide timeout (rather
   // than a fixed interval) so manual navigation resets the clock and the
-  // active-dot countdown stays in sync.
+  // active-dot countdown stays in sync. Input pauses the countdown (see
+  // `nudgeHeroIdle`); the remaining time is banked and resumed once idle.
   useEffect(() => {
-    if (page !== 'home' || nav.sec !== 0 || reduceMotion || panel.game) return;
+    if (page !== 'home' || nav.sec !== 0 || reduceMotion || panel.game) {
+      // Leaving the hero abandons the countdown — it starts fresh on return.
+      heroCycleRef.current = { slide: -1, remain: HERO_AUTOPLAY_MS };
+      return;
+    }
+    const cycle = heroCycleRef.current;
+    // A different slide is a brand-new countdown, however we got here.
+    if (cycle.slide !== nav.heroSlide) {
+      cycle.slide = nav.heroSlide;
+      cycle.remain = HERO_AUTOPLAY_MS;
+    }
+    if (heroPaused) return;
+    const startedAt = Date.now();
+    let fired = false;
     const t = setTimeout(() => {
+      fired = true;
+      cycle.remain = HERO_AUTOPLAY_MS;
       setNav((p) => {
         const n = { ...p, heroSlide: (p.heroSlide + 1) % heroSlideCount, col: 0 };
         navRef.current = n;
         return n;
       });
-    }, HERO_AUTOPLAY_MS);
-    return () => clearTimeout(t);
-  }, [page, nav.sec, nav.heroSlide, panel.game]);
+    }, cycle.remain);
+    // Bank the unspent time so a pause (or a re-render) doesn't restart the slide.
+    return () => {
+      clearTimeout(t);
+      if (!fired) cycle.remain = Math.max(0, cycle.remain - (Date.now() - startedAt));
+    };
+  }, [page, nav.sec, nav.heroSlide, panel.game, heroPaused]);
 
   // Slideshow on a focused slideshow-tile: hold the cover art for 1s, then
   // start looping the game's screenshots.
@@ -2822,7 +2862,13 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                           background: theme.dsAccent ? CANARY : INK,
                           transformOrigin: 'left center',
                           ...(countdown
-                            ? { animation: `hubHeroDotFill ${HERO_AUTOPLAY_MS}ms linear forwards` }
+                            ? {
+                                animation: `hubHeroDotFill ${HERO_AUTOPLAY_MS}ms linear forwards`,
+                                // Freeze mid-fill while input has the countdown
+                                // paused; CSS holds the elapsed time for us, so it
+                                // resumes in step with the banked timeout.
+                                animationPlayState: heroPaused ? 'paused' : 'running',
+                              }
                             : { transform: 'scaleX(1)' }),
                         }}
                       />
