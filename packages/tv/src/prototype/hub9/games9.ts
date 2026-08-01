@@ -147,7 +147,7 @@ export interface Hub9MerchSlide {
 export const HUB9_MERCH: Hub9MerchSlide[] = [
   { key: 'game-night', bg: assetUrl('/games/hub9/merch/game-night.jpg'), games: ['jeopardy', 'song-quiz'] },
   { key: 'shout-out', bg: assetUrl('/games/hub9/merch/shout-out.jpg'), games: ['guess-the-emoji', 'sketchy-af'] },
-  { key: 'personal-time', bg: assetUrl('/games/hub9/merch/personal-time.jpg'), games: ['wheel-of-fortune', 'spot-on'] },
+  { key: 'free-time', bg: assetUrl('/games/hub9/merch/free-time.jpg'), games: ['wheel-of-fortune', 'spot-on'] },
 ];
 
 /**
