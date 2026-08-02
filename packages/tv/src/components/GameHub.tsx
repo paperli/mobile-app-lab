@@ -362,31 +362,19 @@ const HERO_IDLE_RESUME_MS = 1000;
 const PANEL_SHOT_MS = 2600;
 
 // ── Full-page game detail geometry (@1x, of the 1920×1080 stage) ─────────────
-// Two columns. Left: the current screenshot with a strip of every other shot
-// beneath it (the strip is the focusable zone — ◀▶ there swaps the big shot).
-// Right: the tile the user selected, then title / properties / description, with
-// the actions bottom-aligned to the strip so both columns share a baseline.
+// One horizontal track, scrolled by the d-pad: the content column (tile, title,
+// properties, description, actions) followed by every screenshot at full size.
+// Browsing the shots scrolls the content off to the left, so the whole page is
+// one row rather than two fixed halves.
 const DETAIL = {
-  /** Left column: the big shot. */
-  artX: layout.shelfGutter, // 80
-  artY: 120,
-  artW: 1160,
-  artH: 653, // 1160 * 9 / 16
-  /** Shot strip beneath it. Thumbs are fixed size so the strip never reflows. */
-  stripY: 797,
-  thumbW: 275,
-  thumbH: 155,
-  thumbGap: space[5] - 4, // 20
-  /** Right column. */
-  colX: 1304,
-  colW: 536,
-  /** The tile slot — where the selected tile comes to rest. */
-  tileY: 221,
-  tileW: 420,
-  tileH: 236,
-  /** Title / pills / description block, and the bottom-aligned actions. */
-  copyY: 481,
-  actionsY: 794,
+  gutter: layout.shelfGutter, // 80
+  /** Content column width — the tile slot matches it, so the art leads. */
+  contentW: 680,
+  /** Between the content column and the shots, and between the shots. */
+  gap: space[8], // 48
+  /** Screenshots at 16:9. Sized so the next one peeks past the right gutter. */
+  shotW: 1000,
+  shotH: 563,
 } as const;
 
 // ── Tile handoff choreography ────────────────────────────────────────────────
@@ -914,6 +902,10 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const stageRef = useRef<HTMLDivElement>(null);
   const shotViewerOpenRef = useRef(shotViewerOpen);
   shotViewerOpenRef.current = shotViewerOpen;
+  const panelShotRef = useRef(panelShot);
+  panelShotRef.current = panelShot;
+  /** Which action the strip page's row was entered from, so ◀ returns to it. */
+  const pageActionFocusRef = useRef(1);
   const puzzleStageRef = useRef(puzzleStage);
   puzzleStageRef.current = puzzleStage;
   const puzzleColRef = useRef(puzzleCol);
@@ -1174,8 +1166,10 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       // the strip page a non-subscriber has no Play button (just the pairing QR),
       // so there's nothing worth landing on — start on the strip. The immersive
       // page has no strip at all, so its focus always starts on an action.
-      const focus =
-        detailViewRef.current === 'page' && !signedInRef.current ? 0 : 1;
+      // Every full-page layout opens on its first action; the screenshot row is
+      // one press to the right of it.
+      const focus = 1;
+      pageActionFocusRef.current = 1;
       const np = { game, focus };
       panelRef.current = np;
       setPanel(np);
@@ -1603,6 +1597,49 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
             setPanel(np);
             soundManager.playNavigationSound();
           } else soundManager.playBounceSound();
+        } else soundManager.playBounceSound();
+        return;
+      }
+      // The full-page layout is one horizontal row: ◀▶ crosses the content
+      // column and the screenshots, ▲▼ moves between the actions in the column.
+      if (view === 'page') {
+        const n = shotCount(p.game);
+        if (p.focus === 0) {
+          if (dx > 0) {
+            if (panelShotRef.current < n - 1) {
+              setPanelShot(panelShotRef.current + 1);
+              soundManager.playNavigationSound();
+            } else soundManager.playBounceSound();
+          } else if (dx < 0) {
+            if (panelShotRef.current > 0) {
+              setPanelShot(panelShotRef.current - 1);
+              soundManager.playNavigationSound();
+            } else {
+              // Back out of the row, onto the button it was entered from.
+              const np = { ...p, focus: pageActionFocusRef.current };
+              panelRef.current = np;
+              setPanel(np);
+              soundManager.playNavigationSound();
+            }
+          } else soundManager.playBounceSound();
+          return;
+        }
+        if (dy !== 0) {
+          const nf = Math.min(Math.max(1, p.focus + (dy > 0 ? 1 : -1)), actionCount);
+          if (nf !== p.focus) {
+            pageActionFocusRef.current = nf;
+            const np = { ...p, focus: nf };
+            panelRef.current = np;
+            setPanel(np);
+            soundManager.playNavigationSound();
+          } else soundManager.playBounceSound();
+        } else if (dx > 0) {
+          pageActionFocusRef.current = p.focus;
+          setPanelShot(0);
+          const np = { ...p, focus: 0 };
+          panelRef.current = np;
+          setPanel(np);
+          soundManager.playNavigationSound();
         } else soundManager.playBounceSound();
         return;
       }
@@ -2237,11 +2274,14 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // fill), suspended while the user is pressing keys and resumed from the banked
   // remainder once they've been idle for HERO_IDLE_RESUME_MS.
   const detailShotCycleRef = useRef({ shot: -1, remain: HERO_AUTOPLAY_MS });
+  // Only the side panel's thumbnail auto-advances now: the full-page layout's
+  // screenshot row is navigated, and the immersive page runs its own rounds.
   useEffect(() => {
     if (!panel.game || !detailPage || immersive || reduceMotion) {
       detailShotCycleRef.current = { shot: -1, remain: HERO_AUTOPLAY_MS };
       return;
     }
+    if (detailPage) return;
     const cycle = detailShotCycleRef.current;
     if (cycle.shot !== panelShot) {
       cycle.shot = panelShot;
@@ -3881,8 +3921,8 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
             mobileUrl={mobileUrl}
             pairCode={pairCode}
             pressing={pressing}
-            handoffFrom={handoff && handoff.tile ? { id: handoff.id, rect: handoff.tile } : null}
-            handoffLanded={handoffLanded}
+            handoffFrom={handoff}
+            measureInStage={measureInStage}
             onPickShot={setPanelShot}
             onOpenShots={() => {
               shotViewerOpenRef.current = true;
@@ -4192,23 +4232,19 @@ export interface GameDetailPageProps {
   game: HubGame;
   /** False while the page is animating back out (the game is still rendered). */
   open: boolean;
-  /** 0 = the shot strip; 1..N = the action buttons. */
+  /** 0 = the screenshot row; 1..N = the action buttons in the content column. */
   focus: number;
+  /** Which screenshot is focused (only meaningful while `focus` is 0). */
   shot: number;
   signedIn: boolean;
   favorited: boolean;
   mobileUrl: string;
   pairCode: string;
   pressing: boolean;
-  /**
-   * Where the selected tile sat on the hub, in stage coordinates. The tile flies
-   * from here to the slot above the title; null (search results, a deep link, or
-   * a hero CTA) means there is no tile to hand off, so the slot just fades in
-   * with the rest of the page.
-   */
-  handoffFrom: { id: number; rect: StageRect } | null;
-  /** True once the flight has been started (the frame after the page opens). */
-  handoffLanded: boolean;
+  /** The shelf tile this page was opened from, to fly into the tile slot. */
+  handoffFrom: Handoff | null;
+  /** Measures an element in stage coordinates, for the tile's FLIP. */
+  measureInStage: (el: Element | null | undefined) => StageRect | null;
   onPickShot: (i: number) => void;
   onOpenShots: () => void;
   onPlay: () => void;
@@ -4227,13 +4263,13 @@ export function GameDetailPage({
   pairCode,
   pressing,
   handoffFrom,
-  handoffLanded,
+  measureInStage,
   onPickShot,
   onOpenShots,
   onPlay,
   onToggleFavorite,
 }: GameDetailPageProps) {
-  const stripFocused = focus === 0;
+  const shotsFocused = focus === 0;
   // Signed out there's no Play button, so Favorite is the first action.
   const favoriteFocus = signedIn ? 2 : 1;
   // Real captures where the game has them, else the procedural mock frames.
@@ -4242,8 +4278,7 @@ export function GameDetailPage({
 
   /**
    * Content blocks fade + rise in behind the flying tile, staggered so the page
-   * assembles from the art outward. Closing drops the delays so the whole thing
-   * leaves at once.
+   * assembles outward from it. Closing drops the delays so it all leaves at once.
    */
   const reveal = (delay: number): CSSProperties =>
     reduceMotion
@@ -4253,6 +4288,47 @@ export function GameDetailPage({
           transform: open ? 'none' : 'translateY(16px)',
           transition: `opacity 380ms ease ${open ? delay : 0}ms, transform 420ms ${HANDOFF_EASE} ${open ? delay : 0}ms`,
         };
+
+  /**
+   * Tile handoff (a FLIP): the slot is laid out at its final size, then
+   * transformed back onto the shelf tile's rect and released a frame later. It
+   * runs on the node rather than through React state — routing the source
+   * transform through a render lets it and its release land in the same frame,
+   * leaving the transition nothing to animate from. Both rects are 16:9, so the
+   * uniform scale is exact.
+   *
+   * The slot lives inside the scrolling track, so once it has landed it travels
+   * with the row instead of being stranded mid-screen.
+   */
+  const tileRef = useRef<HTMLDivElement>(null);
+  const from = handoffFrom?.tile;
+  useLayoutEffect(() => {
+    const el = tileRef.current;
+    if (!el || !from || reduceMotion) return;
+    el.style.transition = 'none';
+    el.style.transform = 'none';
+    const dst = measureInStage(el);
+    if (!dst || !dst.w) return;
+    el.style.transform = `translate(${from.x - dst.x}px, ${from.y - dst.y}px) scale(${from.w / dst.w})`;
+    void el.offsetWidth;
+    const raf = requestAnimationFrame(() => {
+      el.style.transition = `transform ${HANDOFF_MS}ms ${HANDOFF_EASE}`;
+      el.style.transform = 'none';
+    });
+    return () => cancelAnimationFrame(raf);
+    // handoffFrom.id changes on every open, even for the same game.
+  }, [from, handoffFrom?.id, measureInStage]);
+
+  /**
+   * The row scrolls the focused item to the left gutter, and stops once the last
+   * screenshot's right edge reaches the right one — the same rule the hub's own
+   * shelves follow, so the two read as the same kind of surface.
+   */
+  const trackW =
+    DETAIL.contentW + DETAIL.gap + shots.length * DETAIL.shotW + (shots.length - 1) * DETAIL.gap;
+  const maxScroll = Math.max(0, trackW - (STAGE_W - DETAIL.gutter * 2));
+  const shotStart = DETAIL.contentW + DETAIL.gap;
+  const scrollX = shotsFocused ? Math.min(shotStart + shot * (DETAIL.shotW + DETAIL.gap), maxScroll) : 0;
 
   return (
     <div
@@ -4281,196 +4357,124 @@ export function GameDetailPage({
         }}
       />
 
-      {/* ── Current screenshot ── */}
+      {/* ── One horizontal track: the content column, then every screenshot.
+          Browsing the shots scrolls the content off to the left. ── */}
       <div
         style={{
           position: 'absolute',
-          left: DETAIL.artX,
-          top: DETAIL.artY,
-          width: DETAIL.artW,
-          height: DETAIL.artH,
-          borderRadius: radius,
-          overflow: 'hidden',
-          background: '#141518',
-          boxShadow: '0 30px 70px rgba(0,0,0,0.6)',
-          ...reveal(HANDOFF_REVEAL.art),
-        }}
-      >
-        {shots.map((s, i) => (
-          <Screenshot
-            key={s.key}
-            game={game}
-            variant={s.variant}
-            src={s.src}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              opacity: i === shot ? 1 : 0,
-              transition: 'opacity 420ms ease',
-            }}
-          />
-        ))}
-      </div>
-
-      {/* ── Shot strip — the focusable zone; ◀▶ here swaps the big shot ── */}
-      <div
-        style={{
-          position: 'absolute',
-          left: DETAIL.artX,
-          top: DETAIL.stripY,
-          width: DETAIL.artW,
+          left: DETAIL.gutter,
+          top: '50%',
           display: 'flex',
-          gap: DETAIL.thumbGap,
-          ...reveal(HANDOFF_REVEAL.strip),
+          alignItems: 'center',
+          gap: DETAIL.gap,
+          transform: `translate(${-scrollX}px, -50%)`,
+          transition: reduceMotion ? undefined : `transform 460ms ${HANDOFF_EASE}`,
         }}
       >
+        {/* ── Content column ── */}
+        <div
+          style={{
+            flex: `0 0 ${DETAIL.contentW}px`,
+            width: DETAIL.contentW,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'stretch',
+            gap: 26,
+          }}
+        >
+          {/* Tile slot — full content width, so it reads as the page's art. */}
+          <div
+            ref={tileRef}
+            style={{
+              // Positioned, so TileFace's absolutely-filled art resolves against
+              // this box and not the scrolling track behind it.
+              position: 'relative',
+              width: DETAIL.contentW,
+              height: Math.round((DETAIL.contentW * 9) / 16),
+              borderRadius: radius,
+              overflow: 'hidden',
+              background: '#141518',
+              boxShadow: '0 22px 54px rgba(0,0,0,0.55)',
+              transformOrigin: 'top left',
+              flex: '0 0 auto',
+            }}
+          >
+            <TileFace game={game} logoSize="16cqh" />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, ...reveal(HANDOFF_REVEAL.copy) }}>
+            <h1 style={{ margin: 0, fontSize: 46, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.05 }}>
+              {game.title}
+            </h1>
+            <GameMetaPills players={game.players} interaction={game.interaction} size={38} />
+            <p style={{ margin: 0, fontSize: 21, lineHeight: 1.45, color: INK_DIM }}>{game.description}</p>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, ...reveal(HANDOFF_REVEAL.actions) }}>
+            {signedIn ? (
+              <DetailButton label="Play" focused={focus === 1} pressing={pressing && focus === 1} onClick={onPlay} />
+            ) : (
+              // Not a subscriber yet: pair a phone to start, so the QR takes the
+              // primary slot. Not focusable — there's nothing to press.
+              <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+                <div style={{ background: '#fff', padding: 9, borderRadius: 12, lineHeight: 0, flex: '0 0 auto' }}>
+                  <QRCodeSVG value={mobileUrl} size={104} level="M" includeMargin={false} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ fontSize: 21, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.15 }}>
+                    Scan, connect, and play!
+                  </div>
+                  <div style={{ fontSize: 17, lineHeight: 1.4, color: 'rgba(243,244,241,0.66)' }}>
+                    Or go to <b style={{ color: INK, fontWeight: 700 }}>pair.weekend.com</b> and enter{' '}
+                    <b style={{ color: INK, fontWeight: 700, letterSpacing: '0.04em' }}>{pairCode}</b>
+                  </div>
+                </div>
+              </div>
+            )}
+            <DetailButton
+              label={favorited ? '♥  Favorited' : '♡  Add to Favorites'}
+              focused={focus === favoriteFocus}
+              pressing={pressing && focus === favoriteFocus}
+              onClick={onToggleFavorite}
+            />
+          </div>
+        </div>
+
+        {/* ── Screenshots ── Full size in the row; no thumbnails. ── */}
         {shots.map((s, i) => {
-          const current = i === shot;
+          const focused = shotsFocused && i === shot;
           return (
             <button
               key={s.key}
-              onClick={() => (current ? onOpenShots() : onPickShot(i))}
+              onClick={() => (focused ? onOpenShots() : onPickShot(i))}
               style={{
                 position: 'relative',
                 flex: '0 0 auto',
-                width: DETAIL.thumbW,
-                height: DETAIL.thumbH,
+                width: DETAIL.shotW,
+                height: DETAIL.shotH,
                 appearance: 'none',
                 border: 'none',
                 padding: 0,
                 cursor: 'pointer',
                 background: '#141518',
-                borderRadius: 12,
-                opacity: current ? 1 : 0.5,
-                transform: current && stripFocused ? 'scale(1.04)' : 'scale(1)',
-                transition: 'opacity 240ms ease, transform 240ms cubic-bezier(.22,.61,.36,1), box-shadow 240ms ease',
-                boxShadow: current && stripFocused ? `${FOCUS_HALO}, 0 20px 44px rgba(0,0,0,0.6)` : 'none',
-                zIndex: current ? 2 : 1,
+                borderRadius: radius,
+                transform: focused ? 'scale(1.02)' : 'scale(1)',
+                transition: 'transform 240ms cubic-bezier(.22,.61,.36,1), box-shadow 240ms ease, opacity 240ms ease',
+                boxShadow: focused ? `${FOCUS_HALO}, 0 26px 60px rgba(0,0,0,0.7)` : '0 18px 44px rgba(0,0,0,0.45)',
+                opacity: shotsFocused && !focused ? 0.62 : 1,
+                zIndex: focused ? 3 : 1,
+                ...reveal(HANDOFF_REVEAL.art),
               }}
             >
-              {current && stripFocused && <FocusRing radius={12} gap={5} width={4} />}
-              <div style={{ position: 'absolute', inset: 0, borderRadius: 12, overflow: 'hidden' }}>
+              {focused && <FocusRing radius={radius} gap={6} width={5} />}
+              {/* Inner clip so the focus ring floats outside the art. */}
+              <div style={{ position: 'absolute', inset: 0, borderRadius: radius, overflow: 'hidden' }}>
                 <Screenshot game={game} variant={s.variant} src={s.src} style={{ position: 'absolute', inset: 0 }} />
               </div>
             </button>
           );
         })}
       </div>
-
-      {/* ── Tile slot ── The flier lands here; without a handoff it fades in. */}
-      {!handoffFrom && (
-        <div
-          style={{
-            position: 'absolute',
-            left: DETAIL.colX,
-            top: DETAIL.tileY,
-            width: DETAIL.tileW,
-            height: DETAIL.tileH,
-            borderRadius: radius,
-            overflow: 'hidden',
-            background: '#141518',
-            boxShadow: '0 18px 44px rgba(0,0,0,0.55)',
-            ...reveal(HANDOFF_REVEAL.copy),
-          }}
-        >
-          <TileFace game={game} />
-        </div>
-      )}
-
-      {/* ── Title + properties + description ── */}
-      <div
-        style={{
-          position: 'absolute',
-          left: DETAIL.colX,
-          top: DETAIL.copyY,
-          width: DETAIL.colW,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 16,
-          ...reveal(HANDOFF_REVEAL.copy),
-        }}
-      >
-        <h1 style={{ margin: 0, fontSize: 46, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.05 }}>
-          {game.title}
-        </h1>
-        <GameMetaPills players={game.players} interaction={game.interaction} size={38} />
-        <p style={{ margin: 0, fontSize: 21, lineHeight: 1.45, color: INK_DIM }}>{game.description}</p>
-      </div>
-
-      {/* ── Actions — bottom-aligned with the strip ── */}
-      <div
-        style={{
-          position: 'absolute',
-          left: DETAIL.colX,
-          top: DETAIL.actionsY,
-          width: DETAIL.colW,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 14,
-          ...reveal(HANDOFF_REVEAL.actions),
-        }}
-      >
-        {signedIn ? (
-          <DetailButton label="Play" focused={focus === 1} pressing={pressing && focus === 1} onClick={onPlay} />
-        ) : (
-          // Not a subscriber yet: pair a phone to start, so the QR takes the
-          // primary slot. Not focusable — there's nothing to press.
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-            <div style={{ background: '#fff', padding: 9, borderRadius: 12, lineHeight: 0, flex: '0 0 auto' }}>
-              <QRCodeSVG value={mobileUrl} size={112} level="M" includeMargin={false} />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ fontSize: 21, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.15 }}>
-                Scan, connect, and play!
-              </div>
-              <div style={{ fontSize: 17, lineHeight: 1.4, color: 'rgba(243,244,241,0.66)' }}>
-                Or, go to <b style={{ color: INK, fontWeight: 700 }}>pair.weekend.com</b>
-                <br />
-                and enter code <b style={{ color: INK, fontWeight: 700, letterSpacing: '0.04em' }}>{pairCode}</b>
-              </div>
-            </div>
-          </div>
-        )}
-        <DetailButton
-          label={favorited ? '♥  Favorited' : '♡  Add to Favorites'}
-          focused={focus === favoriteFocus}
-          pressing={pressing && focus === favoriteFocus}
-          onClick={onToggleFavorite}
-        />
-      </div>
-
-      {/* ── The flying tile ── One element, two rects: it starts on the hub
-          carrying the focus frame and lands in the slot without it, because the
-          slot is not focusable. */}
-      {handoffFrom && (
-        <div
-          // Fresh element per open, so it never eases back from a landed state.
-          key={handoffFrom.id}
-          aria-hidden
-          style={{
-            position: 'absolute',
-            left: handoffLanded ? DETAIL.colX : handoffFrom.rect.x,
-            top: handoffLanded ? DETAIL.tileY : handoffFrom.rect.y,
-            width: handoffLanded ? DETAIL.tileW : handoffFrom.rect.w,
-            height: handoffLanded ? DETAIL.tileH : handoffFrom.rect.h,
-            borderRadius: radius,
-            zIndex: 6,
-            boxShadow: handoffLanded
-              ? '0 18px 44px rgba(0,0,0,0.55)'
-              : `${FOCUS_HALO}, 0 26px 60px rgba(0,0,0,0.7)`,
-            transition: reduceMotion
-              ? undefined
-              : `left ${HANDOFF_MS}ms ${HANDOFF_EASE}, top ${HANDOFF_MS}ms ${HANDOFF_EASE},` +
-                ` width ${HANDOFF_MS}ms ${HANDOFF_EASE}, height ${HANDOFF_MS}ms ${HANDOFF_EASE},` +
-                ' box-shadow 300ms ease 260ms',
-          }}
-        >
-          {!handoffLanded && <FocusRing radius={radius} gap={6} width={5} />}
-          <div style={{ position: 'absolute', inset: 0, borderRadius: radius, overflow: 'hidden' }}>
-            <TileFace game={game} />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
