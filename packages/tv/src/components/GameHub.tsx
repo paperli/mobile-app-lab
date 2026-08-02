@@ -429,12 +429,15 @@ const IMMERSIVE = {
   padX: layout.shelfGutter, // 80
   padBottom: 96,
   /**
-   * Logotype box on the detail page. Larger than the preview band's 720×180 box
-   * on the height axis, so the wordmark reads as the page's title — but still a
-   * contain-fit, because these are small rasters that must never be upscaled.
+   * Logotype box on the detail page — deliberately bigger than the preview
+   * band's 720×180, so the wordmark carries the page the way a title would and
+   * the handoff has a real size change to animate (it grows on the way down).
+   * Raster wordmarks are exported small, so this does upscale them: at the
+   * stage's fit-scale that is still a device-pixel downscale, and on a true
+   * 1080p panel the fix is a larger export, not a smaller box.
    */
-  logoW: 860,
-  logoH: 200,
+  logoW: 900,
+  logoH: 240,
   /** Action column on the right; the copy column takes what is left. */
   actionW: 460,
   colGap: space[9], // 64
@@ -4562,29 +4565,38 @@ export function GameDetailImmersive({
   }, [open, game.id, shots.length]);
 
   /**
-   * Logotype FLIP: it is laid out at its final size, then transformed back onto
-   * the rect it occupied in the preview band and released. Measuring the
-   * destination (rather than assuming it) keeps this correct for both raster
-   * wordmarks, whose size is intrinsic, and the procedural type treatments.
+   * Logotype handoff (a FLIP): the wordmark is laid out at its final size, then
+   * transformed back onto the rect it occupied in the preview band and released
+   * one frame later. Measuring the destination — rather than assuming it — keeps
+   * this correct for raster wordmarks, whose size is intrinsic, as well as for
+   * the procedural type treatments.
+   *
+   * Driven straight on the node: routing the source transform through React
+   * state let it and its release land in the same frame, so the logotype never
+   * painted at the source and the transition had nothing to animate from.
    */
   const logoRef = useRef<HTMLDivElement>(null);
-  const [logoFlip, setLogoFlip] = useState<{ dx: number; dy: number; k: number } | null>(null);
   const from = handoffFrom?.logo;
   useLayoutEffect(() => {
-    if (!from || reduceMotion) {
-      setLogoFlip(null);
-      return;
-    }
-    const dst = measureInStage(logoRef.current);
-    if (!dst || !dst.w) {
-      setLogoFlip(null);
-      return;
-    }
-    setLogoFlip({ dx: from.x - dst.x, dy: from.y - dst.y, k: from.w / dst.w });
-    // Re-measure per open; handoffFrom.id changes even for the same game.
+    const el = logoRef.current;
+    if (!el || !from || reduceMotion) return;
+    // Measure the resting rect with any previous flight cleared off it.
+    el.style.transition = 'none';
+    el.style.transform = 'none';
+    const dst = measureInStage(el);
+    if (!dst || !dst.w) return;
+    // Jump to the source rect and flush it, so there is a painted frame to
+    // transition away from.
+    el.style.transform = `translate(${from.x - dst.x}px, ${from.y - dst.y}px) scale(${from.w / dst.w})`;
+    void el.offsetWidth;
+    const raf = requestAnimationFrame(() => {
+      el.style.transition = `transform ${HANDOFF_MS}ms ${HANDOFF_EASE}`;
+      el.style.transform = 'none';
+    });
+    return () => cancelAnimationFrame(raf);
+    // handoffFrom.id changes on every open, even for the same game.
   }, [from, handoffFrom?.id, measureInStage]);
 
-  const flying = !!logoFlip && !handoffLanded;
   const art = handoffFrom?.art;
   const artFlying = !!art && !handoffLanded;
 
@@ -4698,8 +4710,6 @@ export function GameDetailImmersive({
           style={{
             maxWidth: IMMERSIVE.logoW,
             transformOrigin: 'top left',
-            transform: flying && logoFlip ? `translate(${logoFlip.dx}px, ${logoFlip.dy}px) scale(${logoFlip.k})` : 'none',
-            transition: reduceMotion ? undefined : `transform ${HANDOFF_MS}ms ${HANDOFF_EASE}`,
             filter: 'drop-shadow(0 6px 24px rgba(0,0,0,0.55))',
           }}
         >
@@ -4710,7 +4720,13 @@ export function GameDetailImmersive({
             src={game.art?.logo}
             maxLogoW={IMMERSIVE.logoW}
             maxLogoH={IMMERSIVE.logoH}
-            style={{ fontSize: 84, whiteSpace: 'normal' }}
+            // Pin the height so every wordmark reads at one title size, and let
+            // maxWidth pull back the very wide ones.
+            style={
+              game.art?.logo
+                ? { height: IMMERSIVE.logoH, width: 'auto', maxHeight: 'none', maxWidth: IMMERSIVE.logoW }
+                : { fontSize: 108, whiteSpace: 'normal' }
+            }
           />
         </div>
 
