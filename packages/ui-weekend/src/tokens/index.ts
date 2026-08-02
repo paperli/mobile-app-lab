@@ -30,6 +30,27 @@ export const space = {
   12: 128,
 } as const;
 
+/**
+ * Numeric mirror of the arcade-foundation TYPE SCALE in tokens.css, for the
+ * same reason `space` exists: the TV prototypes compose with inline styles on a
+ * fixed 1920x1080 stage, where a Tailwind utility or a raw CSS var can't be
+ * measured or used in layout math. Keep in lock-step with tokens.css.
+ */
+export const type = {
+  display1: { size: 96, line: 104 },
+  display2: { size: 80, line: 88 },
+  display3: { size: 64, line: 72 },
+  display4: { size: 56, line: 64 },
+  display5: { size: 48, line: 56 },
+  display6: { size: 40, line: 48 },
+  title: { size: 40, line: 48 },
+  body: { size: 32, line: 48 },
+  callout: { size: 32, line: 40 },
+  hint: { size: 32, line: 44 },
+  metadata: { size: 24, line: 32 },
+  caption: { size: 24, line: 32 },
+} as const;
+
 export const layout = {
   /** Fixed design width of the TV stage (1080p). */
   stageW: 1920,

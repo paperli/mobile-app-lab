@@ -23,7 +23,7 @@ import {
 } from 'react';
 import type { CSSProperties } from 'react';
 import type { NavigationAction, NavigationDirection } from '@mobile-app-lab/shared';
-import { layout, space, tileHeight, gridTileWidth } from '@weekend/ui';
+import { layout, space, type as dsType, tileHeight, gridTileWidth } from '@weekend/ui';
 import { QRCodeSVG } from 'qrcode.react';
 import { HUB_GAMES, type HubGame, type GameTheme } from '../prototype/hub/games';
 import { GameArt } from '../prototype/hub/GameArt';
@@ -366,16 +366,26 @@ const PANEL_SHOT_MS = 2600;
 // properties, description, actions) followed by every screenshot at full size.
 // Browsing the shots scrolls the content off to the left, so the whole page is
 // one row rather than two fixed halves.
+//
+// The column has a fixed height and the screenshots match it exactly, so the row
+// reads as one band: 16:9 at 820 tall makes each shot 1458 wide. That is wider
+// than the space left beside the column, which is the point — the first shot
+// runs past the right gutter as the "there's more" cue, and scrolls flush to the
+// left gutter when focused.
 const DETAIL = {
   gutter: layout.shelfGutter, // 80
-  /** Content column width — the tile slot matches it, so the art leads. */
-  contentW: 680,
+  /** Content column — narrower than the art it sits beside. */
+  contentW: 560,
+  /** Column height; the shots are cut to match. */
+  contentH: 820,
   /** Between the content column and the shots, and between the shots. */
   gap: space[8], // 48
-  /** Screenshots at 16:9. Sized so the next one peeks past the right gutter. */
-  shotW: 1000,
-  shotH: 563,
+  /** Between the stacked action buttons. */
+  actionGap: space[5], // 24
 } as const;
+/** Screenshots: 16:9, exactly as tall as the content column. */
+const DETAIL_SHOT_H = DETAIL.contentH;
+const DETAIL_SHOT_W = Math.round((DETAIL.contentH * 16) / 9); // 1458
 
 // ── Tile handoff choreography ────────────────────────────────────────────────
 // The selected tile is one element in two rects: it flies from wherever it sat
@@ -4335,10 +4345,10 @@ export function GameDetailPage({
    * shelves follow, so the two read as the same kind of surface.
    */
   const trackW =
-    DETAIL.contentW + DETAIL.gap + shots.length * DETAIL.shotW + (shots.length - 1) * DETAIL.gap;
+    DETAIL.contentW + DETAIL.gap + shots.length * DETAIL_SHOT_W + (shots.length - 1) * DETAIL.gap;
   const maxScroll = Math.max(0, trackW - (STAGE_W - DETAIL.gutter * 2));
   const shotStart = DETAIL.contentW + DETAIL.gap;
-  const scrollX = shotsFocused ? Math.min(shotStart + shot * (DETAIL.shotW + DETAIL.gap), maxScroll) : 0;
+  const scrollX = shotsFocused ? Math.min(shotStart + shot * (DETAIL_SHOT_W + DETAIL.gap), maxScroll) : 0;
 
   return (
     <div
@@ -4392,12 +4402,16 @@ export function GameDetailPage({
           style={{
             flex: `0 0 ${DETAIL.contentW}px`,
             width: DETAIL.contentW,
+            height: DETAIL.contentH,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'stretch',
-            gap: 26,
+            // Actions sit on the column's bottom edge; whatever the copy doesn't
+            // use becomes air above them, so the buttons never move between games.
+            justifyContent: 'space-between',
           }}
         >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {/* Tile slot — full content width, so it reads as the page's art. */}
           <div
             ref={tileRef}
@@ -4418,15 +4432,43 @@ export function GameDetailPage({
             <TileFace game={game} logoSize="16cqh" />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, ...reveal(HANDOFF_REVEAL.copy) }}>
-            <h1 style={{ margin: 0, fontSize: 46, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.05 }}>
+          {/* Title / properties / description on the DS type scale: display-5 for
+              the name, the standard body size for the pitch, and the pills at
+              their own DS size (the same one the top preview band uses). */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, ...reveal(HANDOFF_REVEAL.copy) }}>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: dsType.display5.size,
+                lineHeight: `${dsType.display5.line}px`,
+                fontWeight: 800,
+                letterSpacing: '-0.02em',
+              }}
+            >
               {game.title}
             </h1>
-            <GameMetaPills players={game.players} interaction={game.interaction} size={38} />
-            <p style={{ margin: 0, fontSize: 21, lineHeight: 1.45, color: INK_DIM }}>{game.description}</p>
+            <GameMetaPills players={game.players} interaction={game.interaction} />
+            <p
+              style={{
+                margin: 0,
+                fontSize: dsType.body.size,
+                lineHeight: `${dsType.body.line}px`,
+                color: INK_DIM,
+                // Every current pitch is two lines at this size; clamped like the
+                // preview band's so a longer one can't push the actions off the
+                // column's fixed bottom edge.
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+              }}
+            >
+              {game.description}
+            </p>
+          </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, ...reveal(HANDOFF_REVEAL.actions) }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: DETAIL.actionGap, ...reveal(HANDOFF_REVEAL.actions) }}>
             {signedIn ? (
               <DetailButton label="Play" focused={focus === 1} pressing={pressing && focus === 1} onClick={onPlay} />
             ) : (
@@ -4466,8 +4508,8 @@ export function GameDetailPage({
               style={{
                 position: 'relative',
                 flex: '0 0 auto',
-                width: DETAIL.shotW,
-                height: DETAIL.shotH,
+                width: DETAIL_SHOT_W,
+                height: DETAIL_SHOT_H,
                 appearance: 'none',
                 border: 'none',
                 padding: 0,
