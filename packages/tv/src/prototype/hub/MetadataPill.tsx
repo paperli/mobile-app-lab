@@ -52,6 +52,9 @@ interface MetadataPillProps {
   ds?: boolean;
 }
 
+/** Fixed metrics of the DS metadata chip (see the `ds` branch below). */
+const DS_PILL = { icon: 24, gap: 12, padX: 16, radius: 8, font: 24 } as const;
+
 export function MetadataPill({ iconSrc, glyph, label, size = 40, ds = false }: MetadataPillProps) {
   if (!ds) {
     // Original emoji-glyph chip — unchanged, keeps existing variations as-is.
@@ -81,25 +84,28 @@ export function MetadataPill({ iconSrc, glyph, label, size = 40, ds = false }: M
     );
   }
 
-  // Weekend DS pill.
-  const icon = size * 0.375; // 24 @ 64
+  // Weekend DS pill — a squared chip on a flat 12% fill: no hairline, no inner
+  // highlight and no backdrop blur, which is what reads cleanly over both the
+  // hero art and the detail pages' grounds.
+  //
+  // Its metrics are fixed by the DS rather than scaled off `size`, because a
+  // metadata chip is one size: a 24px label (the `metadata` type token), a 24px
+  // icon, 12px between them, 16px of side padding and an 8px corner. `size` sets
+  // the height alone.
+  const icon = DS_PILL.icon;
   return (
     <span
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: size * 0.1875, // 12 @ 64
+        gap: DS_PILL.gap,
         height: size,
-        padding: `0 ${size * 0.375}px`, // 24 @ 64
-        borderRadius: 9999,
+        padding: `0 ${DS_PILL.padX}px`,
+        borderRadius: DS_PILL.radius,
         background: 'rgba(255,255,255,0.12)',
-        backdropFilter: 'blur(28px)',
-        WebkitBackdropFilter: 'blur(28px)',
-        border: '1px solid rgba(255,255,255,0.12)',
-        boxShadow: 'inset 2px 2px 1px rgba(255,255,255,0.09)',
         color: '#F3F4F1',
         fontFamily: FONT,
-        fontSize: size * 0.375, // 24 @ 64
+        fontSize: DS_PILL.font,
         fontWeight: 500,
         lineHeight: 1,
         whiteSpace: 'nowrap',

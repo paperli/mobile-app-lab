@@ -32,7 +32,7 @@ export interface HubTheme {
   /** Accent treatment — Canary CTA, Canary gradient focus ring + gap, Canary
    *  carousel dot (true) vs the original white/dark treatment. */
   dsAccent: boolean;
-  /** Default metadata-pill height for this theme. */
+  /** Metadata-pill height for this theme (the DS chip's other metrics are fixed). */
   pillSize: number;
 }
 
@@ -42,7 +42,7 @@ export const ARCADE_THEME: HubTheme = {
   brandLogo: true,
   dsPills: true,
   dsAccent: true,
-  pillSize: 64,
+  pillSize: 52,
 };
 
 export const MOCKUP_THEME: HubTheme = {
