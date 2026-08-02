@@ -4218,15 +4218,17 @@ function DetailButton({
         position: 'relative',
         appearance: 'none',
         width,
-        height: 72,
+        height: 64,
         padding: '0 32px',
         borderRadius: 9999,
         border: 'none',
         cursor: 'pointer',
         fontFamily: FONT,
-        fontSize: 26,
+        // Labels on the DS `callout` scale (32/40), which is what fits a 64px
+        // pill: 40px of line box with 12px of air either side.
+        fontSize: dsType.callout.size,
+        lineHeight: `${dsType.callout.line}px`,
         fontWeight: 500,
-        lineHeight: 1.2,
         transition:
           'transform 220ms cubic-bezier(.22,.61,.36,1), box-shadow 220ms ease, background 220ms ease, color 220ms ease',
         transform: focused ? (pressing ? 'scale(0.98)' : 'scale(1.02)') : 'scale(1)',
