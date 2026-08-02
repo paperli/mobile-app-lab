@@ -377,9 +377,13 @@ const DETAIL = {
   /** Content column — narrower than the art it sits beside. */
   contentW: 560,
   /** Column height; the shots are cut to match. */
-  contentH: 820,
+  contentH: 860,
   /** Between the content column and the shots, and between the shots. */
   gap: space[8], // 48
+  /** Tile → copy. */
+  artGap: space[6], // 32
+  /** Between the info elements: title, properties, description. */
+  infoGap: space[5], // 24
   /** Between the stacked action buttons. */
   actionGap: space[5], // 24
 } as const;
@@ -439,6 +443,9 @@ const IMMERSIVE = {
   /** Action column on the right; the copy column takes what is left. */
   actionW: 460,
   colGap: space[9], // 64
+  /** Logotype → copy, and between the info elements. */
+  artGap: space[6], // 32
+  infoGap: space[5], // 24
   /** Description measure. */
   copyW: 1000,
   /** Bottom scrim height — everything below this is guaranteed legible. */
@@ -4413,7 +4420,7 @@ export function GameDetailPage({
             justifyContent: 'space-between',
           }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: DETAIL.artGap }}>
           {/* Tile slot — full content width, so it reads as the page's art. */}
           <div
             ref={tileRef}
@@ -4437,7 +4444,7 @@ export function GameDetailPage({
           {/* Title / properties / description on the DS type scale: display-5 for
               the name, the standard body size for the pitch, and the pills at
               their own DS size (the same one the top preview band uses). */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, ...reveal(HANDOFF_REVEAL.copy) }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: DETAIL.infoGap, ...reveal(HANDOFF_REVEAL.copy) }}>
             <h1
               style={{
                 margin: 0,
@@ -4765,7 +4772,16 @@ export function GameDetailImmersive({
           gap: IMMERSIVE.colGap,
         }}
       >
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 26 }}>
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+            gap: IMMERSIVE.artGap,
+          }}
+        >
         {/* The logotype replaces the title. It flies from the preview band, so
             it is not part of the content's fade — it arrives under its own
             steam. */}
@@ -4799,7 +4815,7 @@ export function GameDetailImmersive({
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'flex-start',
-            gap: 20,
+            gap: IMMERSIVE.infoGap,
             opacity: open ? 1 : 0,
             transform: open ? 'none' : 'translateY(16px)',
             transition: reduceMotion
@@ -4808,7 +4824,16 @@ export function GameDetailImmersive({
           }}
         >
           <GameMetaPills players={game.players} interaction={game.interaction} />
-          <p style={{ margin: 0, maxWidth: IMMERSIVE.copyW, fontSize: 26, lineHeight: 1.45, color: 'rgba(243,244,241,0.86)' }}>
+          <p
+            style={{
+              margin: 0,
+              maxWidth: IMMERSIVE.copyW,
+              // Same DS body token as the strip page's pitch.
+              fontSize: dsType.body.size,
+              lineHeight: `${dsType.body.line}px`,
+              color: 'rgba(243,244,241,0.86)',
+            }}
+          >
             {game.description}
           </p>
         </div>
