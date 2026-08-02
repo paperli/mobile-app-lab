@@ -215,8 +215,15 @@ function Hub9View() {
   const hubRef = useRef<HubHandle>(null);
   const [launching, setLaunching] = useState<string | null>(null);
 
+  const params = new URLSearchParams(window.location.search);
   // ?newRow=false hides the "New on Weekend" shelf (shown by default).
-  const showNewRow = new URLSearchParams(window.location.search).get('newRow') !== 'false';
+  const showNewRow = params.get('newRow') !== 'false';
+  // ?detail=page routes game selection through the full-screen game detail page
+  // instead of launching straight into the game (the base hub9 behavior).
+  const detailView = params.get('detail') === 'page' ? 'page' : 'sidebar';
+  // ?subscribed=true starts signed in, so the detail page shows Play instead of
+  // the pairing QR (hub9 has no top nav to sign in from).
+  const subscribed = params.get('subscribed') === 'true';
   const content = showNewRow ? HUB9_CONTENT : { ...HUB9_CONTENT, shelves: [] };
 
   useEffect(() => {
@@ -263,6 +270,8 @@ function Hub9View() {
         ref={hubRef}
         roomCode="WKND42"
         content={content}
+        detailView={detailView}
+        initialSignedIn={subscribed}
         frame
         onLaunch={(g: HubGame) => {
           setLaunching(g.title);
@@ -292,7 +301,34 @@ function Hub9View() {
   );
 }
 
-// Gallery card for the curated 9-game hub (its own layout, not a phase/variation).
+// The curated 9-game hub variations (their own layout, not a phase/variation).
+interface Hub9Option {
+  href: string;
+  eyebrow: string;
+  tagline: string;
+  desc: string;
+  flag?: string;
+}
+
+const HUB9_OPTIONS: Hub9Option[] = [
+  {
+    href: '?view=hub9',
+    eyebrow: 'Curated 9-game hub',
+    tagline: 'Hero + New Games + grid',
+    flag: 'New',
+    desc:
+      'A tight nine-title catalog rendered through the same GameHub elements as the other variations. The hero carousel promotes the 7-day free trial plus Guess the Emoji, Werds and Wheel of Fortune, above a “New Games” shelf (Guess the Emoji & Werds tagged NEW) and an All Games grid. The focused game previews in the top area; OK launches it.',
+  },
+  {
+    href: '?view=hub9&detail=page',
+    eyebrow: 'Curated 9-game hub',
+    tagline: '+ Game detail page',
+    flag: 'New',
+    desc:
+      'The same hub, but selecting a game opens a full-screen game detail page instead of launching it — a screenshot carousel across the top (auto-scrolling like the merch hero, with the neighbouring shots peeking in faded), then the title, properties and description on the left with Play / Add to Favorites on the right. Signed out you get the pairing QR in place of Play and focus starts on the carousel. Back returns to wherever you came from.',
+  },
+];
+
 function Hub9Card() {
   return (
     <>
@@ -309,8 +345,10 @@ function Hub9Card() {
         Prototypes — 9 games
       </div>
       <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 377px))', justifyContent: 'start', gap: 24 }}>
+        {HUB9_OPTIONS.map((o) => (
         <a
-          href="?view=hub9"
+          key={o.href}
+          href={o.href}
           style={{
             display: 'block',
             position: 'relative',
@@ -331,35 +369,34 @@ function Hub9Card() {
             e.currentTarget.style.transform = 'translateY(0)';
           }}
         >
-          <div
-            style={{
-              position: 'absolute',
-              top: 16,
-              right: 16,
-              fontSize: 12,
-              fontWeight: 800,
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
-              color: '#0b0c0e',
-              background: '#ffda0a',
-              borderRadius: 999,
-              padding: '5px 13px',
-              boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
-            }}
-          >
-            New
-          </div>
+          {o.flag && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                fontSize: 12,
+                fontWeight: 800,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                color: '#0b0c0e',
+                background: '#ffda0a',
+                borderRadius: 999,
+                padding: '5px 13px',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+              }}
+            >
+              {o.flag}
+            </div>
+          )}
           <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', color: '#8a8a9a', textTransform: 'uppercase' }}>
-            Curated 9-game hub
+            {o.eyebrow}
           </div>
-          <div style={{ marginTop: 10, fontSize: 26, fontWeight: 800, letterSpacing: '-0.01em' }}>Hero + New Games + grid</div>
-          <p style={{ margin: '12px 0 0', fontSize: 15.5, lineHeight: 1.5, color: 'rgba(243,244,241,0.68)' }}>
-            A tight nine-title catalog rendered through the same GameHub elements as the other variations. The hero carousel
-            promotes the 7-day free trial plus Guess the Emoji, Werds and Wheel of Fortune, above a “New Games” shelf (Guess
-            the Emoji &amp; Werds tagged NEW) and an All Games grid. The focused game previews in the top area; OK launches it.
-          </p>
+          <div style={{ marginTop: 10, fontSize: 26, fontWeight: 800, letterSpacing: '-0.01em' }}>{o.tagline}</div>
+          <p style={{ margin: '12px 0 0', fontSize: 15.5, lineHeight: 1.5, color: 'rgba(243,244,241,0.68)' }}>{o.desc}</p>
           <div style={{ marginTop: 18, fontSize: 15, fontWeight: 700, color: '#f3f4f1' }}>Open →</div>
         </a>
+        ))}
       </div>
     </>
   );
@@ -585,6 +622,9 @@ function Gallery() {
 
         <p style={{ marginTop: 44, fontSize: 14, color: '#6b6c71' }}>
           Tip: append <code style={{ color: '#b9babe' }}>&amp;pairing=true</code> to any layout to show the QR pairing panel.
+          <br />
+          On the 9-game hub, <code style={{ color: '#b9babe' }}>&amp;subscribed=true</code> starts you signed in — the game
+          detail page then shows the <b>Play</b> button instead of the pairing QR.
         </p>
       </div>
     </div>

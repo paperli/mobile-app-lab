@@ -247,10 +247,46 @@ interface ScreenshotProps {
   game: HubGame;
   variant: ShotVariant;
   style?: CSSProperties;
+  /** A real 16:9 capture (game.art.shots) — rendered instead of the mock frame. */
+  src?: string;
 }
 
-export function Screenshot({ game, variant, style }: ScreenshotProps) {
-  const inner =
-    variant === 'gameplay' ? <Gameplay game={game} /> : variant === 'scoreboard' ? <Scoreboard game={game} /> : <Results game={game} />;
+export function Screenshot({ game, variant, style, src }: ScreenshotProps) {
+  const inner = src ? (
+    <img
+      src={src}
+      alt=""
+      style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }}
+    />
+  ) : variant === 'gameplay' ? (
+    <Gameplay game={game} />
+  ) : variant === 'scoreboard' ? (
+    <Scoreboard game={game} />
+  ) : (
+    <Results game={game} />
+  );
   return style ? <div style={style}>{inner}</div> : inner;
 }
+
+/**
+ * One entry per screenshot in a game's carousel: a real capture when the game has
+ * exported art, otherwise the three mock frames templated from its theme (so
+ * every title has "screenshots" whether or not it has been captured yet).
+ */
+export interface GameShot {
+  key: string;
+  /** Real capture URL; absent for the mock frames. */
+  src?: string;
+  /** Which mock frame to render when `src` is absent. */
+  variant: ShotVariant;
+}
+
+export function gameShots(game: HubGame): GameShot[] {
+  const real = game.art?.shots;
+  if (real?.length) return real.map((src, i) => ({ key: `shot-${i}`, src, variant: SHOT_VARIANTS[i % SHOT_VARIANTS.length] }));
+  return SHOT_VARIANTS.map((variant) => ({ key: variant, variant }));
+}
+
+/** How many screenshots a game's carousel has (real captures, else the mocks). */
+export const shotCount = (game: HubGame | null | undefined): number =>
+  game?.art?.shots?.length || SHOT_VARIANTS.length;

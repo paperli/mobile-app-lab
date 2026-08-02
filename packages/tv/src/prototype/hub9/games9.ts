@@ -22,10 +22,29 @@ export interface Hub9Game extends HubGame {
 // packages/tv/public/games/hub9/<id>/. The art system prefers these over the
 // procedural theme fallback; `theme` is retained for palette/pill accents.
 // Paths go through assetUrl so they resolve under the demo's relative base.
+/**
+ * Real in-game captures (Foundry exports, cropped to 1280×720) for the titles
+ * that have them, served from public/games/hub9/<id>/shots/. Games without
+ * captures fall back to the procedural mock frames (see hub/Screenshot).
+ */
+const REAL_SHOT_COUNTS: Record<string, number> = {
+  'guess-the-emoji': 4,
+  werds: 4,
+  'spot-on': 4,
+  'sketchy-af': 4,
+};
+
+const shotsFor = (id: string): string[] | undefined => {
+  const n = REAL_SHOT_COUNTS[id];
+  if (!n) return undefined;
+  return Array.from({ length: n }, (_, i) => assetUrl(`/games/hub9/${id}/shots/${i + 1}.jpg`));
+};
+
 const artFor = (id: string) => ({
   tile: assetUrl(`/games/hub9/${id}/tile.png`),
   preview: assetUrl(`/games/hub9/${id}/preview.jpg`),
   logo: assetUrl(`/games/hub9/${id}/logo.png`),
+  shots: shotsFor(id),
 });
 
 // Order matches the requested grid order:

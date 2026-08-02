@@ -68,12 +68,14 @@ export interface GameTheme {
  *   · tile    — fully-composed 16:9 tile (logo baked in)
  *   · preview — wide "Top Game Preview" scene for the hero/preview band
  *   · logo    — transparent wordmark PNG (overlaid on the preview band)
+ *   · shots   — real 16:9 in-game captures, in carousel order
  * Any missing field falls back to the procedural `theme` rendering.
  */
 export interface GameArtAssets {
   tile?: string;
   preview?: string;
   logo?: string;
+  shots?: string[];
 }
 
 export interface HubGame {
