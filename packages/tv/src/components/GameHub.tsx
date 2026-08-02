@@ -3909,24 +3909,22 @@ function shotOffset(i: number, current: number, count: number): number {
 }
 
 /**
- * Detail-page action button. DS pills: `primary` is the Canary gradient CTA,
- * `outline` a warm-white hairline. Focus adds the Canary gradient ring + halo,
- * the same treatment the game tiles use.
+ * Detail-page action button — a DS pill that reads its focus as a *fill* rather
+ * than a ring: focused fills with the Canary CTA gradient on Midnight-Blue ink
+ * (plus the CTA glow), unfocused rests as the DS `soft` pill (10% warm-white).
+ * Only one action is focused at a time, so the fill alone carries the emphasis.
  */
 function DetailButton({
   label,
-  variant,
   focused,
   pressing,
   onClick,
 }: {
   label: string;
-  variant: 'primary' | 'outline';
   focused: boolean;
   pressing?: boolean;
   onClick: () => void;
 }) {
-  const primary = variant === 'primary';
   return (
     <button
       onClick={onClick}
@@ -3937,24 +3935,28 @@ function DetailButton({
         height: 72,
         padding: '0 32px',
         borderRadius: 9999,
+        border: 'none',
         cursor: 'pointer',
         fontFamily: FONT,
         fontSize: 26,
         fontWeight: 500,
         lineHeight: 1.2,
-        color: primary ? STAGE_BG : INK,
-        background: primary ? CTA_GRADIENT : 'transparent',
-        border: primary ? 'none' : `1px solid rgba(243,244,241,0.20)`,
+        transition:
+          'transform 220ms cubic-bezier(.22,.61,.36,1), box-shadow 220ms ease, background 220ms ease, color 220ms ease',
         transform: focused ? (pressing ? 'scale(0.98)' : 'scale(1.02)') : 'scale(1)',
-        transition: 'transform 220ms cubic-bezier(.22,.61,.36,1), box-shadow 220ms ease, background 220ms ease',
-        boxShadow: focused
-          ? `${FOCUS_HALO}, 0 12px 30px rgba(0,0,0,0.5)`
-          : primary
-            ? `${CTA_GLOW}, 0 12px 30px rgba(0,0,0,0.5)`
-            : 'none',
+        ...(focused
+          ? {
+              color: STAGE_BG,
+              background: CTA_GRADIENT,
+              boxShadow: `${CTA_GLOW}, 0 12px 30px rgba(0,0,0,0.5)`,
+            }
+          : {
+              color: INK,
+              background: 'rgba(243,244,241,0.10)',
+              boxShadow: 'none',
+            }),
       }}
     >
-      {focused && <FocusRing radius={9999} gap={6} width={5} />}
       {label}
     </button>
   );
@@ -4163,13 +4165,7 @@ export function GameDetailPage({
           }}
         >
           {signedIn ? (
-            <DetailButton
-              label="Play"
-              variant="primary"
-              focused={focus === 1}
-              pressing={pressing && focus === 1}
-              onClick={onPlay}
-            />
+            <DetailButton label="Play" focused={focus === 1} pressing={pressing && focus === 1} onClick={onPlay} />
           ) : (
             // Not a subscriber yet: pair a phone to start, so the QR takes the
             // primary slot. Not focusable — there's nothing to press.
@@ -4191,25 +4187,11 @@ export function GameDetailPage({
           )}
           <DetailButton
             label={favorited ? '♥  Favorited' : '♡  Add to Favorites'}
-            variant="outline"
             focused={focus === favoriteFocus}
             pressing={pressing && focus === favoriteFocus}
             onClick={onToggleFavorite}
           />
         </div>
-      </div>
-
-      {/* Remote hint — Back leaves the page for wherever the user came from. */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 20,
-          left: SHELF_PAD,
-          fontSize: 16,
-          color: 'rgba(243,244,241,0.38)',
-        }}
-      >
-        ◀ ▶ screenshots · ▲ ▼ actions · Back to return
       </div>
     </div>
   );
