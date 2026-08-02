@@ -218,9 +218,12 @@ function Hub9View() {
   const params = new URLSearchParams(window.location.search);
   // ?newRow=false hides the "New on Weekend" shelf (shown by default).
   const showNewRow = params.get('newRow') !== 'false';
-  // ?detail=page routes game selection through the full-screen game detail page
-  // instead of launching straight into the game (the base hub9 behavior).
-  const detailView = params.get('detail') === 'page' ? 'page' : 'sidebar';
+  // ?detail= routes game selection through a full-screen game detail page instead
+  // of launching straight into the game (the base hub9 behavior):
+  //   page      — shot strip + the tile handed off from the shelf
+  //   immersive — full-bleed preview art, logotype handed off from the top band
+  const detailParam = params.get('detail');
+  const detailView = detailParam === 'page' || detailParam === 'immersive' ? detailParam : 'sidebar';
   // ?subscribed=true starts signed in, so the detail page shows Play instead of
   // the pairing QR (hub9 has no top nav to sign in from).
   const subscribed = params.get('subscribed') === 'true';
@@ -325,7 +328,15 @@ const HUB9_OPTIONS: Hub9Option[] = [
     tagline: '+ Game detail page',
     flag: 'New',
     desc:
-      'The same hub, but selecting a game opens a full-screen game detail page instead of launching it — a screenshot carousel across the top (auto-scrolling like the merch hero, with the neighbouring shots peeking in faded), then the title, properties and description on the left with Play / Add to Favorites on the right. Signed out you get the pairing QR in place of Play and focus starts on the carousel. Back returns to wherever you came from.',
+      'The same hub, but selecting a game opens a full-screen game detail page instead of launching it — the current screenshot with a strip of every other shot beneath it, and the tile you picked handed off from the shelf into the slot above the title. ◀▶ in the strip swaps the big shot; Play / Add to Favorites sit on the right (the pairing QR replaces Play when you are signed out).',
+  },
+  {
+    href: '?view=hub9&detail=immersive',
+    eyebrow: 'Curated 9-game hub',
+    tagline: '+ Immersive detail page',
+    flag: 'New',
+    desc:
+      'A third take on the detail page: the preview art fills the screen, the content sits on a scrim along the bottom, and the game’s logotype flies down from the top preview band to stand in for the title. Actions run in a row beneath it. A couple of seconds in, the screenshots take the background over for three rounds and then hand it back to the art.',
   },
 ];
 
