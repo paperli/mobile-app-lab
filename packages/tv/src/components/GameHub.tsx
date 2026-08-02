@@ -1993,6 +1993,16 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       const p = panelRef.current;
       if (p.game) {
         if (action === 'back') {
+          // The full-page row is a level of its own: Back steps out of the
+          // screenshots onto the button they were entered from, and only closes
+          // the page from there.
+          if (detailViewRef.current === 'page' && p.focus === 0) {
+            const np = { ...p, focus: pageActionFocusRef.current };
+            panelRef.current = np;
+            setPanel(np);
+            soundManager.playNavigationSound();
+            return;
+          }
           closePanel();
           return;
         }
@@ -4368,7 +4378,13 @@ export function GameDetailPage({
           alignItems: 'center',
           gap: DETAIL.gap,
           transform: `translate(${-scrollX}px, -50%)`,
-          transition: reduceMotion ? undefined : `transform 460ms ${HANDOFF_EASE}`,
+          // The whole row fades with the page. Without this, closing while the
+          // row is scrolled leaves the tile stranded at the screen edge: the
+          // ground fades out from under it, but the tile itself never does.
+          opacity: open ? 1 : 0,
+          transition: reduceMotion
+            ? undefined
+            : `transform 460ms ${HANDOFF_EASE}, opacity ${HANDOFF_BG_MS}ms ease`,
         }}
       >
         {/* ── Content column ── */}
