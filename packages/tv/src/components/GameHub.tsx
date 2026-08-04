@@ -443,32 +443,32 @@ const IMMERSIVE = {
   headerRise: 28,
   /** Wash behind the header, so rows scrolling under it stay legible. */
   headerWashH: 280,
-  /** The copy band sits on the bottom edge, as it did before. */
-  padBottom: 96,
-  /** Description measure. */
-  copyW: 1000,
-  /** Action column on the right; the copy column takes what is left. */
-  actionW: 460,
-  colGap: space[9], // 64
+  /** Info band: lifted off the bottom edge so the screenshots row can peek. */
+  infoY: 600,
+  /** Its three columns: actions, description, then the parameter list. */
+  actionW: 340,
+  descW: 900,
+  paramW: 408,
+  colGap: space[7] + 16, // 56
   /** Logotype → copy, and between the info elements. */
   artGap: space[6], // 32
   infoGap: space[5], // 24
   /** Bottom scrim height, while the hero has focus. */
   scrimH: 740,
-  /** Screenshots row: two fit between the gutters, the third peeks. Below the
-   *  fold, because the hero copy owns the bottom of the screen. */
-  shotsY: 1180,
+  /** Screenshots row: two fit between the gutters, the third peeks. Placed so a
+   *  slice of it shows under the info band before it is focused. */
+  shotsY: 860,
   shotW: 800,
   shotH: 450,
   shotsVisible: 2,
   /** "You may also like" — standard hub shelf tiles. */
-  alsoTitleY: 1710,
-  alsoY: 1786,
+  alsoTitleY: 1374,
+  alsoY: 1450,
   alsoVisible: 4,
   rowGap: space[6], // 32
-  /** Where each row settles once it takes focus. */
-  shotsScroll: 800,
-  alsoScroll: 1410,
+  /** One scroll position for both rows, so reaching the recommendations doesn't
+   *  shove the screenshots off the top — they stay on screen together. */
+  rowsScroll: 660,
   /** Bound nudge — the DS bounce, in stage px rather than vw. */
   overshoot: 28,
   overshootMs: BOUNCE_DURATION_MS,
@@ -4687,6 +4687,12 @@ export function GameDetailPage({
 // interaction, competition, cooperation). A TV detail page has no live player
 // profile, so taste affinity has nothing to read — similarity is the honest
 // signal for "more like this one".
+/** Short control name for the parameter list ("Voice Controlled" → "Voice"). */
+function controlLabel(interaction: string): string {
+  if (interaction === 'Motion Capture') return 'Motion';
+  return interaction.replace(/ Controlled$/, '');
+}
+
 const ALSO_LIKE_COUNT = 8;
 function alsoLikeFor(game: HubGame, catalog: HubGame[]): HubGame[] {
   const target = enrichHubGame(game);
@@ -4772,16 +4778,32 @@ export function GameDetailImmersive({
   const browsing = sec !== IMM_CONTENT;
 
   /**
+   * Parameters as a plain list. Category comes from the personalization
+   * taxonomy — the same genre the recommendation row scores on — so the page
+   * states the classification it is actually reasoning with.
+   */
+  const params = useMemo(
+    () => [
+      { label: 'Players', value: game.players },
+      { label: 'Category', value: enrichHubGame(game).genre },
+      { label: 'Control', value: controlLabel(game.interaction) },
+    ],
+    [game]
+  );
+
+  /**
    * The backdrop: the screenshots, cross-fading on a loop from the moment the
    * page opens. Nothing to hand back to, so it just keeps going.
    */
   const [bgShot, setBgShot] = useState(0);
   useEffect(() => {
     setBgShot(0);
-    if (!open || reduceMotion || shots.length < 2) return;
+    // Paused while a row has focus: the rows are the content then, and a
+    // cross-fading backdrop behind them just competes with the tiles.
+    if (!open || browsing || reduceMotion || shots.length < 2) return;
     const t = window.setInterval(() => setBgShot((s) => (s + 1) % shots.length), IMMERSIVE_SHOT_MS);
     return () => window.clearInterval(t);
-  }, [open, game.id, shots.length]);
+  }, [open, browsing, game.id, shots.length]);
 
   /**
    * Logotype handoff (a FLIP): laid out where it rests on this page, then
@@ -4823,7 +4845,7 @@ export function GameDetailImmersive({
   const rowShift = (mine: number, base: number) =>
     bounce && sec === mine ? base + nudge(bounce.dir) : base;
 
-  const scrollY = sec === IMM_SHOTS ? IMMERSIVE.shotsScroll : sec === IMM_ALSO ? IMMERSIVE.alsoScroll : 0;
+  const scrollY = sec === IMM_CONTENT ? 0 : IMMERSIVE.rowsScroll;
 
   return (
     <div
@@ -4842,8 +4864,15 @@ export function GameDetailImmersive({
         transition: reduceMotion ? undefined : `opacity ${HANDOFF_BG_MS}ms ease`,
       }}
     >
-      {/* ── Backdrop: the screenshots, looping ── */}
-      <div style={{ position: 'absolute', inset: 0 }}>
+      {/* ── Backdrop: the screenshots, looping until a row takes focus ── */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          opacity: browsing ? 0 : 1,
+          transition: 'opacity 420ms ease',
+        }}
+      >
         {shots.map((s, i) => (
           <Screenshot
             key={s.key}
@@ -4984,16 +5013,17 @@ export function GameDetailImmersive({
           />
         </div>
 
-        {/* ── Copy + actions ── On the bottom edge: properties and pitch left,
-            actions stacked right. Both leave as soon as a row takes focus. ── */}
+        {/* ── Info band ── Three columns: the actions, the pitch, then the
+            parameters as a plain list. Lifted off the bottom edge so a slice of
+            the screenshots row shows beneath it. All of it leaves as soon as a
+            row takes focus. ── */}
         <div
           style={{
             position: 'absolute',
             left: IMMERSIVE.padX,
-            right: IMMERSIVE.padX,
-            bottom: IMMERSIVE.padBottom,
+            top: IMMERSIVE.infoY,
             display: 'flex',
-            alignItems: 'flex-end',
+            alignItems: 'flex-start',
             gap: IMMERSIVE.colGap,
             opacity: open && !browsing ? 1 : 0,
             transform: open ? 'none' : 'translateY(16px)',
@@ -5003,30 +5033,7 @@ export function GameDetailImmersive({
               : `opacity 380ms ease ${open && !browsing ? HANDOFF_REVEAL.copy : 0}ms, transform 420ms ${HANDOFF_EASE} ${open ? HANDOFF_REVEAL.copy : 0}ms`,
           }}
         >
-          <div
-            style={{
-              flex: 1,
-              minWidth: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              gap: IMMERSIVE.infoGap,
-            }}
-          >
-            <GameMetaPills players={game.players} interaction={game.interaction} />
-            <p
-              style={{
-                margin: 0,
-                maxWidth: IMMERSIVE.copyW,
-                fontSize: dsType.body.size,
-                lineHeight: `${dsType.body.line}px`,
-                color: 'rgba(243,244,241,0.86)',
-              }}
-            >
-              {game.description}
-            </p>
-          </div>
-
+          {/* Actions */}
           <div
             style={{
               flex: `0 0 ${IMMERSIVE.actionW}px`,
@@ -5042,32 +5049,72 @@ export function GameDetailImmersive({
             ) : (
               // Not a subscriber yet: pair a phone to start, so the QR takes the
               // top of the column. Not focusable — there's nothing to press.
-              <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 6 }}>
-                <div style={{ background: '#fff', padding: 9, borderRadius: 12, lineHeight: 0, flex: '0 0 auto' }}>
-                  <QRCodeSVG value={mobileUrl} size={104} level="M" includeMargin={false} />
+              // Side by side, not stacked: the column is 340 wide and only has
+              // the band's height to work in — stacked, this pushed Favorite
+              // down under the screenshots row.
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ background: '#fff', padding: 8, borderRadius: 10, lineHeight: 0, flex: '0 0 auto' }}>
+                  <QRCodeSVG value={mobileUrl} size={96} level="M" includeMargin={false} />
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  <div style={{ fontSize: 21, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.15 }}>
-                    Scan, connect, and play!
-                  </div>
-                  <div style={{ fontSize: 17, lineHeight: 1.4, color: 'rgba(243,244,241,0.72)' }}>
-                    Or go to <b style={{ color: INK, fontWeight: 700 }}>pair.weekend.com</b> and enter{' '}
-                    <b style={{ color: INK, fontWeight: 700, letterSpacing: '0.04em' }}>{pairCode}</b>
-                  </div>
+                <div
+                  style={{
+                    fontSize: dsType.metadata.size,
+                    lineHeight: `${dsType.metadata.line}px`,
+                    color: 'rgba(243,244,241,0.72)',
+                  }}
+                >
+                  <div style={{ color: INK, fontWeight: 700 }}>Scan to play</div>
+                  or enter <b style={{ color: INK, fontWeight: 700 }}>{pairCode}</b>
                 </div>
               </div>
             )}
             <DetailButton
-              label={favorited ? '♥  Favorited' : '♡  Add to Favorites'}
+              label={favorited ? '♥  Favorited' : '♡  Favorite'}
               focused={!browsing && focus === favoriteFocus}
               pressing={pressing && focus === favoriteFocus}
               onClick={onToggleFavorite}
             />
           </div>
+
+          {/* Pitch */}
+          <p
+            style={{
+              flex: `0 0 ${IMMERSIVE.descW}px`,
+              width: IMMERSIVE.descW,
+              margin: 0,
+              fontSize: dsType.body.size,
+              lineHeight: `${dsType.body.line}px`,
+              color: 'rgba(243,244,241,0.86)',
+            }}
+          >
+            {game.description}
+          </p>
+
+          {/* Parameters — plain rows rather than pills. */}
+          <dl
+            style={{
+              flex: `0 0 ${IMMERSIVE.paramW}px`,
+              width: IMMERSIVE.paramW,
+              margin: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+              fontSize: dsType.metadata.size,
+              lineHeight: `${dsType.metadata.line}px`,
+            }}
+          >
+            {params.map((row) => (
+              <div key={row.label} style={{ display: 'flex', gap: 8 }}>
+                <dt style={{ color: 'rgba(243,244,241,0.58)' }}>{row.label}:</dt>
+                <dd style={{ margin: 0, color: INK }}>{row.value}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
 
-        {/* ── Screenshots row ── Two shots fit, the third peeks. ── */}
-        <div style={{ position: 'absolute', left: 0, right: 0, top: IMMERSIVE.shotsY, overflow: 'hidden' }}>
+        {/* No overflow clip here: it cut the focused shot's ring and scale. The
+            page root already clips at the stage edge. */}
+        <div style={{ position: 'absolute', left: 0, right: 0, top: IMMERSIVE.shotsY }}>
           <div
             style={{
               display: 'flex',
@@ -5130,7 +5177,7 @@ export function GameDetailImmersive({
             >
               You may also like…
             </h2>
-            <div style={{ position: 'absolute', left: 0, right: 0, top: IMMERSIVE.alsoY, overflow: 'hidden', paddingBottom: 40 }}>
+            <div style={{ position: 'absolute', left: 0, right: 0, top: IMMERSIVE.alsoY }}>
               <div
                 style={{
                   display: 'flex',
