@@ -18,12 +18,13 @@ import {
   useEffect,
   useImperativeHandle,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
 import type { CSSProperties } from 'react';
 import type { NavigationAction, NavigationDirection } from '@mobile-app-lab/shared';
-import { layout, space, type as dsType, tileHeight, gridTileWidth } from '@weekend/ui';
+import { BOUNCE_DURATION_MS, layout, space, type as dsType, tileHeight, gridTileWidth } from '@weekend/ui';
 import { QRCodeSVG } from 'qrcode.react';
 import { HUB_GAMES, type HubGame, type GameTheme } from '../prototype/hub/games';
 import { GameArt } from '../prototype/hub/GameArt';
@@ -34,6 +35,7 @@ import { assetUrl } from '../utils/assetUrl';
 import { Screenshot, SHOT_VARIANTS, gameShots, shotCount } from '../prototype/hub/Screenshot';
 import { soundManager } from '../utils/sounds';
 import { getMobileUrl } from '../utils/getMobileUrl';
+import { enrichHubGame, gameSimilarity } from '../personalization';
 
 // ── Design space ───────────────────────────────────────────────────────────
 const STAGE_W = 1920;
@@ -429,34 +431,50 @@ interface Handoff {
 // into the art rather than pushing the buttons off-screen.
 const IMMERSIVE = {
   padX: layout.shelfGutter, // 80
-  padBottom: 96,
-  /**
-   * Logotype box on the detail page — deliberately bigger than the preview
-   * band's 720×180, so the wordmark carries the page the way a title would and
-   * the handoff has a real size change to animate (it grows on the way down).
-   * Raster wordmarks are exported small, so this does upscale them: at the
-   * stage's fit-scale that is still a device-pixel downscale, and on a true
-   * 1080p panel the fix is a larger export, not a smaller box.
-   */
+  /** Hero logotype: the top area, a little above the preview band's 150. */
+  logoY: 110,
   logoW: 900,
   logoH: 240,
+  /** Centred header logotype, shown while a row has focus. */
+  headerY: 76,
+  headerLogoW: 620,
+  headerLogoH: 132,
+  /** How far above its resting place the header starts. */
+  headerRise: 28,
+  /** Wash behind the header, so rows scrolling under it stay legible. */
+  headerWashH: 280,
+  /** The copy band sits on the bottom edge, as it did before. */
+  padBottom: 96,
+  /** Description measure. */
+  copyW: 1000,
   /** Action column on the right; the copy column takes what is left. */
   actionW: 460,
   colGap: space[9], // 64
   /** Logotype → copy, and between the info elements. */
   artGap: space[6], // 32
   infoGap: space[5], // 24
-  /** Description measure. */
-  copyW: 1000,
-  /** Bottom scrim height — everything below this is guaranteed legible. */
+  /** Bottom scrim height, while the hero has focus. */
   scrimH: 740,
+  /** Screenshots row: two fit between the gutters, the third peeks. Below the
+   *  fold, because the hero copy owns the bottom of the screen. */
+  shotsY: 1180,
+  shotW: 800,
+  shotH: 450,
+  shotsVisible: 2,
+  /** "You may also like" — standard hub shelf tiles. */
+  alsoTitleY: 1710,
+  alsoY: 1786,
+  alsoVisible: 4,
+  rowGap: space[6], // 32
+  /** Where each row settles once it takes focus. */
+  shotsScroll: 800,
+  alsoScroll: 1410,
+  /** Bound nudge — the DS bounce, in stage px rather than vw. */
+  overshoot: 28,
+  overshootMs: BOUNCE_DURATION_MS,
 } as const;
-/** Beat before the screenshots take the background over. */
-const IMMERSIVE_HOLD_MS = 2600;
-/** Per-shot dwell once they do. */
+/** Per-shot dwell for the backdrop's screenshot loop. */
 const IMMERSIVE_SHOT_MS = 3000;
-/** How many full passes through the shots before it settles back on the art. */
-const IMMERSIVE_ROUNDS = 3;
 
 // Puzzle row timings: how long the result/thanks screens hold before advancing,
 // and how fast the lyric lines scroll.
@@ -794,6 +812,11 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // has been kicked off (one frame after the page opens, so the browser has the
   // start rect to transition away from). The id remounts the flying tile on each
   // open — reusing the element would animate it *backwards* to the new start rect.
+  // Immersive page: which vertical section has focus, the focused item in the
+  // "You may also like" row, and a transient nudge when a row hits its bound.
+  const [immSec, setImmSec] = useState(0);
+  const [immAlso, setImmAlso] = useState(0);
+  const [immBounce, setImmBounce] = useState<{ dir: 'left' | 'right'; seq: number } | null>(null);
   const [handoff, setHandoff] = useState<Handoff | null>(null);
   const [handoffLanded, setHandoffLanded] = useState(false);
   const handoffSeq = useRef(0);
@@ -923,6 +946,14 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   panelShotRef.current = panelShot;
   /** Which action the strip page's row was entered from, so ◀ returns to it. */
   const pageActionFocusRef = useRef(1);
+  const immSecRef = useRef(immSec);
+  immSecRef.current = immSec;
+  const immAlsoRef = useRef(immAlso);
+  immAlsoRef.current = immAlso;
+  /** How many games the recommendation row is showing (0 = no row to enter). */
+  const immAlsoCountRef = useRef(0);
+  const immBounceSeq = useRef(0);
+  const immBounceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const puzzleStageRef = useRef(puzzleStage);
   puzzleStageRef.current = puzzleStage;
   const puzzleColRef = useRef(puzzleCol);
@@ -1187,6 +1218,10 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       // one press to the right of it.
       const focus = 1;
       pageActionFocusRef.current = 1;
+      immSecRef.current = 0;
+      setImmSec(0);
+      setImmAlso(0);
+      setImmBounce(null);
       const np = { game, focus };
       panelRef.current = np;
       setPanel(np);
@@ -1603,18 +1638,68 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     if (p.game) {
       const view = detailViewRef.current;
       const actionCount = detailActions(view, signedInRef.current).length;
-      // Immersive stacks its actions in a column on the right and has no strip,
-      // so ▲▼ crosses them and there is no strip above to reach.
+      // Immersive is a vertical chain: the stacked actions, then the screenshots
+      // row, then "You may also like". ▲▼ walks it; ◀▶ works inside a row and
+      // nudges at the bounds.
       if (view === 'immersive') {
-        if (dy !== 0) {
-          const nf = Math.min(Math.max(1, p.focus + (dy > 0 ? 1 : -1)), actionCount);
-          if (nf !== p.focus) {
-            const np = { ...p, focus: nf };
-            panelRef.current = np;
-            setPanel(np);
-            soundManager.playNavigationSound();
+        const sec = immSecRef.current;
+        const setSec = (n: number) => {
+          immSecRef.current = n;
+          setImmSec(n);
+          soundManager.playNavigationSound();
+        };
+        const nudge = (dir: 'left' | 'right') => {
+          setImmBounce({ dir, seq: ++immBounceSeq.current });
+          clearTimeout(immBounceTimer.current);
+          immBounceTimer.current = setTimeout(() => setImmBounce(null), BOUNCE_DURATION_MS);
+          soundManager.playBounceSound();
+        };
+        const setFocus = (n: number) => {
+          const np = { ...p, focus: n };
+          panelRef.current = np;
+          setPanel(np);
+          soundManager.playNavigationSound();
+        };
+        if (sec === 0) {
+          if (dy > 0) {
+            if (p.focus < actionCount) setFocus(p.focus + 1);
+            else {
+              setPanelShot(0);
+              setSec(1);
+            }
+          } else if (dy < 0) {
+            if (p.focus > 1) setFocus(p.focus - 1);
+            else soundManager.playBounceSound();
           } else soundManager.playBounceSound();
-        } else soundManager.playBounceSound();
+          return;
+        }
+        if (sec === 1) {
+          const shots = shotCount(p.game);
+          if (dx !== 0) {
+            const next = panelShotRef.current + (dx > 0 ? 1 : -1);
+            if (next >= 0 && next < shots) {
+              setPanelShot(next);
+              soundManager.playNavigationSound();
+            } else nudge(dx > 0 ? 'right' : 'left');
+          } else if (dy < 0) {
+            panelRef.current = { ...p, focus: actionCount };
+            setPanel(panelRef.current);
+            setSec(0);
+          } else if (immAlsoCountRef.current > 0) {
+            setImmAlso(0);
+            setSec(2);
+          } else soundManager.playBounceSound();
+          return;
+        }
+        // "You may also like"
+        if (dx !== 0) {
+          const next = immAlsoRef.current + (dx > 0 ? 1 : -1);
+          if (next >= 0 && next < immAlsoCountRef.current) {
+            setImmAlso(next);
+            soundManager.playNavigationSound();
+          } else nudge(dx > 0 ? 'right' : 'left');
+        } else if (dy < 0) setSec(1);
+        else soundManager.playBounceSound();
         return;
       }
       // The full-page layout is one horizontal row: ◀▶ crosses the content
@@ -2013,6 +2098,12 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           // The full-page row is a level of its own: Back steps out of the
           // screenshots onto the button they were entered from, and only closes
           // the page from there.
+          if (detailViewRef.current === 'immersive' && immSecRef.current !== 0) {
+            immSecRef.current = 0;
+            setImmSec(0);
+            soundManager.playNavigationSound();
+            return;
+          }
           if (detailViewRef.current === 'page' && p.focus === 0) {
             const np = { ...p, focus: pageActionFocusRef.current };
             panelRef.current = np;
@@ -2024,6 +2115,19 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           return;
         }
         if (action === 'ok') {
+          // Immersive rows: OK on a screenshot opens the full-screen carousel,
+          // OK on a recommendation opens that game's detail page.
+          if (detailViewRef.current === 'immersive' && immSecRef.current !== 0) {
+            if (immSecRef.current === 1) {
+              shotViewerOpenRef.current = true;
+              setShotViewerOpen(true);
+              soundManager.playSelectionSound();
+            } else {
+              const g = immAlsoGamesRef.current[immAlsoRef.current];
+              if (g) openPanel(g);
+            }
+            return;
+          }
           // Focus 0 is the screenshot area → open the full-screen carousel.
           // Actions are 1..N; signed-out panels hide Play so they shift up.
           if (p.focus === 0) {
@@ -2496,6 +2600,16 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const lastPanelGameRef = useRef<HubGame | null>(null);
   if (panel.game) lastPanelGameRef.current = panel.game;
   const panelGame = panel.game ?? lastPanelGameRef.current;
+
+  // "You may also like" — ranked once per game the page opens on.
+  const immAlsoGames = useMemo(
+    () => (immersive && panelGame ? alsoLikeFor(panelGame, catalog) : []),
+    [immersive, panelGame, catalog]
+  );
+  immAlsoCountRef.current = immAlsoGames.length;
+  const immAlsoGamesRef = useRef(immAlsoGames);
+  immAlsoGamesRef.current = immAlsoGames;
+
 
   // Variation 3: while a game tile is focused (sec ≥ 1) the top area previews
   // that game; on the hero (sec 0) the large hero shows instead.
@@ -3924,9 +4038,23 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
             mobileUrl={mobileUrl}
             pairCode={pairCode}
             pressing={pressing}
+            sec={immSec}
+            shot={panelShot}
+            also={immAlso}
+            alsoGames={immAlsoGames}
+            bounce={immBounce}
             handoffFrom={handoff}
-            handoffLanded={handoffLanded}
             measureInStage={measureInStage}
+            onPickShot={setPanelShot}
+            onOpenShots={() => {
+              shotViewerOpenRef.current = true;
+              setShotViewerOpen(true);
+              soundManager.playSelectionSound();
+            }}
+            onPickAlso={(i) => {
+              const g = immAlsoGames[i];
+              if (g) openPanel(g);
+            }}
             onPlay={() => {
               const g = panelRef.current.game ?? panelGame;
               closePanel();
@@ -4553,42 +4681,66 @@ export function GameDetailPage({
 // stands in for the title. Once the page has settled, the screenshots take the
 // background over for a few rounds and then hand it back to the art.
 
-/**
- * The full-bleed backdrop layer. A real exported preview is cover-filled (it is
- * authored as a 1422×480 band, so filling 1080 upscales it — the crop is the
- * point, the art is the mood); procedural games fall back to their hero surface.
- */
-function ImmersiveBackdrop({ game }: { game: HubGame }) {
-  const src = game.art?.preview;
-  if (src) {
-    return (
-      <img
-        src={src}
-        alt=""
-        aria-hidden
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-      />
-    );
-  }
-  return <GameArt game={game} variant="hero" style={{ position: 'absolute', inset: 0 }} />;
+// ── "You may also like" ──────────────────────────────────────────────────────
+// Content-based, through the shared personalization engine: lift both games into
+// its taxonomy and rank by metadata similarity (genre, motivations, themes,
+// interaction, competition, cooperation). A TV detail page has no live player
+// profile, so taste affinity has nothing to read — similarity is the honest
+// signal for "more like this one".
+const ALSO_LIKE_COUNT = 8;
+function alsoLikeFor(game: HubGame, catalog: HubGame[]): HubGame[] {
+  const target = enrichHubGame(game);
+  return catalog
+    .filter((g) => g.id !== game.id)
+    .map((g) => ({ g, score: gameSimilarity(target, enrichHubGame(g)) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, ALSO_LIKE_COUNT)
+    .map((x) => x.g);
 }
+
+// ── Immersive detail page ────────────────────────────────────────────────────
+// The game's screenshots play full-bleed behind everything from the moment the
+// page opens — there is no preview still. Only the logotype hands off from the
+// hub's top preview band, landing a little above where it sat there.
+//
+// Below the fold sit two navigable rows: the screenshots, and a "You may also
+// like" shelf scored through the personalization engine. Moving down to either
+// scrolls the page, drops the hero copy and floats the logotype up to a centred
+// header, so the rows read against the art on their own.
+
+/** Vertical sections, top to bottom. */
+const IMM_CONTENT = 0;
+const IMM_SHOTS = 1;
+const IMM_ALSO = 2;
 
 export interface GameDetailImmersiveProps {
   game: HubGame;
   /** False while the page is animating back out (the game is still rendered). */
   open: boolean;
-  /** 1..N — the action buttons. This layout has no strip to focus. */
+  /** Which vertical section has focus. */
+  sec: number;
+  /** 1..N — the action buttons, when `sec` is the content section. */
   focus: number;
+  /** Focused screenshot in the shots row. */
+  shot: number;
+  /** Focused game in the "You may also like" row. */
+  also: number;
+  /** Games for that row, already ranked. */
+  alsoGames: HubGame[];
+  /** A bound was hit: nudge and settle back. */
+  bounce: { dir: 'left' | 'right'; seq: number } | null;
   signedIn: boolean;
   favorited: boolean;
   mobileUrl: string;
   pairCode: string;
   pressing: boolean;
-  /** Rects the preview band's art + logotype fly in from (null = no handoff). */
+  /** Rect the preview band's logotype flies in from (null = no handoff). */
   handoffFrom: Handoff | null;
-  handoffLanded: boolean;
   /** Measures an element in stage coordinates, for the logotype's FLIP. */
   measureInStage: (el: Element | null | undefined) => StageRect | null;
+  onPickShot: (i: number) => void;
+  onOpenShots: () => void;
+  onPickAlso: (i: number) => void;
   onPlay: () => void;
   onToggleFavorite: () => void;
 }
@@ -4596,68 +4748,57 @@ export interface GameDetailImmersiveProps {
 export function GameDetailImmersive({
   game,
   open,
+  sec,
   focus,
+  shot,
+  also,
+  alsoGames,
+  bounce,
   signedIn,
   favorited,
   mobileUrl,
   pairCode,
   pressing,
   handoffFrom,
-  handoffLanded,
   measureInStage,
+  onPickShot,
+  onOpenShots,
+  onPickAlso,
   onPlay,
   onToggleFavorite,
 }: GameDetailImmersiveProps) {
   const favoriteFocus = signedIn ? 2 : 1;
   const shots = gameShots(game);
+  const browsing = sec !== IMM_CONTENT;
 
   /**
-   * Which screenshot owns the background, or null while the preview art does.
-   * After a hold the shots take over, cycle IMMERSIVE_ROUNDS times through the
-   * set, then hand the background back and stop.
+   * The backdrop: the screenshots, cross-fading on a loop from the moment the
+   * page opens. Nothing to hand back to, so it just keeps going.
    */
-  const [bgShot, setBgShot] = useState<number | null>(null);
+  const [bgShot, setBgShot] = useState(0);
   useEffect(() => {
-    setBgShot(null);
-    if (!open || reduceMotion) return;
-    const total = shots.length * IMMERSIVE_ROUNDS;
-    let step = 0;
-    let timer = window.setTimeout(function advance() {
-      if (step >= total) {
-        setBgShot(null); // settle back on the art
-        return;
-      }
-      setBgShot(step % shots.length);
-      step += 1;
-      timer = window.setTimeout(advance, IMMERSIVE_SHOT_MS);
-    }, IMMERSIVE_HOLD_MS);
-    return () => window.clearTimeout(timer);
-    // Restart the cycle for each game the page opens on.
+    setBgShot(0);
+    if (!open || reduceMotion || shots.length < 2) return;
+    const t = window.setInterval(() => setBgShot((s) => (s + 1) % shots.length), IMMERSIVE_SHOT_MS);
+    return () => window.clearInterval(t);
   }, [open, game.id, shots.length]);
 
   /**
-   * Logotype handoff (a FLIP): the wordmark is laid out at its final size, then
+   * Logotype handoff (a FLIP): laid out where it rests on this page, then
    * transformed back onto the rect it occupied in the preview band and released
-   * one frame later. Measuring the destination — rather than assuming it — keeps
-   * this correct for raster wordmarks, whose size is intrinsic, as well as for
-   * the procedural type treatments.
-   *
-   * Driven straight on the node: routing the source transform through React
-   * state let it and its release land in the same frame, so the logotype never
-   * painted at the source and the transition had nothing to animate from.
+   * a frame later. Driven on the node — routing the source transform through
+   * React state lets it and its release land in the same frame, leaving the
+   * transition nothing to animate from.
    */
   const logoRef = useRef<HTMLDivElement>(null);
   const from = handoffFrom?.logo;
   useLayoutEffect(() => {
     const el = logoRef.current;
     if (!el || !from || reduceMotion) return;
-    // Measure the resting rect with any previous flight cleared off it.
     el.style.transition = 'none';
     el.style.transform = 'none';
     const dst = measureInStage(el);
     if (!dst || !dst.w) return;
-    // Jump to the source rect and flush it, so there is a painted frame to
-    // transition away from.
     el.style.transform = `translate(${from.x - dst.x}px, ${from.y - dst.y}px) scale(${from.w / dst.w})`;
     void el.offsetWidth;
     const raf = requestAnimationFrame(() => {
@@ -4665,11 +4806,24 @@ export function GameDetailImmersive({
       el.style.transform = 'none';
     });
     return () => cancelAnimationFrame(raf);
-    // handoffFrom.id changes on every open, even for the same game.
   }, [from, handoffFrom?.id, measureInStage]);
 
-  const art = handoffFrom?.art;
-  const artFlying = !!art && !handoffLanded;
+  // ── Row windows ──
+  // Rows keep the focused item inside a fixed window and step by one item once
+  // it would fall outside, so the trailing peek is always there — the same rule
+  // the hub's shelves follow.
+  const window1 = (i: number, count: number, visible: number) =>
+    Math.max(0, Math.min(i - (visible - 1), count - visible));
+  const shotStep = IMMERSIVE.shotW + IMMERSIVE.rowGap;
+  const shotScroll = window1(shot, shots.length, IMMERSIVE.shotsVisible) * shotStep;
+  const alsoStep = TILE.sm.w + TILE.sm.gap;
+  const alsoScroll = window1(also, alsoGames.length, IMMERSIVE.alsoVisible) * alsoStep;
+
+  const nudge = (dir: 'left' | 'right') => (dir === 'left' ? -IMMERSIVE.overshoot : IMMERSIVE.overshoot);
+  const rowShift = (mine: number, base: number) =>
+    bounce && sec === mine ? base + nudge(bounce.dir) : base;
+
+  const scrollY = sec === IMM_SHOTS ? IMMERSIVE.shotsScroll : sec === IMM_ALSO ? IMMERSIVE.alsoScroll : 0;
 
   return (
     <div
@@ -4688,55 +4842,41 @@ export function GameDetailImmersive({
         transition: reduceMotion ? undefined : `opacity ${HANDOFF_BG_MS}ms ease`,
       }}
     >
-      {/* ── Backdrop ── The art grows out of the preview band to full bleed,
-          then the screenshots cross-fade over it for a few rounds. */}
-      <div
-        key={handoffFrom?.id ?? 'no-handoff'}
-        style={{
-          position: 'absolute',
-          left: artFlying ? art.x : 0,
-          top: artFlying ? art.y : 0,
-          width: artFlying ? art.w : STAGE_W,
-          height: artFlying ? art.h : STAGE_H,
-          overflow: 'hidden',
-          transition: reduceMotion
-            ? undefined
-            : `left ${HANDOFF_MS}ms ${HANDOFF_EASE}, top ${HANDOFF_MS}ms ${HANDOFF_EASE},` +
-              ` width ${HANDOFF_MS}ms ${HANDOFF_EASE}, height ${HANDOFF_MS}ms ${HANDOFF_EASE}`,
-        }}
-      >
-        {/* A touch of scale on the way in, so the art pushes toward the viewer
-            rather than only unfolding downward. */}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            transform: artFlying ? 'scale(1.06)' : 'scale(1)',
-            transition: reduceMotion ? undefined : `transform ${HANDOFF_MS}ms ${HANDOFF_EASE}`,
-          }}
-        >
-          <div style={{ position: 'absolute', inset: 0, opacity: bgShot === null ? 1 : 0, transition: 'opacity 700ms ease' }}>
-            <ImmersiveBackdrop game={game} />
-          </div>
-          {shots.map((s, i) => (
-            <Screenshot
-              key={s.key}
-              game={game}
-              variant={s.variant}
-              src={s.src}
-              style={{
-                position: 'absolute',
-                inset: 0,
-                opacity: bgShot === i ? 1 : 0,
-                transition: 'opacity 700ms ease',
-              }}
-            />
-          ))}
-        </div>
+      {/* ── Backdrop: the screenshots, looping ── */}
+      <div style={{ position: 'absolute', inset: 0 }}>
+        {shots.map((s, i) => (
+          <Screenshot
+            key={s.key}
+            game={game}
+            variant={s.variant}
+            src={s.src}
+            style={{ position: 'absolute', inset: 0, opacity: bgShot === i ? 1 : 0, transition: 'opacity 900ms ease' }}
+          />
+        ))}
       </div>
 
-      {/* ── Scrim ── The content sits on this, not on the art, so it stays
-          legible whatever the backdrop is doing. */}
+      {/* Scrims. The wash deepens once the rows have focus, so tiles and
+          screenshots read as content rather than more backdrop. */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: `linear-gradient(100deg, rgba(10,3,34,0.86) 0%, rgba(10,3,34,0.5) 38%, rgba(10,3,34,0.12) 70%)`,
+          opacity: browsing ? 0 : 1,
+          transition: 'opacity 420ms ease',
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'rgba(10,3,34,0.82)',
+          opacity: browsing ? 1 : 0,
+          transition: 'opacity 420ms ease',
+        }}
+      />
       <div
         aria-hidden
         style={{
@@ -4745,52 +4885,88 @@ export function GameDetailImmersive({
           right: 0,
           bottom: 0,
           height: IMMERSIVE.scrimH,
-          // Weighted so the whole content band clears ~0.75 opacity: a bright
-          // capture (Werds, Sketchy AF) still has to sit behind white body copy.
-          background: `linear-gradient(to top, ${STAGE_BG} 0%, rgba(10,3,34,0.95) 18%, rgba(10,3,34,0.8) 42%, rgba(10,3,34,0.4) 70%, rgba(10,3,34,0) 100%)`,
+          background: `linear-gradient(to top, ${STAGE_BG} 0%, rgba(10,3,34,0.9) 24%, rgba(10,3,34,0.5) 60%, rgba(10,3,34,0) 100%)`,
+          opacity: browsing ? 0 : 1,
+          transition: 'opacity 420ms ease',
         }}
       />
+
+      {/* ── Centred header logotype — floats in from above once a row has focus,
+          standing in for the hero copy that just scrolled away. Sits above the
+          scroller with its own wash, so a row scrolled up under it stays
+          readable. ── */}
       <div
         aria-hidden
         style={{
           position: 'absolute',
-          inset: 0,
-          background: 'linear-gradient(100deg, rgba(10,3,34,0.72) 0%, rgba(10,3,34,0.28) 34%, rgba(10,3,34,0) 62%)',
+          left: 0,
+          right: 0,
+          top: 0,
+          height: IMMERSIVE.headerWashH,
+          zIndex: 4,
+          background: `linear-gradient(to bottom, ${STAGE_BG} 0%, rgba(10,3,34,0.92) 46%, rgba(10,3,34,0) 100%)`,
+          opacity: browsing ? 1 : 0,
+          transition: 'opacity 420ms ease',
+          pointerEvents: 'none',
         }}
       />
+      <div
+        aria-hidden={!browsing}
+        style={{
+          position: 'absolute',
+          zIndex: 5,
+          top: IMMERSIVE.headerY,
+          left: 0,
+          right: 0,
+          display: 'flex',
+          justifyContent: 'center',
+          opacity: browsing ? 1 : 0,
+          transform: browsing ? 'translateY(0)' : `translateY(-${IMMERSIVE.headerRise}px)`,
+          transition: reduceMotion
+            ? undefined
+            : `opacity 300ms ease ${browsing ? 120 : 0}ms, transform 360ms ${HANDOFF_EASE} ${browsing ? 120 : 0}ms`,
+          filter: 'drop-shadow(0 6px 24px rgba(0,0,0,0.55))',
+          pointerEvents: 'none',
+        }}
+      >
+        <GameLogo
+          title={game.title}
+          theme={game.theme}
+          onDark
+          src={game.art?.logo}
+          maxLogoW={IMMERSIVE.headerLogoW}
+          maxLogoH={IMMERSIVE.headerLogoH}
+          style={
+            game.art?.logo
+              ? { height: IMMERSIVE.headerLogoH, width: 'auto', maxHeight: 'none', maxWidth: IMMERSIVE.headerLogoW }
+              : { fontSize: 64, whiteSpace: 'nowrap' }
+          }
+        />
+      </div>
 
-      {/* ── Content ── Copy bottom-left (the logotype grows up into the art),
-          actions stacked bottom-right. Both columns share the bottom edge. */}
+      {/* ── Everything that scrolls ── */}
       <div
         style={{
           position: 'absolute',
-          left: IMMERSIVE.padX,
-          right: IMMERSIVE.padX,
-          bottom: IMMERSIVE.padBottom,
-          display: 'flex',
-          alignItems: 'flex-end',
-          gap: IMMERSIVE.colGap,
+          inset: 0,
+          transform: `translateY(${-scrollY}px)`,
+          transition: reduceMotion ? undefined : `transform 460ms ${HANDOFF_EASE}`,
         }}
       >
-        <div
-          style={{
-            flex: 1,
-            minWidth: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'flex-start',
-            gap: IMMERSIVE.artGap,
-          }}
-        >
-        {/* The logotype replaces the title. It flies from the preview band, so
-            it is not part of the content's fade — it arrives under its own
-            steam. */}
+        {/* ── Logotype ── Alone in the top area, a little above where it sat in
+            the preview band. It flies in from there, so it is not part of the
+            copy's fade. ── */}
         <div
           ref={logoRef}
           style={{
+            position: 'absolute',
+            left: IMMERSIVE.padX,
+            top: IMMERSIVE.logoY,
             maxWidth: IMMERSIVE.logoW,
             transformOrigin: 'top left',
             filter: 'drop-shadow(0 6px 24px rgba(0,0,0,0.55))',
+            opacity: browsing ? 0 : 1,
+            transition: reduceMotion ? undefined : 'opacity 240ms ease',
           }}
         >
           <GameLogo
@@ -4800,8 +4976,6 @@ export function GameDetailImmersive({
             src={game.art?.logo}
             maxLogoW={IMMERSIVE.logoW}
             maxLogoH={IMMERSIVE.logoH}
-            // Pin the height so every wordmark reads at one title size, and let
-            // maxWidth pull back the very wide ones.
             style={
               game.art?.logo
                 ? { height: IMMERSIVE.logoH, width: 'auto', maxHeight: 'none', maxWidth: IMMERSIVE.logoW }
@@ -4810,78 +4984,180 @@ export function GameDetailImmersive({
           />
         </div>
 
+        {/* ── Copy + actions ── On the bottom edge: properties and pitch left,
+            actions stacked right. Both leave as soon as a row takes focus. ── */}
         <div
           style={{
+            position: 'absolute',
+            left: IMMERSIVE.padX,
+            right: IMMERSIVE.padX,
+            bottom: IMMERSIVE.padBottom,
             display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'flex-start',
-            gap: IMMERSIVE.infoGap,
-            opacity: open ? 1 : 0,
+            alignItems: 'flex-end',
+            gap: IMMERSIVE.colGap,
+            opacity: open && !browsing ? 1 : 0,
             transform: open ? 'none' : 'translateY(16px)',
+            pointerEvents: browsing ? 'none' : 'auto',
             transition: reduceMotion
               ? undefined
-              : `opacity 380ms ease ${open ? HANDOFF_REVEAL.copy : 0}ms, transform 420ms ${HANDOFF_EASE} ${open ? HANDOFF_REVEAL.copy : 0}ms`,
+              : `opacity 380ms ease ${open && !browsing ? HANDOFF_REVEAL.copy : 0}ms, transform 420ms ${HANDOFF_EASE} ${open ? HANDOFF_REVEAL.copy : 0}ms`,
           }}
         >
-          <GameMetaPills players={game.players} interaction={game.interaction} />
-          <p
+          <div
             style={{
-              margin: 0,
-              maxWidth: IMMERSIVE.copyW,
-              // Same DS body token as the strip page's pitch.
-              fontSize: dsType.body.size,
-              lineHeight: `${dsType.body.line}px`,
-              color: 'rgba(243,244,241,0.86)',
+              flex: 1,
+              minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              gap: IMMERSIVE.infoGap,
             }}
           >
-            {game.description}
-          </p>
-        </div>
+            <GameMetaPills players={game.players} interaction={game.interaction} />
+            <p
+              style={{
+                margin: 0,
+                maxWidth: IMMERSIVE.copyW,
+                fontSize: dsType.body.size,
+                lineHeight: `${dsType.body.line}px`,
+                color: 'rgba(243,244,241,0.86)',
+              }}
+            >
+              {game.description}
+            </p>
+          </div>
+
+          <div
+            style={{
+              flex: `0 0 ${IMMERSIVE.actionW}px`,
+              width: IMMERSIVE.actionW,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'stretch',
+              gap: DETAIL.actionGap,
+            }}
+          >
+            {signedIn ? (
+              <DetailButton label="Play" focused={!browsing && focus === 1} pressing={pressing && focus === 1} onClick={onPlay} />
+            ) : (
+              // Not a subscriber yet: pair a phone to start, so the QR takes the
+              // top of the column. Not focusable — there's nothing to press.
+              <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 6 }}>
+                <div style={{ background: '#fff', padding: 9, borderRadius: 12, lineHeight: 0, flex: '0 0 auto' }}>
+                  <QRCodeSVG value={mobileUrl} size={104} level="M" includeMargin={false} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <div style={{ fontSize: 21, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.15 }}>
+                    Scan, connect, and play!
+                  </div>
+                  <div style={{ fontSize: 17, lineHeight: 1.4, color: 'rgba(243,244,241,0.72)' }}>
+                    Or go to <b style={{ color: INK, fontWeight: 700 }}>pair.weekend.com</b> and enter{' '}
+                    <b style={{ color: INK, fontWeight: 700, letterSpacing: '0.04em' }}>{pairCode}</b>
+                  </div>
+                </div>
+              </div>
+            )}
+            <DetailButton
+              label={favorited ? '♥  Favorited' : '♡  Add to Favorites'}
+              focused={!browsing && focus === favoriteFocus}
+              pressing={pressing && focus === favoriteFocus}
+              onClick={onToggleFavorite}
+            />
+          </div>
         </div>
 
-        {/* Actions stacked in their own column on the right. */}
-        <div
-          style={{
-            flex: `0 0 ${IMMERSIVE.actionW}px`,
-            width: IMMERSIVE.actionW,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'stretch',
-            gap: 14,
-            opacity: open ? 1 : 0,
-            transform: open ? 'none' : 'translateY(16px)',
-            transition: reduceMotion
-              ? undefined
-              : `opacity 380ms ease ${open ? HANDOFF_REVEAL.actions : 0}ms, transform 420ms ${HANDOFF_EASE} ${open ? HANDOFF_REVEAL.actions : 0}ms`,
-          }}
-        >
-          {signedIn ? (
-            <DetailButton label="Play" focused={focus === 1} pressing={pressing && focus === 1} onClick={onPlay} />
-          ) : (
-            // Not a subscriber yet: pair a phone to start, so the QR takes the
-            // top of the column. Not focusable — there's nothing to press.
-            <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 6 }}>
-              <div style={{ background: '#fff', padding: 9, borderRadius: 12, lineHeight: 0, flex: '0 0 auto' }}>
-                <QRCodeSVG value={mobileUrl} size={104} level="M" includeMargin={false} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <div style={{ fontSize: 21, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.15 }}>
-                  Scan, connect, and play!
-                </div>
-                <div style={{ fontSize: 17, lineHeight: 1.4, color: 'rgba(243,244,241,0.72)' }}>
-                  Or go to <b style={{ color: INK, fontWeight: 700 }}>pair.weekend.com</b> and enter{' '}
-                  <b style={{ color: INK, fontWeight: 700, letterSpacing: '0.04em' }}>{pairCode}</b>
-                </div>
+        {/* ── Screenshots row ── Two shots fit, the third peeks. ── */}
+        <div style={{ position: 'absolute', left: 0, right: 0, top: IMMERSIVE.shotsY, overflow: 'hidden' }}>
+          <div
+            style={{
+              display: 'flex',
+              gap: IMMERSIVE.rowGap,
+              paddingLeft: IMMERSIVE.padX,
+              transform: `translateX(${-rowShift(IMM_SHOTS, shotScroll)}px)`,
+              transition: reduceMotion
+                ? undefined
+                : `transform ${bounce && sec === IMM_SHOTS ? IMMERSIVE.overshootMs : 460}ms ${bounce && sec === IMM_SHOTS ? 'ease-out' : HANDOFF_EASE}`,
+            }}
+          >
+            {shots.map((s, i) => {
+              const focused = sec === IMM_SHOTS && i === shot;
+              return (
+                <button
+                  key={s.key}
+                  onClick={() => (focused ? onOpenShots() : onPickShot(i))}
+                  style={{
+                    position: 'relative',
+                    flex: '0 0 auto',
+                    width: IMMERSIVE.shotW,
+                    height: IMMERSIVE.shotH,
+                    appearance: 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    background: '#141518',
+                    borderRadius: layout.tile.radius,
+                    // The hub shelves' focus treatment, verbatim.
+                    transform: focused ? (pressing ? 'scale(0.98)' : 'scale(1.06)') : 'scale(1)',
+                    transition: 'transform 240ms cubic-bezier(.22,.61,.36,1), box-shadow 240ms ease',
+                    boxShadow: focused ? `${FOCUS_HALO}, 0 26px 60px rgba(0,0,0,0.7)` : '0 18px 44px rgba(0,0,0,0.45)',
+                    zIndex: focused ? 3 : 1,
+                  }}
+                >
+                  {focused && <FocusRing radius={layout.tile.radius} gap={6} width={5} />}
+                  <div style={{ position: 'absolute', inset: 0, borderRadius: layout.tile.radius, overflow: 'hidden' }}>
+                    <Screenshot game={game} variant={s.variant} src={s.src} style={{ position: 'absolute', inset: 0 }} />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── "You may also like" ── Ranked by the personalization engine. ── */}
+        {alsoGames.length > 0 && (
+          <>
+            <h2
+              style={{
+                position: 'absolute',
+                left: IMMERSIVE.padX,
+                top: IMMERSIVE.alsoTitleY,
+                margin: 0,
+                fontSize: dsType.display6.size,
+                lineHeight: `${dsType.display6.line}px`,
+                fontWeight: 700,
+                letterSpacing: '-0.01em',
+              }}
+            >
+              You may also like…
+            </h2>
+            <div style={{ position: 'absolute', left: 0, right: 0, top: IMMERSIVE.alsoY, overflow: 'hidden', paddingBottom: 40 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: TILE.sm.gap,
+                  paddingLeft: IMMERSIVE.padX,
+                  transform: `translateX(${-rowShift(IMM_ALSO, alsoScroll)}px)`,
+                  transition: reduceMotion
+                    ? undefined
+                    : `transform ${bounce && sec === IMM_ALSO ? IMMERSIVE.overshootMs : 460}ms ${bounce && sec === IMM_ALSO ? 'ease-out' : HANDOFF_EASE}`,
+                }}
+              >
+                {alsoGames.map((g, i) => (
+                  <Tile
+                    key={g.id}
+                    game={g}
+                    variant="sm"
+                    focused={sec === IMM_ALSO && i === also}
+                    pressing={pressing && sec === IMM_ALSO && i === also}
+                    slideshow={false}
+                    shot={0}
+                    onClick={() => onPickAlso(i)}
+                  />
+                ))}
               </div>
             </div>
-          )}
-          <DetailButton
-            label={favorited ? '♥  Favorited' : '♡  Add to Favorites'}
-            focused={focus === favoriteFocus}
-            pressing={pressing && focus === favoriteFocus}
-            onClick={onToggleFavorite}
-          />
-        </div>
+          </>
+        )}
       </div>
     </div>
   );

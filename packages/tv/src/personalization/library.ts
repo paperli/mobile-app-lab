@@ -72,6 +72,10 @@ const TAX: Record<string, Tax> = {
   'wheel-of-fortune': { genre: 'Word', themes: ['puzzle', 'game show'], lifecycle: 'Evergreen', trending: 0.7, editorial: 0.2, difficulty: 'Medium', session: 20 },
   'wits-end': { genre: 'Trivia', themes: ['fantasy', 'adventure'], lifecycle: 'Evergreen', trending: 0.6, editorial: 0.18, difficulty: 'Hard' },
   'sketchy-af': { genre: 'Party', themes: ['drawing', 'party', 'comedy'], lifecycle: 'Evergreen', trending: 0.72, editorial: 0.25 },
+  // The two hub9 debuts. Authored here so the recommender scores them properly
+  // instead of falling back to the generic Party default.
+  'guess-the-emoji': { genre: 'Word', themes: ['emoji', 'wordplay', 'party'], lifecycle: 'New', trending: 0.9, editorial: 0.4, motivations: ['Knowledge', 'Social Competition'], difficulty: 'Easy', session: 12 },
+  werds: { genre: 'Word', themes: ['typing', 'wordplay', 'speed'], lifecycle: 'New', trending: 0.86, editorial: 0.35, motivations: ['Mastery', 'Social Competition'], difficulty: 'Medium', session: 10, interactions: ['Touch'] },
   'spot-on': { genre: 'Trivia', themes: ['geography', 'globe'], lifecycle: 'Evergreen', trending: 0.58, editorial: 0.18, difficulty: 'Medium' },
   // More 23
   'trivia-royale': { genre: 'Trivia', themes: ['general knowledge', 'battle'], lifecycle: 'Evergreen', trending: 0.68, editorial: 0.15 },
@@ -131,6 +135,16 @@ function bandsFor(min: number, max: number): PlayerBand[] {
   if (min <= 4 && max >= 3) out.push('3-4');
   if (max >= 5) out.push('5+');
   return out.length ? out : ['1'];
+}
+
+/**
+ * Lift a hub game into the personalization taxonomy. Exported so surfaces
+ * outside the simulator — e.g. the detail page's "You may also like" row, which
+ * runs over a curated catalog rather than the 30-game library — can score games
+ * through the same engine.
+ */
+export function enrichHubGame(hub: HubGame): Game {
+  return enrich(hub);
 }
 
 function enrich(hub: HubGame): Game {

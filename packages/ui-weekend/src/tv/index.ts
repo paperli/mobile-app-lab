@@ -8,6 +8,12 @@ export {
   FOCUS_FRAME_GAP_PX,
   FOCUS_FRAME_OFFSET_PX,
 } from './focus';
+export {
+  bounceTransform,
+  bounceTransition,
+  BOUNCE_DURATION_MS,
+  type BounceDirection,
+} from './bounce';
 export { QRCard, type QRCardProps } from './QRCard';
 export { RoomCodeDisplay, type RoomCodeDisplayProps } from './RoomCodeDisplay';
 export { SlotCard, type SlotCardProps, type Slot, type SlotState } from './SlotCard';
