@@ -18,12 +18,14 @@ const ICON = {
   player: assetUrl('/brand/icons/player.svg'),
   voice: assetUrl('/brand/icons/voice.svg'),
   gesture: assetUrl('/brand/icons/gesture.svg'),
+  typing: assetUrl('/brand/icons/typing.svg'),
 } as const;
 
 // Interactions with a DS glyph; others fall back to the emoji glyph below.
 const INTERACTION_ICON: Partial<Record<Interaction, string>> = {
   'Voice Controlled': ICON.voice,
   'Gesture Controlled': ICON.gesture,
+  Typing: ICON.typing,
 };
 
 const INTERACTION_GLYPH: Record<Interaction, string> = {
