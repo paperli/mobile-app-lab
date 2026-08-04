@@ -455,20 +455,28 @@ const IMMERSIVE = {
   infoGap: space[5], // 24
   /** Bottom scrim height, while the hero has focus. */
   scrimH: 740,
-  /** Screenshots row: two fit between the gutters, the third peeks. Placed so a
-   *  slice of it shows under the info band before it is focused. */
-  shotsY: 860,
-  shotW: 800,
-  shotH: 450,
-  shotsVisible: 2,
-  /** "You may also like" — standard hub shelf tiles. */
-  alsoTitleY: 1374,
-  alsoY: 1450,
+  /**
+   * Screenshots row: three fit between the gutter and the right edge with the
+   * fourth peeking (3 × 536 + 2 × 32 gaps leaves 136 of the fourth showing).
+   * Sits low enough that only a sliver shows while the info band has focus.
+   */
+  shotsY: 980,
+  shotW: 536,
+  shotH: 302,
+  shotsVisible: 3,
+  /**
+   * "You may also like" — standard hub shelf tiles. Its offsets and `rowsScroll`
+   * are solved together so that, once either row has focus, the header, the
+   * screenshots and the shelf sit as one balanced column: 96 under the header,
+   * 72 between the rows, and 151 left at the bottom.
+   */
+  alsoTitleY: 1354,
+  alsoY: 1430,
   alsoVisible: 4,
   rowGap: space[6], // 32
   /** One scroll position for both rows, so reaching the recommendations doesn't
    *  shove the screenshots off the top — they stay on screen together. */
-  rowsScroll: 660,
+  rowsScroll: 708,
   /** Bound nudge — the DS bounce, in stage px rather than vw. */
   overshoot: 28,
   overshootMs: BOUNCE_DURATION_MS,
