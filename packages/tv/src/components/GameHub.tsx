@@ -453,7 +453,7 @@ const IMMERSIVE = {
   /** Its three columns: actions, description, then the parameter list. */
   actionW: 340,
   /** Pairing QR — the room above Favorite is free, so it can be big. */
-  qrSize: 168,
+  qrSize: 220,
   descW: 900,
   paramW: 408,
   colGap: space[7] + 16, // 56
@@ -4980,11 +4980,8 @@ export function GameDetailImmersive({
           src={game.art?.logo}
           maxLogoW={IMMERSIVE.headerLogoW}
           maxLogoH={IMMERSIVE.headerLogoH}
-          style={
-            game.art?.logo
-              ? { height: IMMERSIVE.headerLogoH, width: 'auto', maxHeight: 'none', maxWidth: IMMERSIVE.headerLogoW }
-              : { fontSize: 64, whiteSpace: 'nowrap' }
-          }
+          pinHeight={IMMERSIVE.headerLogoH}
+          style={game.art?.logo ? undefined : { fontSize: 64, whiteSpace: 'nowrap' }}
         />
       </div>
 
@@ -5020,11 +5017,8 @@ export function GameDetailImmersive({
             src={game.art?.logo}
             maxLogoW={IMMERSIVE.logoW}
             maxLogoH={IMMERSIVE.logoH}
-            style={
-              game.art?.logo
-                ? { height: IMMERSIVE.logoH, width: 'auto', maxHeight: 'none', maxWidth: IMMERSIVE.logoW }
-                : { fontSize: 108, whiteSpace: 'normal' }
-            }
+            pinHeight={IMMERSIVE.logoH}
+            style={game.art?.logo ? undefined : { fontSize: 108, whiteSpace: 'normal' }}
           />
         </div>
 
@@ -5077,8 +5071,22 @@ export function GameDetailImmersive({
                     color: 'rgba(243,244,241,0.72)',
                   }}
                 >
-                  <b style={{ color: INK, fontWeight: 700 }}>Scan to play</b> · code{' '}
-                  <b style={{ color: INK, fontWeight: 700 }}>{pairCode}</b>
+                  {/* Heading on the DS display-5 step; the code stays at the
+                      metadata size beneath it. */}
+                  <div
+                    style={{
+                      color: INK,
+                      fontWeight: 700,
+                      fontSize: dsType.display5.size,
+                      lineHeight: `${dsType.display5.line}px`,
+                      letterSpacing: '-0.01em',
+                    }}
+                  >
+                    Scan to play
+                  </div>
+                  <div>
+                    code: <b style={{ color: INK, fontWeight: 700, letterSpacing: '0.04em' }}>{pairCode}</b>
+                  </div>
                 </div>
               </div>
             )}
