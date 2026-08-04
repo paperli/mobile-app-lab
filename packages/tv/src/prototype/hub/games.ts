@@ -81,8 +81,13 @@ export interface GameArtAssets {
 export interface HubGame {
   id: string;
   title: string;
-  /** One-sentence pitch. */
+  /** One-sentence pitch. Used on tiles, shelves and the hero. */
   description: string;
+  /**
+   * Two- or three-sentence version for surfaces with room to read — the game
+   * detail pages. Falls back to `description` where it isn't authored.
+   */
+  longDescription?: string;
   /** "Single Player" or "1–N Players". */
   players: string;
   interaction: Interaction;

@@ -444,13 +444,16 @@ const IMMERSIVE = {
   /** Wash behind the header, so rows scrolling under it stay legible. */
   headerWashH: 280,
   /**
-   * Info band. Sits low — the art owns the middle of the screen — but high
-   * enough to clear the screenshots row's sliver at 980: the tallest column is
-   * the 152px action stack, so the band runs 720–872.
+   * Info band, anchored by its *bottom* edge rather than its top: the actions
+   * stack upwards from it, so Favorite lands in the same place whether Play or
+   * the (taller) pairing block sits above it. Clears the screenshots row's
+   * sliver at 980 with 72 to spare.
    */
-  infoY: 720,
+  infoBottom: 908,
   /** Its three columns: actions, description, then the parameter list. */
   actionW: 340,
+  /** Pairing QR — the room above Favorite is free, so it can be big. */
+  qrSize: 168,
   descW: 900,
   paramW: 408,
   colGap: space[7] + 16, // 56
@@ -5033,9 +5036,9 @@ export function GameDetailImmersive({
           style={{
             position: 'absolute',
             left: IMMERSIVE.padX,
-            top: IMMERSIVE.infoY,
+            bottom: STAGE_H - IMMERSIVE.infoBottom,
             display: 'flex',
-            alignItems: 'flex-start',
+            alignItems: 'flex-end',
             gap: IMMERSIVE.colGap,
             opacity: open && !browsing ? 1 : 0,
             transform: open ? 'none' : 'translateY(16px)',
@@ -5061,12 +5064,11 @@ export function GameDetailImmersive({
             ) : (
               // Not a subscriber yet: pair a phone to start, so the QR takes the
               // top of the column. Not focusable — there's nothing to press.
-              // Side by side, not stacked: the column is 340 wide and only has
-              // the band's height to work in — stacked, this pushed Favorite
-              // down under the screenshots row.
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div style={{ background: '#fff', padding: 8, borderRadius: 10, lineHeight: 0, flex: '0 0 auto' }}>
-                  <QRCodeSVG value={mobileUrl} size={96} level="M" includeMargin={false} />
+              // Grows upward from the band's bottom edge, so Favorite stays put
+              // and the QR simply takes the room above it.
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ background: '#fff', padding: 10, borderRadius: 12, lineHeight: 0, alignSelf: 'flex-start' }}>
+                  <QRCodeSVG value={mobileUrl} size={IMMERSIVE.qrSize} level="M" includeMargin={false} />
                 </div>
                 <div
                   style={{
@@ -5075,8 +5077,8 @@ export function GameDetailImmersive({
                     color: 'rgba(243,244,241,0.72)',
                   }}
                 >
-                  <div style={{ color: INK, fontWeight: 700 }}>Scan to play</div>
-                  or enter <b style={{ color: INK, fontWeight: 700 }}>{pairCode}</b>
+                  <b style={{ color: INK, fontWeight: 700 }}>Scan to play</b> · code{' '}
+                  <b style={{ color: INK, fontWeight: 700 }}>{pairCode}</b>
                 </div>
               </div>
             )}
@@ -5099,7 +5101,7 @@ export function GameDetailImmersive({
               color: 'rgba(243,244,241,0.86)',
             }}
           >
-            {game.description}
+            {game.longDescription ?? game.description}
           </p>
 
           {/* Parameters — plain rows rather than pills. */}
@@ -5126,7 +5128,18 @@ export function GameDetailImmersive({
 
         {/* No overflow clip here: it cut the focused shot's ring and scale. The
             page root already clips at the stage edge. */}
-        <div style={{ position: 'absolute', left: 0, right: 0, top: IMMERSIVE.shotsY }}>
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: IMMERSIVE.shotsY,
+            // Dimmed until it has focus, so the sliver under the info band reads
+            // as a hint and the shelf below can lead once focus moves past it.
+            opacity: sec === IMM_SHOTS ? 1 : 0.42,
+            transition: 'opacity 420ms ease',
+          }}
+        >
           <div
             style={{
               display: 'flex',

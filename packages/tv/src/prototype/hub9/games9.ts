@@ -55,6 +55,8 @@ const HUB9_GAMES_BASE: Hub9Game[] = [
     id: 'jeopardy',
     title: 'Jeopardy!',
     description: 'The iconic answer-and-question quiz show, now on your TV.',
+    longDescription:
+      "The answer-and-question quiz show, set up for your living room. Pick your categories, buzz in out loud, and decide how much of your score to risk when Final Jeopardy! comes around.",
     players: '1–3 Players',
     interaction: 'Voice Controlled',
     theme: { base: '#03113f', from: '#061a5c', to: '#1e49c7', accent: '#f7c948', pattern: 'grid', logo: 'serif', motif: '💡' },
@@ -63,6 +65,8 @@ const HUB9_GAMES_BASE: Hub9Game[] = [
     id: 'song-quiz',
     title: 'Song Quiz',
     description: 'Name the hit song from a short clip before your friends do.',
+    longDescription:
+      "Hear a clip, name the song. Play across decades and genres, steal the point when the room hesitates, and settle who actually knows the words rather than just the chorus.",
     players: '1–4 Players',
     interaction: 'Voice Controlled',
     theme: { base: '#1a0b3d', from: '#3a0f7a', to: '#7b2ff7', accent: '#22d3ee', pattern: 'bars', logo: 'block', motif: '🎵' },
@@ -71,6 +75,8 @@ const HUB9_GAMES_BASE: Hub9Game[] = [
     id: 'wheel-of-fortune',
     title: 'Wheel of Fortune',
     description: 'Spin the wheel, solve the puzzle and win big.',
+    longDescription:
+      "Spin the wheel, call a letter, and solve the puzzle before anyone beats you to it. Prize wedges, bonus rounds and the board you already know how to read.",
     players: '1–3 Players',
     interaction: 'Voice Controlled',
     theme: { base: '#0c1f14', from: '#123a24', to: '#1f9d57', accent: '#ffd23f', pattern: 'grid', logo: 'serif', motif: '🎡' },
@@ -79,6 +85,8 @@ const HUB9_GAMES_BASE: Hub9Game[] = [
     id: 'wits-end',
     title: "Wit's End",
     description: 'A fantasy trivia adventure for the quickest thinkers.',
+    longDescription:
+      "A fantasy trivia adventure with a story running between the questions. Answer to get through encounters, choose which way to go next, and find out how far what you know will carry you.",
     players: '1–3 Players',
     interaction: 'Voice Controlled',
     theme: { base: '#100b06', from: '#241a10', to: '#5a3d1f', accent: '#e0a94f', pattern: 'rays', logo: 'serif', motif: '🪓' },
@@ -87,6 +95,8 @@ const HUB9_GAMES_BASE: Hub9Game[] = [
     id: 'cocomelon',
     title: 'CoComelon',
     description: 'Sing, dance and play along with JJ and friends.',
+    longDescription:
+      "Sing, dance and play along with JJ and friends. Familiar songs, gentle prompts and nothing to lose — built for the youngest players in the house, with grown-ups welcome to join in.",
     players: 'Single Player',
     interaction: 'Voice Controlled',
     theme: { base: '#1a7fd4', from: '#3aa0e8', to: '#8fd14f', accent: '#ffd23f', ink: '#0a2a4a', light: true, pattern: 'dots', logo: 'rounded', motif: '🍉' },
@@ -95,6 +105,8 @@ const HUB9_GAMES_BASE: Hub9Game[] = [
     id: 'spot-on',
     title: 'Spot On',
     description: 'Race to pinpoint places on a spinning globe.',
+    longDescription:
+      "Race to pinpoint places on a spinning globe. Landmarks, cities and flags, from rounds anyone can win to ones that will start an argument about where exactly Madagascar is.",
     players: '1–4 Players',
     interaction: 'Gesture Controlled',
     theme: { base: '#02040f', from: '#071634', to: '#155e9c', accent: '#f5b642', pattern: 'waves', logo: 'block', motif: '🌍' },
@@ -103,6 +115,8 @@ const HUB9_GAMES_BASE: Hub9Game[] = [
     id: 'sketchy-af',
     title: 'Sketchy AF',
     description: 'Draw it, guess it, then laugh about it together.',
+    longDescription:
+      "Draw it, guess it, then laugh about it. Everyone sketches on their own phone while the TV keeps score, and no artistic ability is required — or, frankly, expected.",
     players: '1–4 Players',
     interaction: 'Voice Controlled',
     theme: { base: '#efeee9', from: '#f7f6f2', to: '#e3e2dc', accent: '#f72149', ink: '#141414', light: true, pattern: 'sketch', logo: 'script', motif: '✏️' },
@@ -111,6 +125,8 @@ const HUB9_GAMES_BASE: Hub9Game[] = [
     id: 'guess-the-emoji',
     title: 'Guess the Emoji',
     description: 'Crack the phrase hiding inside a string of emoji.',
+    longDescription:
+      "Crack the phrase hiding inside a string of emoji. Films, foods, sayings and things that only make sense the second somebody finally shouts the answer out.",
     players: '1–6 Players',
     interaction: 'Voice Controlled',
     isNew: true,
@@ -120,6 +136,8 @@ const HUB9_GAMES_BASE: Hub9Game[] = [
     id: 'werds',
     title: 'Werds',
     description: 'Type the answer faster than the room to steal the round.',
+    longDescription:
+      "Type the answer faster than the room to steal the round. The keyboard shuffles under you, the clock keeps running, and your typos are very much part of the fun.",
     players: '1–4 Players',
     interaction: 'Typing',
     isNew: true,
