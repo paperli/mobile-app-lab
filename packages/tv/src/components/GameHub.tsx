@@ -5444,12 +5444,14 @@ export function PreviewHero({ game, showPairing, roomCode, mobileUrl }: PreviewH
         </div>
       )}
 
-      {/* Focused game info (swaps in place) */}
+      {/* Focused game info (swaps in place). Anchored to the band's bottom edge
+          rather than a fixed top, so the block sits on one baseline whatever the
+          logotype's height is — at top:150 a tall wordmark ran past the band. */}
       <div
         style={{
           position: 'absolute',
           left: SHELF_PAD,
-          top: 150,
+          bottom: 24,
           width: 1000,
           display: 'flex',
           flexDirection: 'column',
