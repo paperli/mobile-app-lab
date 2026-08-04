@@ -494,6 +494,13 @@ const IMMERSIVE = {
   /** Bound nudge — the DS bounce, in stage px rather than vw. */
   overshoot: 28,
   overshootMs: BOUNCE_DURATION_MS,
+  /**
+   * Coming back up out of a row, the actions stay unfocused for this long before
+   * the focus lands — past the info band's own reveal delay and into its fade, so
+   * the pill is legible at rest first and its fill then happens in front of the
+   * viewer rather than behind a band still at zero opacity.
+   */
+  focusSettle: HANDOFF_REVEAL.copy + 160, // 500
 } as const;
 /** Per-shot dwell for the backdrop's screenshot loop. */
 const IMMERSIVE_SHOT_MS = 3000;
@@ -4800,6 +4807,39 @@ export function GameDetailImmersive({
   const browsing = sec !== IMM_CONTENT;
 
   /**
+   * Focus *settles* onto the actions when a row hands it back, rather than
+   * arriving pre-lit. Both the section and the action focus change in the same
+   * commit, so without this the pill's fill animates while the info band is
+   * still at zero opacity and the band then fades in already focused — nothing
+   * signals that the thing under focus is a button you can press. Holding the
+   * actions unfocused until the band is on screen puts that fill where it can
+   * be seen. It matters most for a non-subscriber: Favorite is their only
+   * focusable action, so there is no second, plainly-unfocused pill beside it
+   * to read the focused one against.
+   *
+   * Opening the page keeps its old behavior — focus was nowhere a moment ago,
+   * so there is no change worth showing.
+   */
+  const [focusSettled, setFocusSettled] = useState(true);
+  // Only a row *handing focus back* opens the hold. The band is still at zero
+  // opacity for the first frame after that (its fade is delayed), so unfocusing
+  // from an effect rather than during the render costs nothing on screen.
+  const wasBrowsing = useRef(browsing);
+  useEffect(() => {
+    const handback = wasBrowsing.current && !browsing;
+    wasBrowsing.current = browsing;
+    if (handback && !reduceMotion) setFocusSettled(false);
+  }, [browsing]);
+  // Any hold releases itself, so focus can never be left parked off the actions.
+  useEffect(() => {
+    if (focusSettled) return;
+    const t = window.setTimeout(() => setFocusSettled(true), IMMERSIVE.focusSettle);
+    return () => window.clearTimeout(t);
+  }, [focusSettled]);
+  /** Only the settled content section lights an action. */
+  const actionsFocused = !browsing && focusSettled;
+
+  /**
    * Parameters as a plain list. Category comes from the personalization
    * taxonomy — the same genre the recommendation row scores on — so the page
    * states the classification it is actually reasoning with.
@@ -5061,7 +5101,7 @@ export function GameDetailImmersive({
             }}
           >
             {signedIn ? (
-              <DetailButton label="Play" focused={!browsing && focus === 1} pressing={pressing && focus === 1} onClick={onPlay} />
+              <DetailButton label="Play" focused={actionsFocused && focus === 1} pressing={pressing && focus === 1} onClick={onPlay} />
             ) : (
               // Not a subscriber yet: pair a phone to start, so the QR takes the
               // top of the column. Not focusable — there's nothing to press.
@@ -5099,7 +5139,7 @@ export function GameDetailImmersive({
             )}
             <DetailButton
               label={favorited ? '♥  Favorited' : '♡  Favorite'}
-              focused={!browsing && focus === favoriteFocus}
+              focused={actionsFocused && focus === favoriteFocus}
               pressing={pressing && focus === favoriteFocus}
               onClick={onToggleFavorite}
             />
