@@ -431,8 +431,12 @@ interface Handoff {
 // into the art rather than pushing the buttons off-screen.
 const IMMERSIVE = {
   padX: layout.shelfGutter, // 80
-  /** Hero logotype: the top area, a little above the preview band's 150. */
-  logoY: 110,
+  /**
+   * Hero logotype. Above the preview band's 150, so the handoff is a journey you
+   * can see rather than a nudge — ~58px of travel, on top of the growth from the
+   * band's box into this one.
+   */
+  logoY: 92,
   logoW: 900,
   logoH: 240,
   /** Centred header logotype, shown while a row has focus. */
@@ -5084,7 +5088,7 @@ export function GameDetailImmersive({
                   >
                     Scan to play
                   </div>
-                  <div>
+                  <div style={{ fontSize: dsType.body.size, lineHeight: `${dsType.body.line}px` }}>
                     code: <b style={{ color: INK, fontWeight: 700, letterSpacing: '0.04em' }}>{pairCode}</b>
                   </div>
                 </div>
