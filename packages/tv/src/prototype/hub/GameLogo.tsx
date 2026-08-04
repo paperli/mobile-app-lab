@@ -2,7 +2,7 @@
 // so each game renders its title with a distinct type treatment derived from
 // theme.logo. Size is inherited from the parent's fontSize (set by the tile /
 // hero), so one component scales everywhere.
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import type { CSSProperties } from 'react';
 import type { GameTheme, LogoStyle } from './games';
 import { hexToRgba } from './artStyles';
@@ -112,6 +112,24 @@ interface GameLogoProps {
 const LOGO_MAX_W = 720;
 const LOGO_MAX_H = 180;
 
+/**
+ * Exported wordmark dimensions, keyed by src and shared by every GameLogo.
+ *
+ * `scale` needs the natural size to lay the image out, and a FLIP measures that
+ * layout the same frame it commits — so the size has to be readable
+ * *synchronously* on the first render of a src. Per-instance state can't do
+ * that: the detail pages stay mounted between games, so every new src was laid
+ * out against the *previous* logo's dimensions until its own `load` fired. That
+ * is what sent the immersive hero wordmark flying in from the wrong rect — and
+ * made it jump once the real size arrived — whenever a game was opened after
+ * another one.
+ *
+ * The cache is warm by the time it matters: the same PNG is on screen in the
+ * preview band / tile before the detail page can be opened, and that instance
+ * records it here.
+ */
+const NATURAL = new Map<string, { w: number; h: number }>();
+
 export function GameLogo({
   title,
   theme,
@@ -123,15 +141,46 @@ export function GameLogo({
   maxLogoH = LOGO_MAX_H,
   scale,
 }: GameLogoProps) {
-  // Exported size, once known, so the scale can be applied to it.
-  const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
+  // Exported size, once known, so the scale can be applied to it. Read from the
+  // shared cache (never from state) so a src whose size is already known lays
+  // out correctly on its very first render.
+  const [, redraw] = useState(0);
+  const natural = src ? NATURAL.get(src) ?? null : null;
+  /**
+   * Cache the exported size the first time this src is seen, then re-render.
+   *
+   * Only ever records a size that belongs to *this* src. The same <img> is
+   * reused from one game to the next, and until the new file arrives it still
+   * reports the previous logo's dimensions — caching those would poison the
+   * entry for good (and stretch the wordmark to the other game's aspect).
+   */
+  const note = useCallback(
+    (img: HTMLImageElement | null) => {
+      if (!img || !src || NATURAL.has(src)) return;
+      if (!img.complete || !img.naturalWidth) return;
+      if (img.currentSrc && img.currentSrc !== new URL(src, document.baseURI).href) return;
+      NATURAL.set(src, { w: img.naturalWidth, h: img.naturalHeight });
+      redraw((n) => n + 1);
+    },
+    [src]
+  );
+  // `onLoad` is the normal path; `ref` also covers an image the browser already
+  // had decoded when the element mounted.
+  const measure = { ref: note, onLoad: (e: { currentTarget: HTMLImageElement }) => note(e.currentTarget) };
+
   if (src && scale) {
     // A wordmark wider than `maxLogoW` at this scale is brought back by scaling
     // *both* axes. Letting max-width do it while the height is pinned squashes
     // the artwork instead — Spot On rendered at 2.22:1 against its natural 2.58:1.
+    // Both axes are written out from the cached export size rather than left to
+    // `width: auto`: an <img> whose src just changed keeps sizing itself from
+    // the bitmap it still has on screen, so `auto` would hand the frame that
+    // opens the page the *previous* logo's aspect.
+    let w: number | 'auto' = 'auto';
     let h: number | 'auto' = 'auto';
     if (natural) {
       const fit = Math.min(1, maxLogoW / (natural.w * scale));
+      w = natural.w * scale * fit;
       h = natural.h * scale * fit;
     }
     return (
@@ -139,8 +188,10 @@ export function GameLogo({
         src={src}
         alt={title}
         className={className}
-        onLoad={(e) => setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
-        style={{ display: 'block', height: h, width: 'auto', ...style }}
+        {...measure}
+        // Until the exported size is known the box is capped, so an unmeasured
+        // logo can't briefly lay itself out at full intrinsic size.
+        style={{ display: 'block', width: w, height: h, maxWidth: natural ? undefined : maxLogoW, ...style }}
       />
     );
   }
@@ -154,6 +205,9 @@ export function GameLogo({
         src={src}
         alt={title}
         className={className}
+        // Warms the shared size cache for the detail pages, which need this
+        // logo's exported size the frame they open.
+        {...measure}
         style={{ display: 'block', width: 'auto', height: 'auto', maxWidth: maxLogoW, maxHeight: maxLogoH, ...style }}
       />
     );
