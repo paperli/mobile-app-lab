@@ -5102,6 +5102,10 @@ export function GameDetailImmersive({
             />
           </div>
 
+          {/* Pitch + parameters share a top edge: the band bottom-aligns its
+              columns (that is what keeps Favorite fixed), so these two sit in
+              their own row that top-aligns inside it. */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: IMMERSIVE.colGap }}>
           {/* Pitch */}
           <p
             style={{
@@ -5136,6 +5140,7 @@ export function GameDetailImmersive({
               </div>
             ))}
           </dl>
+          </div>
         </div>
 
         {/* No overflow clip here: it cut the focused shot's ring and scale. The
