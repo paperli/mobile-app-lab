@@ -439,6 +439,9 @@ const IMMERSIVE = {
   logoY: 92,
   logoW: 900,
   logoH: 240,
+  /** The hero wordmark renders at 1.5× its export; the header at 1×. */
+  logoScale: 1.5,
+  headerLogoScale: 1,
   /** Centred header logotype, shown while a row has focus. */
   headerY: 76,
   headerLogoW: 620,
@@ -4984,7 +4987,7 @@ export function GameDetailImmersive({
           src={game.art?.logo}
           maxLogoW={IMMERSIVE.headerLogoW}
           maxLogoH={IMMERSIVE.headerLogoH}
-          pinHeight={IMMERSIVE.headerLogoH}
+          scale={IMMERSIVE.headerLogoScale}
           style={game.art?.logo ? undefined : { fontSize: 64, whiteSpace: 'nowrap' }}
         />
       </div>
@@ -5021,7 +5024,7 @@ export function GameDetailImmersive({
             src={game.art?.logo}
             maxLogoW={IMMERSIVE.logoW}
             maxLogoH={IMMERSIVE.logoH}
-            pinHeight={IMMERSIVE.logoH}
+            scale={IMMERSIVE.logoScale}
             style={game.art?.logo ? undefined : { fontSize: 108, whiteSpace: 'normal' }}
           />
         </div>

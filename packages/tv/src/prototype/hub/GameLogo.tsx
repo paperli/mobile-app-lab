@@ -99,15 +99,12 @@ interface GameLogoProps {
   maxLogoW?: number;
   maxLogoH?: number;
   /**
-   * Render the wordmark *at* this height rather than contain-fitting it, so
-   * every game's logotype reads at one size (the detail pages use this). Capped
-   * at `maxUpscale`× the export's intrinsic height: the wordmarks are exported
-   * at wildly different sizes, and blowing a short one up to fill the slot turns
-   * it to mush. A logo that can't reach the height renders smaller but sharp —
-   * the real fix is a larger export.
+   * Scale the wordmark by this much of its exported size (the detail pages use
+   * it). Each logo keeps its own proportions relative to the others, so nothing
+   * is stretched to hit a common height. `maxLogoW` still caps the width, and a
+   * logo that hits it scales down to fit.
    */
-  pinHeight?: number;
-  maxUpscale?: number;
+  scale?: number;
 }
 
 // hero-v3 "Top Game Preview" logo box — contain-fit ≤ 720×180, min height 80.
@@ -124,20 +121,26 @@ export function GameLogo({
   src,
   maxLogoW = LOGO_MAX_W,
   maxLogoH = LOGO_MAX_H,
-  pinHeight,
-  maxUpscale = 2,
+  scale,
 }: GameLogoProps) {
-  // Intrinsic height of the raster, once known, to clamp the pinned height.
-  const [naturalH, setNaturalH] = useState(0);
-  if (src && pinHeight) {
-    const h = naturalH ? Math.min(pinHeight, naturalH * maxUpscale) : pinHeight;
+  // Exported size, once known, so the scale can be applied to it.
+  const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
+  if (src && scale) {
+    // A wordmark wider than `maxLogoW` at this scale is brought back by scaling
+    // *both* axes. Letting max-width do it while the height is pinned squashes
+    // the artwork instead — Spot On rendered at 2.22:1 against its natural 2.58:1.
+    let h: number | 'auto' = 'auto';
+    if (natural) {
+      const fit = Math.min(1, maxLogoW / (natural.w * scale));
+      h = natural.h * scale * fit;
+    }
     return (
       <img
         src={src}
         alt={title}
         className={className}
-        onLoad={(e) => setNaturalH(e.currentTarget.naturalHeight)}
-        style={{ display: 'block', height: h, width: 'auto', maxWidth: maxLogoW, ...style }}
+        onLoad={(e) => setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+        style={{ display: 'block', height: h, width: 'auto', ...style }}
       />
     );
   }
