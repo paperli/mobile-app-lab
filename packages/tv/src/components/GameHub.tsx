@@ -443,8 +443,12 @@ const IMMERSIVE = {
   headerRise: 28,
   /** Wash behind the header, so rows scrolling under it stay legible. */
   headerWashH: 280,
-  /** Info band: lifted off the bottom edge so the screenshots row can peek. */
-  infoY: 600,
+  /**
+   * Info band. Sits low — the art owns the middle of the screen — but high
+   * enough to clear the screenshots row's sliver at 980: the tallest column is
+   * the 152px action stack, so the band runs 720–872.
+   */
+  infoY: 720,
   /** Its three columns: actions, description, then the parameter list. */
   actionW: 340,
   descW: 900,
