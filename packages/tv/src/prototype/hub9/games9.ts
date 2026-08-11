@@ -18,10 +18,16 @@ export interface Hub9Game extends HubGame {
   isNew?: boolean;
 }
 
-// Real exported v3 art (v2 for CoComelon — no v3 yet), served from
-// packages/tv/public/games/hub9/<id>/. The art system prefers these over the
-// procedural theme fallback; `theme` is retained for palette/pill accents.
-// Paths go through assetUrl so they resolve under the demo's relative base.
+// Real exported v3 art, served from packages/tv/public/games/hub9/<id>/. The
+// art system prefers these over the procedural theme fallback; `theme` is
+// retained for palette/pill accents. Paths go through assetUrl so they resolve
+// under the demo's relative base.
+//
+// tile.png (1280×720) and preview.jpg (1422×480) are 1:1 — they are drawn at
+// their exported size. logo.png is the exception: every game delivers its
+// wordmark at 2× its designed size, because the detail page renders it at 1.5×
+// and would otherwise have to upscale. GameLogo halves the bitmap before
+// laying it out, so the top preview band draws it at 0.5×. See LOGO_EXPORT_SCALE.
 /**
  * Real in-game captures (Foundry exports, cropped to 1280×720) for the titles
  * that have them, served from public/games/hub9/<id>/shots/. Games without
