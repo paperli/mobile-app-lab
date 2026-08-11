@@ -183,6 +183,8 @@ interface RowDef {
   seeAll?: boolean;
   /** Show a "NEW" tag on every tile in this row (e.g. freshly-added games). */
   newTag?: boolean;
+  /** Show the live-players badge on every tile in this row (featured shelves). */
+  liveBadge?: boolean;
   /** Prepend a "Create new game" tile as the first item (Studio "My games" row). */
   createTile?: boolean;
 }
@@ -544,6 +546,12 @@ const HERO_ANIM_CSS = `
 @keyframes hubHeroDotFill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes hubHeroPan { from { transform: translate(0, -50%); } to { transform: translate(-33.333%, -50%); } }
 @keyframes hubHeroPanX { from { transform: translateX(0); } to { transform: translateX(-33.333%); } }
+/* Live badge: the status dot pulses so the count reads as a live figure rather
+   than a static stat. Held at full opacity for most of the cycle so it flashes
+   rather than breathes. */
+@keyframes hubLiveDot { 0%, 62%, 100% { opacity: 1; } 80% { opacity: 0.2; } }
+.hub-live-dot { animation: hubLiveDot 1.8s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .hub-live-dot { animation: none; } }
 /* Gift icon: lift + scale up + wiggle for a beat, then rest, then repeat. */
 @keyframes hubGiftWiggle {
   0%   { transform: translateY(0) scale(1) rotate(0deg); }
@@ -660,7 +668,7 @@ export interface HubContent {
    */
   heroMerch?: { key: string; bg: string; games: [string, string] }[];
   /** Shelves shown above the grid (standard sm rows). */
-  shelves: { key: string; title: string; games: HubGame[] }[];
+  shelves: { key: string; title: string; games: HubGame[]; liveBadge?: boolean }[];
   /** The "All Games" grid (5 across). */
   grid: HubGame[];
   /** Game ids that show a NEW badge on their tile (any shelf/grid). */
@@ -1053,7 +1061,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     content!.shelves.forEach((sh) =>
       sections.push({
         kind: 'shelf',
-        row: { key: sh.key, title: sh.title, variant: 'sm', slideshow: false, games: sh.games },
+        row: { key: sh.key, title: sh.title, variant: 'sm', slideshow: false, games: sh.games, liveBadge: sh.liveBadge },
       })
     );
     gridChunks.forEach((games, gridIndex) =>
@@ -3103,6 +3111,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
                     slideshowReady={slideshowReady}
                     shot={shot}
                     badge={newIdSet?.has(game.id) || row.newTag ? 'NEW' : undefined}
+                    live={row.liveBadge ? liveCountFor(game.id) : undefined}
                     onClick={() => selectTile(sectionIndex, i + lead, row.games[i])}
                   />
                 ))}
@@ -6576,8 +6585,98 @@ export interface TileProps {
   onClick: () => void;
   /** Slideshow only plays once ready (after the 1s focus delay). Default true. */
   slideshowReady?: boolean;
-  /** Optional corner tag, e.g. "NEW". */
+  /** Optional corner tag, e.g. "NEW" or "Beta" (top-left). */
   badge?: string;
+  /** Optional live-players count (top-right). Omit to hide the badge. */
+  live?: number;
+}
+
+// ── Tile badges (DS "Badge / Small", "Badge / Medium", "Badge / Live") ───────
+// Two corner slots, both inset by the tile's own padding: the status tag sits
+// top-left, the live count top-right. Small vs medium differ only in min-width;
+// the grid tile takes small, every larger tile takes medium.
+const BADGE_H = 27;
+const BADGE_RADIUS = 6;
+
+/** Status tag — "NEW" / "Beta". Canary gradient chip with a hairline stroke. */
+function TileTag({ label, size }: { label: string; size: 'sm' | 'md' }) {
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: BADGE_H,
+        minWidth: size === 'sm' ? 48 : 54,
+        padding: '0 8px',
+        borderRadius: BADGE_RADIUS,
+        // The DS stroke is #525252 on Screen, which resolves to a pale highlight
+        // over the canary gradient; #FEED75 is that result as a flat colour.
+        border: '1px solid #FEED75',
+        boxSizing: 'border-box',
+        background: 'linear-gradient(180deg, #FFEC37 0%, #FCDE2F 83.17%, #FCDB2D 100%)',
+        boxShadow: '0 4px 8px rgba(0,0,0,0.25)',
+        color: '#000',
+        fontSize: 17,
+        fontWeight: 700,
+        letterSpacing: '1.1px',
+        lineHeight: '13.2px',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+/** Live-players count with a pulsing status dot. */
+function LiveBadge({ count }: { count: number }) {
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 4,
+        height: BADGE_H,
+        minWidth: 54,
+        padding: '0 8px',
+        borderRadius: BADGE_RADIUS,
+        boxSizing: 'border-box',
+        background: 'rgba(0,0,0,0.64)',
+        boxShadow: '0 4px 8px rgba(0,0,0,0.25)',
+        color: '#F3F4F1',
+        fontSize: 14,
+        fontWeight: 700,
+        lineHeight: '13.2px',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <span
+        className="hub-live-dot"
+        style={{
+          width: 10,
+          height: 10,
+          borderRadius: '50%',
+          background: 'linear-gradient(180deg, #88DB6A 0%, #57D129 100%)',
+          flex: '0 0 auto',
+        }}
+      />
+      {count}
+    </span>
+  );
+}
+
+/**
+ * Stable stand-in for a "players right now" figure. Hashed from the game id so
+ * each tile shows a different number and it never re-rolls between renders —
+ * a fresh Math.random() per render would make the counts twitch on every focus
+ * change. Range matches the design comps (~900–2500).
+ */
+export function liveCountFor(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i += 1) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return 900 + (h % 1600);
 }
 
 export function Tile({
@@ -6590,8 +6689,10 @@ export function Tile({
   onClick,
   slideshowReady = true,
   badge,
+  live,
 }: TileProps) {
   const t = TILE[variant];
+  const badgeInset = variant === 'grid' ? 8 : 12;
   const showShots = slideshow && focused && slideshowReady;
   // Focus treatment follows the hub theme: `arcade` = Canary gradient ring + gap;
   // `mockup` = the original white ring.
@@ -6641,25 +6742,17 @@ export function Tile({
       {dsFocus && focused && <FocusRing radius={t.r} gap={variant === 'grid' ? 5 : 6} width={variant === 'grid' ? 4 : 5} />}
       {/* Inner clip: rounds/masks the art while the focus ring floats outside it. */}
       <div style={{ position: 'absolute', inset: 0, borderRadius: t.r, overflow: 'hidden' }}>
-      {/* Corner tag (e.g. "NEW") pinned above the art. */}
+      {/* Corner badges pinned above the art: status tag top-left, live count
+          top-right, both on the tile's own inset (8 on the grid tile, 12 on the
+          larger ones). */}
       {badge && (
-        <span
-          style={{
-            position: 'absolute',
-            top: variant === 'grid' ? 8 : 12,
-            left: variant === 'grid' ? 8 : 12,
-            zIndex: 4,
-            fontSize: variant === 'grid' ? 11 : 13,
-            fontWeight: 800,
-            letterSpacing: '0.1em',
-            color: '#000',
-            background: INK,
-            borderRadius: 6,
-            padding: '4px 9px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-          }}
-        >
-          {badge}
+        <span style={{ position: 'absolute', top: badgeInset, left: badgeInset, zIndex: 4 }}>
+          <TileTag label={badge} size={variant === 'grid' ? 'sm' : 'md'} />
+        </span>
+      )}
+      {live !== undefined && (
+        <span style={{ position: 'absolute', top: badgeInset, right: badgeInset, zIndex: 4 }}>
+          <LiveBadge count={live} />
         </span>
       )}
       {/* Base tile art. Procedural tiles center the game name as the logotype;

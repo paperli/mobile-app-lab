@@ -203,7 +203,7 @@ export const HUB9_CONTENT: HubContent = {
   catalog: HUB9_GAMES,
   heroGames: ['guess-the-emoji', 'werds', 'wheel-of-fortune'].map(getHub9Game),
   heroMerch: HUB9_MERCH,
-  shelves: [{ key: 'new', title: 'Featured', games: HUB9_NEW_ROW }],
+  shelves: [{ key: 'new', title: 'Featured', games: HUB9_NEW_ROW, liveBadge: true }],
   grid: HUB9_GRID,
   newIds: ['guess-the-emoji', 'werds'],
 };
