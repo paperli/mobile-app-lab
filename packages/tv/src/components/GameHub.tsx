@@ -595,6 +595,27 @@ const HERO_ANIM_CSS = `
 }
 /* Werds hero: the typed-answer caret blinks on each phone. */
 @keyframes hubWerdsCaret { 50% { opacity: 0; } }
+/* ── Subscription success modal ──────────────────────────────────────────────
+   The modal reveals as a fade; inside it the elements arrive in sequence — the
+   badge pops, then the copy and the CTA rise into place. */
+@keyframes hubSubFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes hubSubBadgeIn {
+  0%   { opacity: 0; transform: scale(0.62); }
+  70%  { opacity: 1; transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
+}
+/* The WEEKEND · PREMIUM lettering orbits the crown, slowly and forever. */
+@keyframes hubSubRingSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes hubSubCrownIn {
+  0%   { opacity: 0; transform: scale(0.3) rotate(-24deg); }
+  70%  { opacity: 1; transform: scale(1.14) rotate(6deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+/* Centered copy/CTA: they hold their own -50% centering while rising. */
+@keyframes hubSubRise {
+  from { opacity: 0; transform: translate(-50%, 34px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
 `;
 
 // ── Imperative handle exposed to App.tsx ────────────────────────────────────
@@ -868,6 +889,9 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // Full-screen upsell page (opened via MORE INFO on the free-trial slide).
   const [upsellOpen, setUpsellOpen] = useState(false);
   const [upsellFading, setUpsellFading] = useState(false); // fade-out on auto-dismiss
+  // "Welcome to Premium" modal, shown when a subscription completes (prototype:
+  // simulated with the "s" key). 'closing' keeps it mounted through the fade.
+  const [subSuccess, setSubSuccess] = useState<'closed' | 'open' | 'closing'>('closed');
 
   // Puzzle row (phase 1 only): an inline song-quiz question that the user answers
   // with the d-pad. Flow: question -> result -> follow-up -> thanks -> done (row
@@ -933,6 +957,8 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   const agScrollerRef = useRef<HTMLDivElement>(null);
   const upsellOpenRef = useRef(upsellOpen);
   upsellOpenRef.current = upsellOpen;
+  const subSuccessRef = useRef(subSuccess);
+  subSuccessRef.current = subSuccess;
   const pageRef = useRef(page);
   pageRef.current = page;
   const navFocusRef = useRef(navFocus);
@@ -1195,6 +1221,31 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     setUpsellFading(false);
     soundManager.playNavigationSound();
   }, []);
+
+  // "Welcome to Premium": the subscription lands the user signed in, with the
+  // success sound under the reveal. Dismissing fades the modal before unmounting.
+  const subSuccessTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const openSubSuccess = useCallback(() => {
+    if (subSuccessRef.current !== 'closed') return;
+    signedInRef.current = true;
+    setSignedIn(true);
+    subSuccessRef.current = 'open';
+    setSubSuccess('open');
+    soundManager.playSuccessSound();
+  }, []);
+
+  const closeSubSuccess = useCallback(() => {
+    if (subSuccessRef.current !== 'open') return;
+    subSuccessRef.current = 'closing';
+    setSubSuccess('closing');
+    soundManager.playSelectionSound();
+    subSuccessTimer.current = setTimeout(() => {
+      subSuccessRef.current = 'closed';
+      setSubSuccess('closed');
+    }, SUB_SUCCESS_FADE_MS);
+  }, []);
+
+  useEffect(() => () => clearTimeout(subSuccessTimer.current), []);
 
   /**
    * An element's rect in stage (1920x1080) coordinates. Both rects come back in
@@ -1575,6 +1626,8 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   useEffect(() => () => clearTimeout(heroIdleTimerRef.current), []);
 
   const move = useCallback((dx: number, dy: number) => {
+    // The subscription-success modal is a single-CTA dead end — nothing to move to.
+    if (subSuccessRef.current !== 'closed') return;
     nudgeHeroIdle();
     // Full-screen screenshot carousel: ◀▶ swap shots.
     if (shotViewerOpenRef.current) {
@@ -2089,6 +2142,12 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
 
   const doAction = useCallback(
     (action: NavigationAction) => {
+      // Subscription success (highest priority): either key dismisses it, and
+      // nothing else reaches the hub while it is up or fading out.
+      if (subSuccessRef.current !== 'closed') {
+        if (action === 'ok' || action === 'back') closeSubSuccess();
+        return;
+      }
       // Full-screen screenshot carousel: Back closes it (panel stays behind).
       if (shotViewerOpenRef.current) {
         if (action === 'back') {
@@ -2307,7 +2366,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       }
     },
     [
-      closePanel, closeAllGames, closeUpsell, openUpsell, openAllGames, launchGame, toggleFavorite, launch, openPanel,
+      closePanel, closeAllGames, closeUpsell, openUpsell, openAllGames, launchGame, toggleFavorite, launch, openPanel, closeSubSuccess,
       selectGame, goToPage, applyKey, toNav, openProfile, closeProfileMenu, openSettings, closeSettings, openSwitch,
       closeSwitch, selectProfile, startEdit, commitEdit, applyEditKey, openSignOutConfirm, closeSignOutConfirm, doSignOut,
     ]
@@ -2320,11 +2379,15 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       action: doAction,
       focusGame,
       isPanelOpen: () =>
-        panelRef.current.game !== null || allGamesOpenRef.current || upsellOpenRef.current,
+        panelRef.current.game !== null ||
+        allGamesOpenRef.current ||
+        upsellOpenRef.current ||
+        subSuccessRef.current !== 'closed',
       // Whether the hub should consume a Back press (close a modal, or escalate
       // up toward the top nav) rather than the caller exiting. Focus on the top
       // nav bar itself is the top level, so Back there is not consumed.
       wantsBack: () =>
+        subSuccessRef.current !== 'closed' ||
         panelRef.current.game !== null ||
         shotViewerOpenRef.current ||
         allGamesOpenRef.current ||
@@ -2355,7 +2418,9 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // active-dot countdown stays in sync. Input pauses the countdown (see
   // `nudgeHeroIdle`); the remaining time is banked and resumed once idle.
   useEffect(() => {
-    if (page !== 'home' || nav.sec !== 0 || reduceMotion || panel.game) {
+    // The subscription-success modal covers the hero — hold the slide it opened
+    // over rather than cycling behind the scrim.
+    if (page !== 'home' || nav.sec !== 0 || reduceMotion || panel.game || subSuccess !== 'closed') {
       // Leaving the hero abandons the countdown — it starts fresh on return.
       heroCycleRef.current = { slide: -1, remain: HERO_AUTOPLAY_MS };
       return;
@@ -2383,7 +2448,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       clearTimeout(t);
       if (!fired) cycle.remain = Math.max(0, cycle.remain - (Date.now() - startedAt));
     };
-  }, [page, nav.sec, nav.heroSlide, panel.game, heroPaused]);
+  }, [page, nav.sec, nav.heroSlide, panel.game, heroPaused, subSuccess]);
 
   // Slideshow on a focused slideshow-tile: hold the cover art for 1s, then
   // start looping the game's screenshots.
@@ -2519,7 +2584,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   }, [showPuzzle]);
 
   // Prototype: pressing "s" on the sign-in upsell simulates a successful sign-in
-  // — flip the QR to a checked state and play the success sound.
+  // — flip the QR to a checked state, then hand off to the Premium welcome.
   useEffect(() => {
     if (!upsellOpen) return;
     let holdT: ReturnType<typeof setTimeout> | undefined;
@@ -2529,12 +2594,17 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
         signedInRef.current = true;
         setSignedIn(true);
         setSignInDone(true);
-        soundManager.playSuccessSound();
+        // The scan reads as a click here; the success sound lands with the
+        // "Welcome to Premium" reveal at the end of the chain.
+        soundManager.playSelectionSound();
         // Hold the success checkmark ~1s, then fade the page out over 1.2s
         // before unmounting it.
         holdT = setTimeout(() => {
           setUpsellFading(true);
-          fadeT = setTimeout(() => closeUpsell(), 1200);
+          fadeT = setTimeout(() => {
+            closeUpsell();
+            if (customHub) openSubSuccess();
+          }, 1200);
         }, 1000);
       }
     };
@@ -2544,7 +2614,18 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       if (holdT) clearTimeout(holdT);
       if (fadeT) clearTimeout(fadeT);
     };
-  }, [upsellOpen, closeUpsell]);
+  }, [upsellOpen, closeUpsell, customHub, openSubSuccess]);
+
+  // Prototype: on the curated hub, "s" anywhere outside the upsell simulates a
+  // completed subscription and opens the Premium welcome directly.
+  useEffect(() => {
+    if (!customHub) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.key === 's' || e.key === 'S') && !upsellOpenRef.current) openSubSuccess();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [customHub, openSubSuccess]);
 
   // Keep Home focus on the same row when the "Jump Back On" row appears at the
   // top (after the first play), so the focus ring doesn't jump to a neighbor.
@@ -4211,6 +4292,11 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
           </div>
         )}
 
+        {/* Subscription success — sits above everything else on the stage. */}
+        {subSuccess !== 'closed' && (
+          <SubSuccessModal open={subSuccess === 'open'} onDismiss={closeSubSuccess} />
+        )}
+
         {/* Variation 3: pinned preview overlay while a game tile is focused. */}
         {isV3 && showPreview && previewGame && (
           <div style={{ position: 'absolute', top: 0, left: 0, width: STAGE_W, height: PREVIEW_H, zIndex: 4 }}>
@@ -4334,6 +4420,194 @@ function PanelButton({
     >
       {label}
     </button>
+  );
+}
+
+// ── Subscription success ("Welcome to Premium") ──────────────────────────────
+// Shown once a subscription completes (simulated with the "s" key). Geometry is
+// lifted from the Figma frame (Multiplatform Hub → "sub success", 19421:4136) in
+// stage coordinates; the badge art is exported from the same file.
+const PREMIUM_BADGE_SRC = {
+  /** Gold disc + the circular WEEKEND · PREMIUM lettering (bleeds past the box). */
+  ring: assetUrl('/brand/premium/badge-ring.svg'),
+  /** Midnight-Blue inner disc the crown sits on. */
+  disc: assetUrl('/brand/premium/badge-disc.svg'),
+  crown: assetUrl('/brand/premium/badge-crown.svg'),
+  /** Separator star, mirrored on both sides of the lettering. */
+  star: assetUrl('/brand/premium/badge-star.svg'),
+};
+
+/** Seconds for one full turn of the lettering — slow enough to read at rest. */
+const PREMIUM_RING_SPIN_S = 36;
+/** Cross-fade of the whole modal, in and back out on dismiss. */
+const SUB_SUCCESS_FADE_MS = 420;
+
+/**
+ * The Weekend Premium seal, drawn in its native 300×300 box. The lettering ring
+ * (with its two stars) turns continuously around the crown, which stays upright.
+ */
+function PremiumBadge() {
+  // maxWidth/maxHeight are pinned off: the ring art is wider than the 300px box
+  // it sits in, and the global `img { max-width: 100% }` would otherwise clamp
+  // it — the SVG has preserveAspectRatio="none", so a clamp squashes the gold
+  // circle into an ellipse that no longer sits concentric with the inner disc.
+  const img = { position: 'absolute', display: 'block', maxWidth: 'none', maxHeight: 'none' } as const;
+  return (
+    <div style={{ position: 'absolute', left: 810, top: 271, width: 300, height: 300 }}>
+      {/* Reveal: the whole seal pops in. */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          ...(reduceMotion ? null : { animation: 'hubSubBadgeIn 720ms cubic-bezier(.22,.61,.36,1) 140ms both' }),
+        }}
+      >
+        {/* Rotating layer — the gold disc is a circle, so only the lettering
+            and the stars read as turning. */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            ...(reduceMotion ? null : { animation: `hubSubRingSpin ${PREMIUM_RING_SPIN_S}s linear infinite` }),
+          }}
+        >
+          <img src={PREMIUM_BADGE_SRC.ring} alt="" style={{ ...img, left: -5.01, top: -5.01, width: 310.45, height: 310.44 }} />
+          <img src={PREMIUM_BADGE_SRC.star} alt="" style={{ ...img, left: 15.9, top: 136.28, width: 27.65, height: 26.48 }} />
+          <img src={PREMIUM_BADGE_SRC.star} alt="" style={{ ...img, left: 257.1, top: 136.28, width: 27.65, height: 26.48 }} />
+        </div>
+        <img src={PREMIUM_BADGE_SRC.disc} alt="" style={{ ...img, left: 76.23, top: 76.2, width: 148, height: 148 }} />
+        <img
+          src={PREMIUM_BADGE_SRC.crown}
+          alt="Weekend Premium"
+          style={{
+            ...img,
+            left: 114.39,
+            top: 122.58,
+            width: 71.67,
+            height: 50.17,
+            ...(reduceMotion ? null : { animation: 'hubSubCrownIn 620ms cubic-bezier(.22,.61,.36,1) 380ms both' }),
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Full-stage subscription-success modal: a dimming scrim over the hub, the
+ * Premium seal, the welcome copy, and a single CTA back to browsing. `open`
+ * drops to false while the modal fades out — the caller unmounts it after.
+ */
+function SubSuccessModal({ open, onDismiss }: { open: boolean; onDismiss: () => void }) {
+  // The scrim fades in on the frame after mount (so the transition has a
+  // starting value to run from) and back out when `open` goes false.
+  const [entered, setEntered] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  const [pressing, setPressing] = useState(false);
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        zIndex: 40,
+        fontFamily: FONT,
+        opacity: open && entered ? 1 : 0,
+        transition: `opacity ${SUB_SUCCESS_FADE_MS}ms ease`,
+      }}
+    >
+      {/* Backdrop — a radial scrim centered above the seal, so the hub stays
+          faintly readable at the edges. */}
+      <div
+        onClick={onDismiss}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background:
+            'radial-gradient(circle 661px at 960px 419px, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.9) 51.8%, rgba(0,0,0,0.75) 100%)',
+        }}
+      />
+      <PremiumBadge />
+      <div
+        style={{
+          position: 'absolute',
+          left: '50%',
+          top: 587,
+          transform: 'translateX(-50%)',
+          whiteSpace: 'nowrap',
+          fontSize: dsType.display5.size,
+          lineHeight: 1.2,
+          fontWeight: 700,
+          color: INK,
+          ...(reduceMotion ? null : { animation: 'hubSubRise 620ms cubic-bezier(.22,.61,.36,1) 460ms both' }),
+        }}
+      >
+        Welcome to Premium.
+      </div>
+      <div
+        style={{
+          position: 'absolute',
+          left: '50%',
+          top: 653,
+          transform: 'translateX(-50%)',
+          width: 580,
+          textAlign: 'center',
+          fontSize: dsType.body.size,
+          lineHeight: 1.2,
+          fontWeight: 400,
+          color: '#B3B1B5',
+          ...(reduceMotion ? null : { animation: 'hubSubRise 620ms cubic-bezier(.22,.61,.36,1) 600ms both' }),
+        }}
+      >
+        Start playing every game on the biggest screen in the house.
+      </div>
+      <div
+        style={{
+          position: 'absolute',
+          left: '50%',
+          top: 753,
+          transform: 'translateX(-50%)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 24,
+          ...(reduceMotion ? null : { animation: 'hubSubRise 620ms cubic-bezier(.22,.61,.36,1) 740ms both' }),
+        }}
+      >
+        <button
+          onClick={onDismiss}
+          onPointerDown={() => setPressing(true)}
+          onPointerUp={() => setPressing(false)}
+          onPointerLeave={() => setPressing(false)}
+          style={{
+            appearance: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            height: 80,
+            minWidth: 160,
+            padding: '0 32px',
+            borderRadius: 70,
+            fontFamily: FONT,
+            fontSize: dsType.callout.size,
+            lineHeight: `${dsType.callout.line}px`,
+            fontWeight: 700,
+            // Focused CTA, exactly as the merch hero's "Claim your free week"
+            // button: Canary gradient + glow, depressing on press. It rises in
+            // already focused — it is the only thing to press here.
+            background: CTA_GRADIENT,
+            color: STAGE_BG,
+            boxShadow: `${CTA_GLOW}, 0 12px 30px rgba(0,0,0,0.5)`,
+            transform: pressing ? 'scale(0.96)' : 'scale(1)',
+            transition: 'transform 220ms cubic-bezier(.22,.61,.36,1)',
+          }}
+        >
+          Browse Games
+        </button>
+      </div>
+    </div>
   );
 }
 

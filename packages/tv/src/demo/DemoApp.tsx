@@ -636,6 +636,9 @@ function Gallery() {
           <br />
           On the 9-game hub, <code style={{ color: '#b9babe' }}>&amp;subscribed=true</code> starts you signed in — the game
           detail page then shows the <b>Play</b> button instead of the pairing QR.
+          <br />
+          Press <code style={{ color: '#b9babe' }}>S</code> anywhere on the 9-game hub to simulate a successful
+          subscription — the “Welcome to Premium” modal reveals over the hub.
         </p>
       </div>
     </div>
