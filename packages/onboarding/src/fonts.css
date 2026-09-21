@@ -1,0 +1,12 @@
+/* Fonts the recovered stylesheet doesn't declare.
+   Paths are relative to the built stylesheet (assets/index-*.css), matching the
+   ../assets/fonts/ pattern style.css already uses. */
+
+/* Jeopardy! clue face. The file is the Bold weight, declared at 700 so the
+   browser matches it exactly rather than synthesising a faux bold. */
+@font-face {
+  font-family: 'ITC Korinna Std';
+  src: url(../assets/fonts/ITC-Korinna-Std-Bold.otf) format('opentype');
+  font-weight: 700;
+  font-display: swap;
+}

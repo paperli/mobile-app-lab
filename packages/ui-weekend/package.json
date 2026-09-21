@@ -7,6 +7,9 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./device": "./src/device/index.ts",
+    "./device/react": "./src/device/react.ts",
+    "./device/phone-modal.css": "./src/device/phone-modal.css",
     "./tailwind.preset": "./tailwind.preset.cjs",
     "./tokens/tokens.css": "./src/tokens/tokens.css",
     "./tokens/fonts.css": "./src/tokens/fonts.css"

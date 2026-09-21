@@ -1,0 +1,71 @@
+/* Bridges the recovered prototype stylesheet to the shared phone modal.
+ *
+ * The modal keeps the id `phone`, because style.css scopes a lot of the phone
+ * UI to `#phone ...` (the d-pad layout, the mic button, the Weekend font).
+ * Keeping the id keeps all of that working; what has to go is the old fixed
+ * side-panel box, which these id-level rules override. Nothing here restyles
+ * the phone's contents — only the container it sits in. */
+
+#phone.wk-phone {
+  position: fixed;
+  right: auto;
+  bottom: auto;
+  width: var(--wk-phone-width);
+  max-width: calc(100vw - 24px);
+  max-height: none;
+  overflow: visible;
+  padding: 10px;
+  border-radius: 26px;
+  background: rgba(16, 12, 34, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 24px 90px rgba(0, 0, 0, 0.75);
+  transform: none;
+}
+
+/* The device's height comes from the iPhone 17 Pro aspect ratio, so the legacy
+   fixed heights (485px, and 560px for the finale screens) must not apply. */
+#phone.wk-phone .wk-phone__frame,
+#phone.wk-phone .wk-phone__frame.phone-frame,
+#phone.wk-phone .wk-phone__frame.finale-frame {
+  height: auto;
+  aspect-ratio: var(--wk-phone-aspect);
+}
+
+#phone.wk-phone .wk-phone__screen {
+  height: 100%;
+  /* Clears the Dynamic Island and the home indicator. */
+  padding: 46px 20px 30px !important;
+}
+
+/* The old markup put the idle copy in the panel itself; now it sits on screen. */
+#phone.wk-phone #phoneIdle {
+  margin: auto;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #cbc7d9;
+}
+
+/* Toolbar handoff to the hub prototype. */
+#tools #hubLink {
+  color: #ffda0a;
+  text-decoration: none;
+  font-size: 13px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 218, 10, 0.4);
+  border-radius: 8px;
+}
+
+#tools #hubLink:hover {
+  background: rgba(255, 218, 10, 0.12);
+}
+
+/* The Skip affordance used to sit against a flat bezel; on the 17 Pro shell it
+   would land under the Dynamic Island, so drop it clear of the cutout. */
+#phone.wk-phone .phone-skip.top-right {
+  top: 52px;
+  right: 14px;
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+}

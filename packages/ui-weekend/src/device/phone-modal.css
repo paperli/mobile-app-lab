@@ -1,0 +1,143 @@
+/* Draggable phone simulator.
+   Framework-neutral: the only requirement is that this sheet is loaded and
+   PhoneModal's markup is in the document. See PhoneModal.ts. */
+
+.wk-phone {
+  --wk-phone-width: 300px;
+  /* iPhone 17 Pro: 402 x 874pt (2622 x 1206px @ 3x). */
+  --wk-phone-aspect: 402 / 874;
+  --wk-phone-radius: 46px;
+
+  position: fixed;
+  z-index: 60;
+  width: var(--wk-phone-width);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 26px;
+  background: rgba(16, 12, 34, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 24px 90px rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(14px);
+  font-family: Weekend, system-ui, sans-serif;
+  color: #efecf8;
+  touch-action: none;
+}
+
+.wk-phone[hidden] { display: none; }
+
+/* Drag handle ---------------------------------------------------------- */
+.wk-phone__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 2px 0;
+  cursor: grab;
+  user-select: none;
+}
+
+.wk-phone.is-dragging .wk-phone__bar { cursor: grabbing; }
+
+.wk-phone__grip {
+  flex: none;
+  width: 26px;
+  height: 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.wk-phone__title {
+  flex: 1;
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(239, 236, 248, 0.66);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wk-phone__close {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.wk-phone__close:hover { background: rgba(255, 255, 255, 0.13); }
+.wk-phone__bar:focus-visible,
+.wk-phone__close:focus-visible { outline: 2px solid #ffda0a; outline-offset: 2px; }
+
+/* Device --------------------------------------------------------------- */
+/* Height comes from the aspect ratio, so these win over the legacy
+   .phone-frame/.phone-screen rules the onboarding stylesheet still sets. */
+.wk-phone .wk-phone__frame.phone-frame,
+.wk-phone .wk-phone__frame {
+  position: relative;
+  width: 100%;
+  height: auto;
+  aspect-ratio: var(--wk-phone-aspect);
+  padding: 9px;
+  border-radius: var(--wk-phone-radius);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: linear-gradient(140deg, #3b3448, #0a0322);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.wk-phone .wk-phone__screen.phone-screen,
+.wk-phone .wk-phone__screen {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: calc(var(--wk-phone-radius) - 10px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 46px 20px 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: center;
+}
+
+/* Dynamic Island */
+.wk-phone__island {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 34%;
+  height: 26px;
+  border-radius: 14px;
+  background: #050505;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.wk-phone__home {
+  position: absolute;
+  bottom: 17px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36%;
+  height: 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.62);
+  z-index: 2;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wk-phone { backdrop-filter: none; }
+}

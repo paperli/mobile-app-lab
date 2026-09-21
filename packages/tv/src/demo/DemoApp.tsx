@@ -6,6 +6,9 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { GameHub, type HubHandle } from '../components/GameHub';
 import type { HubGame } from '../prototype/hub/games';
 import { HUB9_CONTENT } from '../prototype/hub9/games9';
+import { ONBOARDING_ID, onboardingUrl } from '../prototype/hub9/onboarding';
+import { usePhoneModal } from '@weekend/ui/device/react';
+import '@weekend/ui/device/phone-modal.css';
 import { HeroExample, SmallGameRow, LargeGameRow, PromoBanner, GameGridKit, SongQuizBanner } from './ComponentKit';
 import Simulator from '../simulator/Simulator';
 import HowItWorks from '../simulator/HowItWorks';
@@ -229,6 +232,30 @@ function Hub9View() {
   const subscribed = params.get('subscribed') === 'true';
   const content = showNewRow ? HUB9_CONTENT : { ...HUB9_CONTENT, shelves: [] };
 
+  // ── Phone simulator mount point ────────────────────────────────────────
+  // The onboarding prototype runs a full phone flow in this same modal (see
+  // packages/onboarding/src/phone.js). The hub has no phone flow of its own
+  // yet, so this is off unless ?phone=true and renders a placeholder screen.
+  // To wire it up for real, fill `phoneModal.screen` — either with
+  // createPortal(<YourPhoneUI />, phoneModal.screen) or by assigning markup.
+  const phoneEnabled = params.get('phone') === 'true';
+  const phoneModal = usePhoneModal({
+    enabled: phoneEnabled,
+    openOnMount: true,
+    id: 'phone',
+    title: 'Phone · simulated controller',
+    storageKey: 'weekend.hub9.phoneModal.position',
+  });
+
+  useEffect(() => {
+    if (!phoneModal) return;
+    phoneModal.screen.innerHTML =
+      '<p style="margin:auto;max-width:210px;font:500 14px/1.5 system-ui,sans-serif;color:#cbc7d9">' +
+      'Phone simulator shell.<br><br>The hub has no phone flow wired up yet — ' +
+      'the onboarding prototype uses this same modal for its pairing, mic and ' +
+      'checkout screens.</p>';
+  }, [phoneModal]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const h = hubRef.current;
@@ -277,6 +304,12 @@ function Hub9View() {
         initialSignedIn={subscribed}
         frame
         onLaunch={(g: HubGame) => {
+          // The onboarding is a separate prototype (Lightning + Blits), so it
+          // is a navigation rather than a simulated launch.
+          if (g.id === ONBOARDING_ID) {
+            window.location.href = onboardingUrl();
+            return;
+          }
           setLaunching(g.title);
           window.setTimeout(() => setLaunching(null), 1400);
         }}

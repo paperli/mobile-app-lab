@@ -1,13 +1,16 @@
 name: Deploy Hub Demo to Pages
 
-# Builds the static hub-layout demo (packages/tv, `build:demo`) and publishes it
-# to GitHub Pages. Requires Settings → Pages → Source = "GitHub Actions".
+# Builds the static prototypes and publishes them to GitHub Pages as one
+# artifact: the hub-layout demo (packages/tv) at the site root, and the
+# Lightning/Blits onboarding (packages/onboarding) at /onboarding/.
+# Requires Settings → Pages → Source = "GitHub Actions".
 
 on:
   push:
     branches: [main, gh-pages]
     paths:
       - 'packages/tv/**'
+      - 'packages/onboarding/**'
       - 'packages/ui-weekend/**'
       - 'packages/shared/**'
       - '.github/workflows/deploy-hub-demo.yml'
@@ -33,8 +36,9 @@ jobs:
           cache: npm
       - run: npm ci
       # Shared package compiles to dist and must be built before the TV app.
-      - run: npm run build --workspace=@mobile-app-lab/shared
-      - run: npm run build:demo --workspace=@mobile-app-lab/tv
+      # build:pages chains shared -> tv demo -> onboarding; the onboarding
+      # build writes into the TV demo's output, so the order matters.
+      - run: npm run build:pages
       - uses: actions/upload-pages-artifact@v3
         with:
           path: packages/tv/dist-demo

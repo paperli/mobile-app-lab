@@ -1,0 +1,23 @@
+{
+  "name": "@mobile-app-lab/onboarding",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Weekend TV onboarding \u2014 Lightning 3 + Blits, served as a standalone prototype",
+  "scripts": {
+    "dev": "vite --port 5175",
+    "build": "vite build",
+    "build:pages": "PAGES_OUT_DIR=../tv/dist-demo/onboarding vite build",
+    "preview": "vite preview --port 4175"
+  },
+  "dependencies": {
+    "@lightningjs/blits": "^2.9.0",
+    "@weekend/ui": "*",
+    "core-js": "^3.39.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-legacy": "^5.4.3",
+    "terser": "^5.36.0",
+    "vite": "^5.0.8"
+  }
+}

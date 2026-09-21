@@ -11,6 +11,7 @@
 import type { HubGame } from '../hub/games';
 import type { HubContent } from '../../components/GameHub';
 import { assetUrl } from '../../utils/assetUrl';
+import { ONBOARDING_GAME } from './onboarding';
 
 /** A hub game with the prototype's per-tile NEW flag. */
 export interface Hub9Game extends HubGame {
@@ -169,8 +170,12 @@ export const HUB9_NEW_ROW: Hub9Game[] = [
   'spot-on',
 ].map(getHub9Game);
 
-/** The "All Games" grid, in the requested order (5 across). */
-export const HUB9_GRID: Hub9Game[] = HUB9_GAMES;
+/**
+ * The "All Games" grid, in the requested order (5 across), with the onboarding
+ * flow appended so it stays replayable after setup. It is a separate
+ * prototype — see onboarding.ts — so launching it navigates away.
+ */
+export const HUB9_GRID: Hub9Game[] = [...HUB9_GAMES, ONBOARDING_GAME];
 
 /**
  * Curated merch-hero slides (the tall billboard carousel). Each is a full-bleed
@@ -200,7 +205,7 @@ export const HUB9_MERCH: Hub9MerchSlide[] = [
  * game slides; below it, a "Featured" shelf and the All Games grid.
  */
 export const HUB9_CONTENT: HubContent = {
-  catalog: HUB9_GAMES,
+  catalog: [...HUB9_GAMES, ONBOARDING_GAME],
   heroGames: ['guess-the-emoji', 'werds', 'wheel-of-fortune'].map(getHub9Game),
   heroMerch: HUB9_MERCH,
   shelves: [{ key: 'new', title: 'Featured', games: HUB9_NEW_ROW, liveBadge: true }],

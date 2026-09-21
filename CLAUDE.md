@@ -29,6 +29,22 @@ This document provides comprehensive context for Claude Code (or any AI assistan
 4. Server forwards events to the TV
 5. TV updates the UI based on navigation
 
+## Prototype Topology
+
+Two TV prototypes ship together but stay independent — different rendering
+stacks, different bundles, neither importing the other:
+
+```
+packages/tv          React + Vite        the game hub (?view=hub9)
+packages/onboarding  Lightning 3 + Blits the first-run flow
+        └── linked both ways by navigation, never bundled together
+```
+
+The onboarding is treated as a "game": hub9 carries a **Welcome to Weekend**
+tile that launches it, so it stays replayable after setup. The phone simulator
+is shared between them as plain DOM (`@weekend/ui/device`), because a React
+component could not be used inside the Blits bundle.
+
 ## Project Structure
 
 ```
@@ -69,6 +85,18 @@ mobile-app-lab/
 │   │       └── utils/
 │   │           ├── sounds.ts        # Audio feedback
 │   │           └── getMobileUrl.ts  # Dynamic URL detection
+│   │
+│   ├── onboarding/      # TV onboarding flow (Lightning 3 + Blits, standalone)
+│   │   ├── public/assets/host/  # Recorded host VO (ElevenLabs · Riyadh 2)
+│   │   └── src/
+│   │       ├── main.js          # Blits app entry, toolbar, diagnostics
+│   │       ├── scene.js         # Phase state machine (0–10) + narration
+│   │       ├── audio.js         # Recorded takes, device TTS fallback
+│   │       ├── vo.js            # Utterance → audio file map
+│   │       ├── orb-shader.js    # Speaking-orb GLSL (Speaking Orb Lab)
+│   │       ├── host-orb.js      # Orb motion; voice response + glow
+│   │       ├── phone.js         # Phone simulator screens
+│   │       └── hub-link.js      # Handoff to the hub prototype
 │   │
 │   └── mobile/          # Mobile controller (React + Vite)
 │       └── src/
@@ -216,6 +244,7 @@ npm run dev              # All services
 npm run dev:server       # Server only
 npm run dev:tv           # TV only
 npm run dev:mobile       # Mobile only
+npm run dev:onboarding   # Onboarding prototype only (port 5175)
 ```
 
 ### Building for Production
@@ -223,6 +252,15 @@ npm run dev:mobile       # Mobile only
 npm run build            # All packages
 npm run typecheck        # Type check all packages
 ```
+
+### Building the GitHub Pages bundle
+```bash
+npm run build:pages      # shared → tv demo → onboarding, into packages/tv/dist-demo
+```
+The hub lands at `/<base>/` and the onboarding at `/<base>/onboarding/`, in one
+artifact. Order matters: the TV demo build empties `dist-demo`, and the
+onboarding build writes into it. `.github/workflows/deploy-hub-demo.yml` runs
+this on push.
 
 ### Deploying to Render.com
 The `render.yaml` file configures automatic deployment. See `DEPLOYMENT.md` for details.
@@ -399,6 +437,7 @@ scanner.start()
 | Server  | 3000 | https://localhost:3000 | https://YOUR_IP:3000 |
 | TV      | 5173 | https://localhost:5173 | https://YOUR_IP:5173 |
 | Mobile  | 5174 | https://localhost:5174 | https://YOUR_IP:5174 |
+| Onboarding | 5175 | https://localhost:5175 | https://YOUR_IP:5175 |
 
 ## Files to Know
 
@@ -412,6 +451,12 @@ scanner.start()
 | `packages/server/src/index.ts` | Server entry, HTTPS/CORS setup |
 | `packages/mobile/src/utils/haptics.ts` | Haptic feedback (uses native bridge when available) |
 | `packages/mobile/src/utils/isNativeApp.ts` | Detects if running in iOS shell app |
+| `packages/onboarding/README.md` | **Read first** for the onboarding — provenance, VO, orb |
+| `packages/onboarding/src/scene.js` | Onboarding phase machine + narration script |
+| `packages/onboarding/src/vo.js` | Host line → recorded audio file map |
+| `packages/onboarding/src/hub-link.js` | Onboarding → hub handoff URL |
+| `packages/tv/src/prototype/hub9/onboarding.ts` | Hub → onboarding tile + handoff URL |
+| `packages/ui-weekend/src/device/PhoneModal.ts` | Draggable phone simulator (framework-neutral) |
 | `ios/MobileAppLab/Config/AppConfig.swift` | iOS app URL configuration |
 | `ios/MobileAppLab/WebView/NativeBridgeHandler.swift` | JavaScript bridge for native features |
 | `ios/MobileAppLab/Services/HapticService.swift` | iOS Core Haptics implementation |

@@ -9,15 +9,18 @@
   "scripts": {
     "setup:https": "./setup-https.sh",
     "dev": "concurrently -n server,tv,mobile -c blue,green,yellow \"cd packages/server && npm run dev\" \"cd packages/tv && npm run dev\" \"cd packages/mobile && npm run dev\"",
+    "dev:onboarding": "cd packages/onboarding && npm run dev",
     "dev:tv": "cd packages/tv && npm run dev",
     "dev:mobile": "cd packages/mobile && npm run dev",
     "dev:server": "cd packages/server && npm run dev",
     "build": "npm run build --workspaces",
     "build:tv": "npm run build --workspace=packages/tv",
+    "build:onboarding": "npm run build --workspace=@mobile-app-lab/onboarding",
     "build:mobile": "npm run build --workspace=packages/mobile",
     "build:server": "npm run build --workspace=packages/server",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "prepare": "husky || true"
+    "prepare": "husky || true",
+    "build:pages": "npm run build --workspace=@mobile-app-lab/shared && npm run build:demo --workspace=@mobile-app-lab/tv && npm run build:pages --workspace=@mobile-app-lab/onboarding"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
