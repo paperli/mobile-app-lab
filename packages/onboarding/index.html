@@ -14,24 +14,31 @@
     />
   </head>
   <body>
-    <div id="tv">
-      <div id="app"></div>
-      <video id="ident" playsinline preload="metadata" poster="assets/ident-final.jpg">
-        <source src="assets/weekend-ident.mp4" type="video/mp4" />
-      </video>
-      <div id="caption" hidden></div>
+    <!-- Centres the TV and, when the bezel is showing, the control bar beneath
+         it. Frame geometry comes from @weekend/ui/device (see main.js). -->
+    <div id="tvStage">
+      <div id="tvFrame">
+        <div id="tv">
+          <div id="app"></div>
+          <video id="ident" playsinline preload="metadata" poster="assets/ident-final.jpg">
+            <source src="assets/weekend-ident.mp4" type="video/mp4" />
+          </video>
+          <div id="caption" hidden></div>
+        </div>
+        <span id="tvLed" aria-hidden="true"></span>
+      </div>
+      <nav id="tools">
+        <span>LIGHTNING · ONBOARDING</span>
+        <button id="phoneToggle">Phone Simulator</button>
+        <button id="controlsToggle">Prototype Controls</button>
+        <button id="resetTop">↻ Restart</button>
+        <button id="soundTop">Sound On</button>
+        <button id="fullTop">Full Screen</button>
+        <!-- Href is set from hub-link.js so dev and Pages both resolve. -->
+        <a id="hubLink" href="../">Game Hub →</a>
+      </nav>
     </div>
     <div id="boot" role="status">Opening Weekend…</div>
-    <nav id="tools">
-      <span>LIGHTNING · ONBOARDING</span>
-      <button id="phoneToggle">Phone Simulator</button>
-      <button id="controlsToggle">Prototype Controls</button>
-      <button id="resetTop">↻ Restart</button>
-      <button id="soundTop">Sound On</button>
-      <button id="fullTop">Full Screen</button>
-      <!-- Href is set from hub-link.js so dev and Pages both resolve. -->
-      <a id="hubLink" href="../">Game Hub →</a>
-    </nav>
     <aside id="controls" hidden></aside>
     <!-- The phone simulator mounts itself (see @weekend/ui/device). -->
     <script type="module" src="/src/main.js"></script>

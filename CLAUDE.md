@@ -457,6 +457,7 @@ scanner.start()
 | `packages/onboarding/src/hub-link.js` | Onboarding → hub handoff URL |
 | `packages/tv/src/prototype/hub9/onboarding.ts` | Hub → onboarding tile + handoff URL |
 | `packages/ui-weekend/src/device/PhoneModal.ts` | Draggable phone simulator (framework-neutral) |
+| `packages/ui-weekend/src/device/tvFrame.ts` | TV bezel geometry + the sub-native show/hide rule, shared by hub and onboarding |
 | `ios/MobileAppLab/Config/AppConfig.swift` | iOS app URL configuration |
 | `ios/MobileAppLab/WebView/NativeBridgeHandler.swift` | JavaScript bridge for native features |
 | `ios/MobileAppLab/Services/HapticService.swift` | iOS Core Haptics implementation |

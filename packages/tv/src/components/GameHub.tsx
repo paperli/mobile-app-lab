@@ -36,14 +36,18 @@ import { Screenshot, SHOT_VARIANTS, gameShots, shotCount } from '../prototype/hu
 import { soundManager } from '../utils/sounds';
 import { getMobileUrl } from '../utils/getMobileUrl';
 import { enrichHubGame, gameSimilarity } from '../personalization';
+import {
+  fitStage,
+  STAGE_W,
+  STAGE_H,
+  FRAME_BEZEL,
+  FRAME_CHIN,
+  TV_FRAME_CHROME,
+} from '@weekend/ui/device';
 
 // ── Design space ───────────────────────────────────────────────────────────
-const STAGE_W = 1920;
-const STAGE_H = 1080;
-// TV bezel (screen px) used when `frame` is on and the viewport is sub-native.
-const FRAME_MARGIN = 28; // breathing room between the TV and the viewport edge
-const FRAME_BEZEL = 18; // frame thickness on top / left / right
-const FRAME_CHIN = 16; // extra thickness on the bottom edge (for the brand/LED)
+// Stage size, bezel geometry and the sub-native rule live in @weekend/ui so the
+// Lightning/Blits onboarding presents its stage in the same TV. See tvFrame.ts.
 const FONT = "'Weekend Repro', ui-sans-serif, system-ui, sans-serif";
 // DS secondary face, for playful accents (the free-trial hero's sticker tags).
 const FONT_KARL = "'Karl ST', 'Weekend Repro', ui-sans-serif, system-ui, sans-serif";
@@ -753,16 +757,8 @@ interface NavState {
 function useFitScale(framed: boolean) {
   const [fit, setFit] = useState({ scale: 1, framed: false });
   useLayoutEffect(() => {
-    const update = () => {
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      const showFrame = framed && (vw < STAGE_W || vh < STAGE_H);
-      // Bezel + margin eats into the space available for the stage itself.
-      const reserveW = showFrame ? 2 * (FRAME_MARGIN + FRAME_BEZEL) : 0;
-      const reserveH = showFrame ? 2 * FRAME_MARGIN + 2 * FRAME_BEZEL + FRAME_CHIN : 0;
-      const scale = Math.min((vw - reserveW) / STAGE_W, (vh - reserveH) / STAGE_H);
-      setFit({ scale, framed: showFrame });
-    };
+    const update = () =>
+      setFit(fitStage(window.innerWidth, window.innerHeight, framed));
     update();
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
@@ -4314,7 +4310,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
         inset: 0,
         display: 'grid',
         placeItems: 'center',
-        background: framed ? '#050506' : '#000',
+        background: framed ? TV_FRAME_CHROME.pageBackground : '#000',
         overflow: 'hidden',
       }}
     >
@@ -4327,12 +4323,10 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
             height: STAGE_H * scale + 2 * FRAME_BEZEL + FRAME_CHIN,
             padding: `${FRAME_BEZEL}px ${FRAME_BEZEL}px ${FRAME_BEZEL + FRAME_CHIN}px`,
             boxSizing: 'border-box',
-            borderRadius: 16,
-            background: 'linear-gradient(160deg, #2a2b2e 0%, #151517 42%, #0c0c0e 100%)',
-            // Hairline outline on the frame's outer edge separates it from the page.
-            border: '1px solid rgba(255,255,255,0.10)',
-            boxShadow:
-              '0 2px 0 rgba(255,255,255,0.06) inset, 0 -2px 0 rgba(0,0,0,0.6) inset, 0 40px 90px rgba(0,0,0,0.7), 0 8px 24px rgba(0,0,0,0.55)',
+            borderRadius: TV_FRAME_CHROME.radius,
+            background: TV_FRAME_CHROME.background,
+            border: TV_FRAME_CHROME.border,
+            boxShadow: TV_FRAME_CHROME.shadow,
             position: 'relative',
           }}
         >
@@ -4343,10 +4337,9 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
               width: STAGE_W * scale,
               height: STAGE_H * scale,
               overflow: 'hidden',
-              borderRadius: 6,
+              borderRadius: TV_FRAME_CHROME.screenRadius,
               background: '#000',
-              boxShadow:
-                '0 0 0 1px rgba(0,0,0,0.85), 0 0 0 2px rgba(255,255,255,0.12), 0 6px 20px rgba(0,0,0,0.55)',
+              boxShadow: TV_FRAME_CHROME.screenShadow,
             }}
           >
             {stageEl}
@@ -4358,11 +4351,11 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
               bottom: (FRAME_BEZEL + FRAME_CHIN) / 2 - 3,
               left: '50%',
               transform: 'translateX(-50%)',
-              width: 6,
-              height: 6,
+              width: TV_FRAME_CHROME.ledSize,
+              height: TV_FRAME_CHROME.ledSize,
               borderRadius: '50%',
-              background: 'radial-gradient(circle at 40% 35%, #d8d8dc, #6a6a70)',
-              boxShadow: '0 0 6px rgba(220,220,225,0.5)',
+              background: TV_FRAME_CHROME.ledBackground,
+              boxShadow: TV_FRAME_CHROME.ledShadow,
             }}
           />
         </div>

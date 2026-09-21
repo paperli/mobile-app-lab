@@ -6,27 +6,73 @@ import Blits from '@lightningjs/blits';
 import { renderer } from 'blits-renderer';
 import { Scene } from './scene.js';
 import { setupPhone } from './phone.js';
-import { createPhoneModal } from '@weekend/ui/device';
+import { createPhoneModal,fitStage,STAGE_W,STAGE_H,FRAME_BEZEL,FRAME_CHIN,TV_FRAME_CHROME } from '@weekend/ui/device';
 import { hubUrl } from './hub-link.js';
 import { phases } from './catalog.js';
 import '@weekend/ui/device/phone-modal.css';
 import './fonts.css';
 import './style.css';
 import './phone-bridge.css';
+import './tv-frame.css';
 
 const query=new URLSearchParams(location.search),profile=query.get('quality')==='1080'?'1080':'720';
 let scene;
 const tv=document.getElementById('tv'),controls=document.getElementById('controls');
+const stage=document.getElementById('tvStage'),tvFrame=document.getElementById('tvFrame'),
+      led=document.getElementById('tvLed'),tools=document.getElementById('tools');
 // The phone simulator is the shared draggable modal; it creates its own
 // element (keeping the id `phone`, which style.css still targets).
 const phoneModal=createPhoneModal({id:'phone',title:'Phone simulator',width:300});
-function fit(){const w=Math.min(innerWidth,innerHeight*16/9);tv.style.width=w+'px';tv.style.height=w*9/16+'px';const c=document.getElementById('caption'),scale=w/1920;c.style.left=190*scale+'px';c.style.right=190*scale+'px';c.style.bottom=77*scale+'px';c.style.fontSize=25*scale+'px';c.style.padding=18*scale+'px '+30*scale+'px';}fit();window.addEventListener('resize',fit);
+// Review toolbar hides before the first fit, so its band isn't reserved.
+if(query.has('clean'))document.body.classList.add('clean');
+
+const CONTROL_GAP=14;
+function fit(){
+ // Whether we frame depends only on viewport size, so settle that first — the
+ // control bar only drops below the TV once `framed` is on, and its height has
+ // to come off the stage before scaling.
+ const framed=fitStage(innerWidth,innerHeight,true).framed;
+ document.body.classList.toggle('framed',framed);
+ const band=framed&&!document.body.classList.contains('clean')
+  ? tools.getBoundingClientRect().height+CONTROL_GAP : 0;
+ const {scale}=fitStage(innerWidth,innerHeight,true,{h:band});
+ const w=Math.round(STAGE_W*scale),h=Math.round(STAGE_H*scale);
+ tv.style.width=w+'px';tv.style.height=h+'px';
+ stage.style.background=framed?TV_FRAME_CHROME.pageBackground:'#000';
+ if(framed){
+  Object.assign(tvFrame.style,{
+   width:w+FRAME_BEZEL*2+'px',
+   height:h+FRAME_BEZEL*2+FRAME_CHIN+'px',
+   padding:FRAME_BEZEL+'px '+FRAME_BEZEL+'px '+(FRAME_BEZEL+FRAME_CHIN)+'px',
+   borderRadius:TV_FRAME_CHROME.radius+'px',
+   background:TV_FRAME_CHROME.background,
+   border:TV_FRAME_CHROME.border,
+   boxShadow:TV_FRAME_CHROME.shadow,
+  });
+  tv.style.borderRadius=TV_FRAME_CHROME.screenRadius+'px';
+  tv.style.boxShadow=TV_FRAME_CHROME.screenShadow;
+  Object.assign(led.style,{
+   bottom:(FRAME_BEZEL+FRAME_CHIN)/2-3+'px',
+   width:TV_FRAME_CHROME.ledSize+'px',height:TV_FRAME_CHROME.ledSize+'px',
+   background:TV_FRAME_CHROME.ledBackground,boxShadow:TV_FRAME_CHROME.ledShadow,
+  });
+ }else{
+  tvFrame.removeAttribute('style');
+  tv.style.borderRadius='';tv.style.boxShadow='';
+ }
+ const c=document.getElementById('caption');
+ c.style.left=190*scale+'px';c.style.right=190*scale+'px';c.style.bottom=77*scale+'px';
+ c.style.fontSize=25*scale+'px';c.style.padding=18*scale+'px '+30*scale+'px';
+}
+fit();
+// The toolbar's height isn't final until it has laid out once.
+requestAnimationFrame(fit);
+window.addEventListener('resize',fit);
 function toggleControls(){controls.hidden=!controls.hidden;if(document.activeElement)document.activeElement.blur();if(!controls.hidden&&controls.querySelector('button'))controls.querySelector('button').focus();}
 function togglePhone(){phoneModal.toggle();if(document.activeElement)document.activeElement.blur();if(phoneModal.isOpen){const first=phoneModal.screen.querySelector('button');(first||phoneModal.el.querySelector('.wk-phone__bar')).focus();}}
 document.getElementById('hubLink').href=hubUrl();
 document.getElementById('controlsToggle').onclick=toggleControls;
 document.getElementById('phoneToggle').onclick=togglePhone;
-if(query.has('clean'))document.body.classList.add('clean');
 function route(key){if(!scene)return;if(key==='tools'){toggleControls();return;}if(key==='phone'){togglePhone();return;}scene.host.unlock();scene.move(key);}
 const App=Blits.Application({
  template:`<Element w="1920" h="1080"><Element ref="World" w="1920" h="1080" /></Element>`,

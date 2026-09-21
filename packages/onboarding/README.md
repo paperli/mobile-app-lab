@@ -42,6 +42,19 @@ On Pages both ship in one artifact — the hub at `/<base>/`, this at
 `/<base>/onboarding/` — so relative paths resolve without either app knowing
 the base. `npm run build:pages` from the repo root builds both in order.
 
+## The TV frame
+
+The stage is presented in the same TV bezel as the hub, from the shared
+`@weekend/ui/device/tvFrame` — one source of truth for the geometry, the
+sub-native rule and the chrome, so the two prototypes can't drift.
+
+The rule: the bezel appears only when the viewport is smaller than 1920×1080.
+At native or above the stage runs full-bleed. When the bezel is showing, the
+review toolbar drops **below** the TV rather than sitting over the picture, and
+its height is reserved before the stage is scaled (`fitStage`'s `reserve`).
+`src/tv-frame.css` owns that layout; the bezel's looks are applied in `main.js`
+from the shared tokens.
+
 ## Host voice
 
 Every scripted line is a recorded ElevenLabs take (voice **Riyadh 2**), mono
