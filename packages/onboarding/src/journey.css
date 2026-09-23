@@ -1,0 +1,81 @@
+/* Arcade mobile controller dc484bb: DPad, TopBar and MicOrb adapted for
+   the framework-free phone simulator. Rive artwork is the original kit asset. */
+/* Match the embedded document's color scheme so Chromium keeps its canvas
+   transparent instead of supplying an opaque fallback under the success modal. */
+#onboardingHub { position:absolute; inset:0; width:100%; height:100%; border:0; z-index:10; background:transparent; color-scheme:normal; }
+/* Preserve the embedded stage's measurements while hidden, so its modal does
+   not resize/jump when it is revealed over the upsell. */
+#onboardingHub[hidden] { display:block; visibility:hidden; pointer-events:none; }
+#phone .journey-phone { background:#0a0322; color:#fafafa; overflow-y:auto; text-align:center; font-family:'Weekend Repro',sans-serif; }
+#phone .journey-phone button { font-family:inherit; cursor:pointer; touch-action:manipulation; }
+#phone .journey-phone button:focus-visible { outline:3px solid #ffe88b; outline-offset:3px; }
+#phone .journey-phone .phone-title { font-size:24px !important; line-height:1.12; margin:12px 0; }
+#phone .journey-phone .phone-copy { font-size:13px !important; line-height:1.5; margin:8px 0; }
+#phone .journey-phone .phone-button { width:100%; min-height:44px; border-radius:999px; background:linear-gradient(180deg,#ffe88b,#f6d300 94.88%); color:#00001f; margin:8px 0; padding:12px 14px; border:0; font-size:14px; }
+#phone .journey-phone .phone-button.alt { color:#fafafa; background:#ffffff0f; border:1px solid #ffffff30; }
+#phone .journey-phone .phone-logo { margin:6px 0 12px; }
+#phone .journey-phone .phone-logo img { width:118px; height:34px; }
+#phone .journey-phone .offer-orbit { width:64px; height:64px; font-size:32px; margin:10px auto; }
+#phone .journey-phone .state-pill { font-size:10px; margin:10px 0; }
+#phone .journey-phone .offer-terms { font-size:10px; line-height:1.4; margin:8px 0; }
+#phone .journey-phone .phone-skip { position:static; align-self:flex-end; margin-bottom:8px; }
+#phone .arcade-topbar { display:flex; justify-content:space-between; align-items:center; width:100%; gap:16px; margin:0 0 16px; }
+#phone .arcade-topbar button { display:grid; place-items:center; width:56px; min-height:44px; padding:0; border:2px solid #ffffff1f; border-radius:999px; background:#000; color:#fafafa; font-size:24px; }
+#phone .arcade-topbar button svg { display:block; width:24px; height:24px; pointer-events:none; }
+#phone .arcade-mark { display:grid; place-items:center; width:56px; height:56px; border:2px solid #eabd5e; border-radius:50%; overflow:hidden; }
+#phone .arcade-mark img { width:100%; height:100%; object-fit:cover; }
+#phone .connection-label { margin:0; color:#b3b1b5; font-size:12px; }
+#phone .controller-main { display:flex; align-items:center; justify-content:center; width:100%; flex:1; min-height:240px; padding:24px 0; }
+#phone .controller-sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0; }
+#phone .journey-phone .dpad { touch-action:none; position:relative; display:block; width:100%; max-width:332px; height:auto; aspect-ratio:1; flex-shrink:0; margin:0 auto; border:2px solid #ffffff1f; border-radius:50%; background:linear-gradient(45deg,transparent 49.7%,#ffffff0f 49.7%,#ffffff0f 50.3%,transparent 50.3%),linear-gradient(-45deg,transparent 49.7%,#ffffff0f 49.7%,#ffffff0f 50.3%,transparent 50.3%),#ffffff0f; }
+#phone .journey-phone .dpad button { position:absolute; width:30%; height:30%; border:0; background:transparent; box-shadow:none; color:#b7b7b7; font-size:25px; display:grid; place-items:center; padding:0; border-radius:50%; }
+#phone .journey-phone .dpad button:active { background:#ffffff20; }
+#phone .journey-phone .dpad [data-dir="up"] { inset:0 auto auto 35%; }
+#phone .journey-phone .dpad [data-dir="down"] { inset:auto auto 0 35%; }
+#phone .journey-phone .dpad [data-dir="left"] { inset:35% auto auto 0; }
+#phone .journey-phone .dpad [data-dir="right"] { inset:35% 0 auto auto; }
+#phone .journey-phone .dpad [data-dir="select"] { left:32.1%; top:32.1%; width:35.8%; height:35.8%; background:linear-gradient(180deg,#ffe88b,#f6d300 94.88%); color:#00001f; box-shadow:0 4px 8px #ffe40159; font-size:30px; }
+#phone .arcade-back { display:grid; place-items:center; width:66px; height:66px; flex-shrink:0; border:2px solid #ffffff1f; background:#ffffff0f; color:#fff; border-radius:50%; margin:12px auto 0; }
+#phone .arcade-back svg { display:block; width:32px; height:32px; pointer-events:none; }
+#phone .arcade-mic { position:relative; width:220px; height:220px; flex-shrink:0; border:0; border-radius:50%; overflow:visible; padding:0; background:transparent; touch-action:none; margin:0 auto; -webkit-tap-highlight-color:transparent; transition:transform 150ms ease; }
+/* The Rive artboard has generous transparent margins. Enlarge the artwork,
+   not the layout box, to double the visible orb without crowding the phone. */
+#phone .arcade-mic canvas { position:absolute; left:-50%; top:-50%; width:200%; height:200%; opacity:0; transition:opacity 150ms ease; pointer-events:none; }
+#phone .mic-fallback { position:absolute; inset:14%; border-radius:50%; background:radial-gradient(circle at 35% 30%,#a4f7ff,#35b6e5 48%,#5364bb 78%); box-shadow:0 0 24px #65d6ef88; transition:opacity 150ms ease; pointer-events:none; }
+#phone .orb-ready canvas { opacity:1; }
+#phone .orb-ready .mic-fallback { opacity:0; }
+#phone .arcade-mic[aria-pressed="true"] { transform:scale(.98); }
+#phone .journey-phone .arcade-mic:focus-visible { border-radius:50%; outline-color:#a4f7ff; outline-offset:-14px; }
+#phone .arcade-mic:disabled { opacity:.65; cursor:default; }
+@media(prefers-reduced-motion:reduce) { #phone .arcade-mic, #phone .arcade-mic canvas, #phone .mic-fallback { transition:none; } }
+#phone .simulation-note { display:block; color:#a9a4b6; font-size:10px; margin:16px 0; }
+#phone .camera-preview { margin:-8px -12px -20px; min-height:470px; display:flex; flex-direction:column; align-items:center; background:radial-gradient(ellipse at 50% 40%,#33354a,#101018 70%); }
+#phone .camera-tools { width:85%; display:flex; justify-content:space-between; padding:10px; font-size:22px; }
+#phone .camera-preview p { font-size:12px; color:#ddd; margin:26px 0 20px; }
+#phone .camera-target { width:160px; height:160px; padding:18px; border:3px solid #ffda0a; border-radius:12px; }
+#phone .camera-target img { width:100%; height:100%; }
+#phone .scan-result { border:0; border-radius:8px; background:#ffda0a; color:#191919; padding:10px 14px; margin:18px 0 24px; font-size:13px; }
+#phone .camera-modes { font-size:10px; word-spacing:12px; padding:16px 0; }
+#phone .camera-modes strong { color:#ffda0a; }
+#phone .camera-shutter { width:62px; height:62px; border-radius:50%; background:white; border:5px double #222; }
+#phone .camera-preview small { font-size:10px; color:#aaa; margin:18px 0; }
+#phone .appclip-sheet { position:absolute; z-index:5; bottom:0; left:0; right:0; padding:25px 20px 32px; background:#f4f4f7; color:#101018; border-radius:22px 22px 0 0; box-shadow:0 -60px 160px #000b; }
+#phone .appclip-sheet img { width:56px; height:56px; border-radius:13px; }
+#phone .appclip-sheet h3 { font-size:25px; margin:12px 0 4px; }
+#phone .appclip-sheet p { font-size:14px; margin:8px 0; }
+#phone .appclip-sheet small { font-size:10px; color:#666; }
+#phone .sheet-close { position:absolute; right:14px; top:14px; width:32px; height:32px; border:0; border-radius:50%; background:#ddd; color:#333; font-size:22px; }
+#phone .store-back { text-align:left; color:#6cadff; margin:8px 0 20px; }
+#phone .store-app img { width:70px; height:70px; border-radius:16px; }
+#phone .store-app h3 { margin:12px 0 5px; font-size:25px; }
+#phone .store-app p { color:#aaa; font-size:12px; }
+#phone .store-ratings { display:flex; justify-content:space-around; border-block:1px solid #ffffff22; padding:12px 0; margin:16px 0; font-size:18px; }
+#phone .store-ratings small { display:block; font-size:8px; margin-top:7px; color:#aaa; }
+#phone .store-promo { border-radius:16px; padding:18px; background:linear-gradient(145deg,#2c155c,#120c27); text-align:left; }
+#phone .store-promo h3 { margin:0 0 15px; font-size:26px; line-height:1.1; color:#ffe88b; }
+#phone .store-promo img { width:100%; border-radius:8px; }
+#phone .download-progress { padding:15px; font-size:14px; }
+#phone .download-progress progress { display:block; width:100%; margin-top:10px; }
+#phone .connection-spinner { width:60px; height:60px; margin:70px auto 35px; border:3px solid #ffffff22; border-top-color:#ffe88b; border-radius:50%; animation:connection-spin 1s linear infinite; }
+@keyframes connection-spin { to { transform:rotate(360deg); } }
+@media(prefers-reduced-motion:reduce) { #phone .connection-spinner { animation:none; } }

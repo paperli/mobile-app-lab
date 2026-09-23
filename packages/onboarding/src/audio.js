@@ -1,8 +1,8 @@
 import envelope from './welcome-envelope.json';
 import { takeFor, takeUrl, allTakes } from './vo.js';
 export const ARIA_INTRO='Hi friend. Welcome to Weekend. Get comfortable, and let your voice do the playing. A little music, a little trivia, and a few surprises. Ready? Your next great game night starts here.';
-// Two speech paths, same as Speaking Orb Lab: a recorded take when we have one
-// (see vo.js), device TTS for anything unrecorded or when media playback fails.
+// Host speech uses ElevenLabs recordings only. Missing/blocked audio falls
+// back to timed captions, never to a different device voice.
 export class AudioHost {
  constructor(){this.enabled=true;this.captions=false;this.serial=0;this.current='';this.ctx=null;this.speaking=false;this.events=[];this.activationNodes=[];this.mode='sample';this.voiceName='Riyadh 2 · recorded';this.buffers=new Map();this.pending=new Map();this.take='welcome';this.started=0;this.boundary=0;this.audio=new Audio(takeUrl('welcome'));this.audio.preload='auto';}
  unlock(){try{if(!this.ctx){this.ctx=new(window.AudioContext||window.webkitAudioContext)();this.analyser=this.ctx.createAnalyser();this.analyser.fftSize=512;this.samples=new Uint8Array(512);this.analyser.connect(this.ctx.destination);}const ready=this.ctx.resume();if(ready&&ready.catch)ready.catch(()=>{});this.prepareTake('welcome').catch(()=>{});}catch(e){}}
@@ -20,14 +20,14 @@ export class AudioHost {
  say(text,done){
   this.stop();this.current=text;const id=this.serial;let ended=false,fallbackActive=false;
   const take=takeFor(text);
-  this.mode=take?'sample':'device';this.take=take||null;this.voiceName=take?'Riyadh 2 · recorded':'Device TTS';
+  this.mode='sample';this.take=take||null;this.voiceName=take?'ElevenLabs · Riyadh 2':'ElevenLabs recording unavailable';
   const cap=document.getElementById('caption');cap.textContent=text;const caption=()=>{cap.hidden=false;};
   const finish=()=>{if(ended||id!==this.serial)return;ended=true;clearTimeout(this.watch);clearTimeout(this.startWatch);this.state(false);cap.hidden=true;if(done)done();};
   const spoken=Math.max(3,text.split(/\s+/).length/2.4);
   let duration=take==='welcome'?envelope.duration:spoken;
   const fallback=()=>{if(ended||fallbackActive||id!==this.serial)return;fallbackActive=true;this.state(false);caption();clearTimeout(this.watch);clearTimeout(this.startWatch);this.watch=setTimeout(finish,duration*1000);};
   if(this.captions)caption();if(!this.enabled){fallback();return;}
-  if(this.mode==='sample'){
+  if(take){
    const began=()=>{if(ended||fallbackActive||id!==this.serial)return;clearTimeout(this.startWatch);this.state(true);this.started=performance.now();this.watch=setTimeout(finish,(duration+3)*1000);};
    // Media element fallback: no analyser, so the orb reads the baked envelope
    // for the intro and the synthetic waveform for everything else.
@@ -36,13 +36,7 @@ export class AudioHost {
    if(this.ctx&&this.ctx.state==='running')this.prepareTake(take).then(buffer=>{if(ended||fallbackActive||id!==this.serial)return;duration=buffer.duration;const source=this.ctx.createBufferSource();source.buffer=buffer;source.connect(this.analyser);source.onended=finish;this.source=source;this.sampleStart=this.ctx.currentTime;source.start();began();}).catch(mediaFallback);else mediaFallback();
    return;
   }
-  if(!window.speechSynthesis){fallback();return;}
-  const line=new SpeechSynthesisUtterance(text),voices=speechSynthesis.getVoices();
-  line.voice=voices.find(v=>v.lang==='en-US'&&/Samantha|Aria|Google US|Microsoft.*English/.test(v.name))||voices.find(v=>v.lang==='en-US')||voices.find(v=>/^en/.test(v.lang))||null;
-  line.lang='en-US';line.rate=.94;this.utterance=line;
-  line.onstart=()=>{if(ended||fallbackActive||id!==this.serial)return;clearTimeout(this.startWatch);this.started=performance.now();this.boundary=this.started;this.state(true);this.voiceName=line.voice?line.voice.name:'Device TTS';this.watch=setTimeout(finish,(duration+8)*1000);};
-  line.onboundary=()=>{if(id===this.serial)this.boundary=performance.now();};line.onend=finish;line.onerror=fallback;
-  this.startWatch=setTimeout(()=>{if(id===this.serial&&!this.speaking){speechSynthesis.cancel();fallback();}},7000);speechSynthesis.speak(line);
+  fallback();
  }
  sampleEnergy(){
   if(!this.speaking||!this.enabled)return 0;

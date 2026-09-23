@@ -4,8 +4,8 @@ The guided first-run flow — host intro, warm-up question, phone pairing, mic
 setup, plan and checkout — built on **Lightning 3 + Blits** rather than React,
 because it has to run acceptably on TV hardware.
 
-It is a **standalone prototype**. It does not import the hub and the hub does
-not import it; they are two bundles that link to each other.
+It is a **standalone prototype**. It embeds the separately built hub during
+the rehearsal, keeping phone signup and controller state alive across the handoff.
 
 ## Running it
 
@@ -24,14 +24,66 @@ Useful query params:
 | `?clean=1` | Hide the review toolbar |
 | `?hub=<url>` | Override where the hub handoff goes |
 
+## Rehearsing the new flow
+
+- `?scene=4`: camera → detected QR → download page / App Clip sheet → App Store
+  → Get → downloading → Open → connecting → microphone permission → zebra
+  puzzle mic controller. The TV stays on the zebra puzzle throughout. App Clip
+  Open uses the same transition; a phone with mic permission goes straight to
+  the mic controller. There is no hub visit or game selection in this handoff.
+- `?scene=8`: the TV shows the QR below the carousel, `pair.weekend.com`, code
+  `WKND42`, and the Back hint. Get Started on the phone opens mock signup,
+  the trial offer, and mock Apple Pay. Confirmation first shows the success
+  modal over this same upsell. After its entrance, the upsell clears behind
+  it to reveal the hub; the modal remains until Browse Games / OK / Back.
+  The Riyadh 2 host invites the user to press OK on their phone. Dismissing
+  success stops that prompt; duplicate hub-ready events do not repeat it.
+- Press Escape with TV focus to browse the hub while phone checkout remains
+  at its current step. Confirming payment opens the hub's existing **Welcome
+  to Premium** modal. The phone becomes a D-pad; OK dismisses the modal.
+- During the voice puzzle, hold the orb and release to submit the mock answer.
+  Brief taps always retry; they never auto-solve after repeated attempts.
+  Mic and D-pad screens contain controls, not instructional copy: interaction
+  reminders and retry feedback stay on TV. Screen-reader status is retained.
+  The mic keeps one Rive instance across ready/listening/retry/submitting
+  states, with a matching blue static fallback for loading or failure. Closing
+  the phone, losing capture, or cancelling a gesture never submits an answer.
+  Back opens the TV game menu and switches the phone to D-pad; choose Resume
+  or Exit to games. Settings supports confirmed disconnect. Restart resets the
+  phone and embedded hub.
+
+The camera, download, permissions, account, payment, connection, and voice input
+are simulations. No app installs, charges, account creation, or audio capture
+occur. The QR encodes `https://pair.weekend.com?code=WKND42`; it is illustrative,
+not a live server room. Use the phone simulator to rehearse the complete flow.
+
+Mobile visuals adapt `Volley-Inc/arcade-mobile-controller` at `dc484bb`:
+the DPad proportions, surfaces and gold select disc; Back–Weekend–Settings
+TopBar; and the original `uikit.riv` orb and Weekend mark artwork. The kit
+requires React 19; this Lightning/DOM prototype adapts its CSS and uses the
+Canvas Rive runtime directly instead of introducing another React version.
+The Rive WASM is bundled locally. Assets retain their upstream ownership.
+
+The completed Pick Up & Play Navigation Contract (Draft 3, 2026-09-04), supplied
+as a webarchive, distinguishes joining the current game's controller from
+exiting to the hub with pairing intact (§3, §16). In this onboarding, app launch
+joins the existing zebra puzzle. The hub D-pad follows checkout completion,
+explicit browsing, or game exit; it is not an intermediate app-launch screen.
+
+Run `npm test --workspace=@mobile-app-lab/onboarding` for the hub bridge tests.
+For a certificate-independent local preview, build with `npm run build:pages`
+and serve `packages/tv/dist-demo` with a static HTTP server; open `/onboarding/`.
+
 ## How it connects to the hub
 
-The flow ends at phase 10 (Membership). The old phases 11–12 — a second copy
-of the game hub — were removed: the hub prototype in `packages/tv` is the only
-one. Three routes lead out, all through `src/hub-link.js`:
+The hub prototype in `packages/tv` is the only hub. `src/hub-bridge.js` embeds
+it with an explicit parent origin, validates the source and origin of messages,
+and relays navigation, trial completion, and sample-game entry. A readiness
+handshake handles checkout finishing before the hub has loaded. Phase 10
+is a shortcut to the same hub success modal. `src/hub-link.js` resolves URLs:
 
-- **"Find Your Next Game"** on the final screen
-- **"See All Games" / "Skip for Now"** earlier in the flow
+- **Back / Escape** on the trial upsell
+- **Mock checkout completion** or explicit game exit
 - **"Game Hub →"** in the review toolbar
 
 And back the other way: hub9 carries a **Welcome to Weekend** tile
@@ -57,10 +109,23 @@ from the shared tokens.
 
 ## Host voice
 
-Every scripted line is a recorded ElevenLabs take (voice **Riyadh 2**), mono
+Host prompts use recorded ElevenLabs takes (voice **Riyadh 2**), mono
 MP3 in `public/assets/host/`, mapped from the utterance in `src/vo.js`. A line
-with no take, or a take that fails to play, falls back to device TTS — so the
-flow still narrates where media autoplay is blocked.
+with no take, or a take that fails to play, falls back to timed captions.
+Device TTS is disabled. The trial page currently reuses the existing ElevenLabs
+line “Finish on your phone. Your free week is just a few taps away.”
+
+The pairing-success take is `10-pairing-success.mp3`, generated with Riyadh 2
+(`0zntkpRCt5aZacqhF4ap`). To regenerate it with the exact mapped copy, set
+`ELEVENLABS_API_KEY` and `ELEVENLABS_VOICE_ID`, then run
+`node packages/onboarding/scripts/generate-success-voice.mjs`.
+
+To record the exact new trial wording, set `ELEVENLABS_API_KEY` and
+`ELEVENLABS_VOICE_ID` (Riyadh 2), then run
+`node packages/onboarding/scripts/generate-trial-voice.mjs`. It writes
+`08-start-trial.mp3`; add the exact script text to `src/vo.js` and use it in
+`Scene.narrate()`. Voice lookup is currently blocked because the available key
+lacks `voices_read`; credentials must stay out of the browser bundle.
 
 `src/welcome-envelope.json` is a 60 Hz RMS envelope of the intro, used to drive
 the orb when Web Audio is unavailable and the analyser can't be read. **If you

@@ -888,6 +888,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // "Welcome to Premium" modal, shown when a subscription completes (prototype:
   // simulated with the "s" key). 'closing' keeps it mounted through the fade.
   const [subSuccess, setSubSuccess] = useState<'closed' | 'open' | 'closing'>('closed');
+  const [successOverUpsell, setSuccessOverUpsell] = useState(false);
 
   // Puzzle row (phase 1 only): an inline song-quiz question that the user answers
   // with the d-pad. Flow: question -> result -> follow-up -> thanks -> done (row
@@ -1193,6 +1194,11 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
 
   const launchGame = useCallback(
     (game: HubGame, autoDelay = 150) => {
+      const parentOrigin = new URLSearchParams(location.search).get('onboardingOrigin');
+      if (parentOrigin && window.parent !== window && /wheel/i.test(game.title)) {
+        window.parent.postMessage({ type: 'weekend:play-puzzle' }, parentOrigin);
+        return;
+      }
       setPressing(true);
       setTimeout(() => setPressing(false), 150);
       soundManager.playSelectionSound();
@@ -1204,6 +1210,11 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   );
 
   const openUpsell = useCallback(() => {
+    const parentOrigin = new URLSearchParams(location.search).get('onboardingOrigin');
+    if (parentOrigin && window.parent !== window) {
+      window.parent.postMessage({ type: 'weekend:start-trial' }, parentOrigin);
+      return;
+    }
     upsellOpenRef.current = true;
     setUpsellOpen(true);
     setUpsellFading(false);
@@ -1232,6 +1243,9 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
 
   const closeSubSuccess = useCallback(() => {
     if (subSuccessRef.current !== 'open') return;
+    const origin = new URLSearchParams(location.search).get('onboardingOrigin');
+    if (origin && window.parent !== window) window.parent.postMessage({ type: 'weekend:success-dismissed' }, origin);
+    setSuccessOverUpsell(false);
     subSuccessRef.current = 'closing';
     setSubSuccess('closing');
     soundManager.playSelectionSound();
@@ -1242,6 +1256,18 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   }, []);
 
   useEffect(() => () => clearTimeout(subSuccessTimer.current), []);
+
+  useEffect(() => {
+    if (subSuccess !== 'open') return;
+    const origin = new URLSearchParams(location.search).get('onboardingOrigin');
+    if (!origin || window.parent === window) return;
+    // The modal is committed before the parent reveals this transparent frame.
+    // Keep it stationary while the upsell underneath gives way to the hub.
+    window.parent.postMessage({ type: 'weekend:success-visible' }, origin);
+    if (!successOverUpsell) return;
+    const timer = setTimeout(() => setSuccessOverUpsell(false), reduceMotion ? 0 : 1200);
+    return () => clearTimeout(timer);
+  }, [subSuccess, successOverUpsell]);
 
   /**
    * An element's rect in stage (1920x1080) coordinates. Both rects come back in
@@ -1375,6 +1401,11 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
    */
   const selectGame = useCallback(
     (game: HubGame) => {
+      // The onboarding rehearsal offers the voice puzzle as a free sample.
+      if (new URLSearchParams(location.search).has('onboardingOrigin') && game.id === 'wheel-of-fortune') {
+        launchGame(game);
+        return;
+      }
       if (isV3Ref.current && !detailPageRef.current) launchGame(game);
       else openPanel(game);
     },
@@ -2367,6 +2398,29 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       closeSwitch, selectProfile, startEdit, commitEdit, applyEditKey, openSignOutConfirm, closeSignOutConfirm, doSignOut,
     ]
   );
+
+  // Explicit, origin-checked bridge for the standalone onboarding rehearsal.
+  useEffect(() => {
+    const origin = new URLSearchParams(location.search).get('onboardingOrigin');
+    if (!origin || window.parent === window) return;
+    const receive = (event: MessageEvent) => {
+      if (event.source !== window.parent || event.origin !== origin || event.data?.type !== 'weekend:onboarding') return;
+      if (event.data.command === 'success') {
+        closeUpsell();
+        setSuccessOverUpsell(event.data.value?.overUpsell === true);
+        openSubSuccess();
+      }
+      if (event.data.command === 'sample') focusGame('wheel-of-fortune');
+      if (event.data.command === 'navigate') {
+        const key = event.data.value;
+        if (key === 'enter' || key === 'back') doAction(key === 'enter' ? 'ok' : 'back');
+        else if (key === 'up' || key === 'down' || key === 'left' || key === 'right') navigate(key);
+      }
+    };
+    window.addEventListener('message', receive);
+    window.parent.postMessage({ type: 'weekend:hub-ready' }, origin);
+    return () => window.removeEventListener('message', receive);
+  }, [navigate, doAction, openSubSuccess, closeUpsell, focusGame]);
 
   useImperativeHandle(
     ref,
@@ -4304,6 +4358,11 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
 
   return (
     <HubThemeContext.Provider value={theme}>
+    {successOverUpsell && <style>{`
+      html, body { background: transparent !important; }
+      #root, #root * { visibility: hidden !important; }
+      #root .hub-sub-success, #root .hub-sub-success * { visibility: visible !important; }
+    `}</style>}
     <div
       style={{
         position: 'fixed',
@@ -4311,6 +4370,8 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
         display: 'grid',
         placeItems: 'center',
         background: framed ? TV_FRAME_CHROME.pageBackground : '#000',
+        gridTemplateColumns: 'minmax(0, 1fr)',
+        gridTemplateRows: 'minmax(0, 1fr)',
         overflow: 'hidden',
       }}
     >
@@ -4504,6 +4565,10 @@ function SubSuccessModal({ open, onDismiss }: { open: boolean; onDismiss: () => 
 
   return (
     <div
+      className="hub-sub-success"
+      role="dialog"
+      aria-label="Welcome to Premium"
+      aria-modal="true"
       style={{
         position: 'absolute',
         inset: 0,
@@ -4556,7 +4621,9 @@ function SubSuccessModal({ open, onDismiss }: { open: boolean; onDismiss: () => 
           ...(reduceMotion ? null : { animation: 'hubSubRise 620ms cubic-bezier(.22,.61,.36,1) 600ms both' }),
         }}
       >
-        Start playing every game on the biggest screen in the house.
+        {new URLSearchParams(location.search).has('onboardingOrigin')
+          ? 'Press OK on your phone to browse games.'
+          : 'Start playing every game on the biggest screen in the house.'}
       </div>
       <div
         style={{

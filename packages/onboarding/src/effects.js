@@ -2,6 +2,19 @@
 function canvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return c;}
 export function radial(color){const c=canvas(256,256),x=c.getContext('2d'),g=x.createRadialGradient(128,128,0,128,128,128);g.addColorStop(0,color);g.addColorStop(1,'transparent');x.fillStyle=g;x.fillRect(0,0,256,256);return c;}
 export const shade=radial('#032c34b8'),readability=radial('#0206161a');
+// Feather the moving shelf at the TV edges, including a small vertical taper
+// so the fade never reads as a rectangular panel over the stage.
+function shelfFade(reverse=false){
+ const c=canvas(256,256),ctx=c.getContext('2d');
+ const horizontal=ctx.createLinearGradient(reverse?256:0,0,reverse?0:256,0);
+ horizontal.addColorStop(0,'#0a0322');horizontal.addColorStop(.3,'#0a0322c0');horizontal.addColorStop(1,'#0a032200');
+ ctx.fillStyle=horizontal;ctx.fillRect(0,0,256,256);
+ const vertical=ctx.createLinearGradient(0,0,0,256);
+ vertical.addColorStop(0,'transparent');vertical.addColorStop(.06,'#000');vertical.addColorStop(.94,'#000');vertical.addColorStop(1,'transparent');
+ ctx.globalCompositeOperation='destination-in';ctx.fillStyle=vertical;ctx.fillRect(0,0,256,256);
+ return c;
+}
+export const shelfFadeLeft=shelfFade(),shelfFadeRight=shelfFade(true);
 export const inset=(()=>{const c=canvas(128,128),x=c.getContext('2d');x.shadowColor='#0009';x.shadowBlur=20;x.strokeStyle='#000';x.lineWidth=24;x.strokeRect(-12,-12,152,152);return c;})();
 export const spinner=(()=>{const c=canvas(52,52),x=c.getContext('2d');x.lineWidth=5;x.strokeStyle='#ffda0a30';x.beginPath();x.arc(26,26,23.5,0,Math.PI*2);x.stroke();x.strokeStyle='#ffda0a';x.beginPath();x.arc(26,26,23.5,-Math.PI*.75,-Math.PI*.25);x.stroke();return c;})();
 export let logoShadow;

@@ -5,12 +5,14 @@
   "type": "module",
   "description": "Weekend TV onboarding \u2014 Lightning 3 + Blits, served as a standalone prototype",
   "scripts": {
+    "test": "node --test src/*.test.js",
     "dev": "vite --port 5175",
     "build": "vite build",
     "build:pages": "PAGES_OUT_DIR=../tv/dist-demo/onboarding vite build",
     "preview": "vite preview --port 4175"
   },
   "dependencies": {
+    "@rive-app/canvas": "^2.35.4",
     "@lightningjs/blits": "^2.9.0",
     "@weekend/ui": "*",
     "core-js": "^3.39.0"

@@ -1,7 +1,7 @@
 import { animateOwned } from './motion.js';
 import { pillSurface } from './ui-surfaces.js';
 import { HostOrb } from './host-orb.js';
-import { shade,readability,inset,spinner,logoShadow,glow } from './effects.js';
+import { shade,readability,inset,spinner,logoShadow,glow,shelfFadeLeft,shelfFadeRight } from './effects.js';
 import { textTexture,measureWidth } from './text.js';
 import { Stage } from './stage.js';
 import { AudioHost } from './audio.js';
@@ -38,6 +38,8 @@ export class Scene {
  reveal(delay=180){if(this.artOnly){this.ui.alpha=0;return;}this.ui.alpha=0;this.ui.y=35;this.animate(this.ui,{alpha:1,y:0},1100,delay);this.readyAt=performance.now()+(this.reduced?0:delay+1050);}
  brandFor(p){this.brand.alpha=p===0||this.artOnly?0:1;this.brand.x=78;this.brand.y=42;this.brand.w=205;this.brand.h=56;this.brand.zIndex=4;if(this.brandHalo){const scale=this.brand.w/950;this.brandHalo.x=this.brand.x-90*scale;this.brandHalo.y=this.brand.y-90*scale;this.brandHalo.w=1130*scale;this.brandHalo.h=437*scale;this.brandHalo.alpha=this.brand.alpha;this.brandHalo.zIndex=3;}this.fx.zIndex=5;}
  go(p,instant=false){
+  this.hideHub?.();this.gameMenu=null;
+  if(p>=4){const phone=document.getElementById('phone');if(phone)phone.hidden=false;}
   const prior=this.phase,same=prior>=4&&prior<=6&&p>=4&&p<=6;this.generation++;this.timers.forEach(clearTimeout);this.timers=[];this.cancelHold();this.stopCelebration();this.host.stop();this.host.bed(false);this.video.pause();this.video.style.display='none';this.phase=p;this.focus=0;this.voice='ready';this.busy=false;this.readyAt=0;this.micHinted=false;this.stopDots();this.history.push({scene:phases[p],atMs:Math.round(performance.now())});if(this.history.length>100)this.history.shift();
   if(!same)this.clearUI(instant);this.brandFor(p);this.orb.layout(p,instant);const set=p<=1?'empty':p<=3?'jeopardy':p<=7?'wheel':'empty',delay=this.stage.change(set,instant);
   this.animate(this.world,{alpha:p===0?0:p===8||p===9?.45:1},900);
@@ -45,21 +47,22 @@ export class Scene {
   if(p===1&&prior===0&&!this.reduced){const dissolve=this.node({parent:this.parent,w:1920,h:1080,zIndex:7,src:'assets/ident-final.jpg'});this.animate(dissolve,{alpha:0},1800,0,'ease-in-out');setTimeout(()=>dissolve.destroy(),1850);}
   if(p===2)this.jeopardy();
   if(p===3){this.text(this.correct?'THAT’S THE ONE!':'A GREAT WARM-UP',144,375,28,C.sky,1632,'center',this.ui,'ReproMedium',1.3,3);this.text('Mars.',144,435,170,C.gold,1632,'center',this.ui,'ReproBold',1.1,-6);this.host.cue(this.correct?'cheer':'almost');if(this.correct)this.celebrate();}
+  if(p===6&&prior!==6)this.attempts=0;
   if(p>=4&&p<=6){if(!same)this.wheel();this.pairStatus();}
   if(p===7){this.wheelSolved();this.phoneStep='voice-success';this.host.cue('cheer');this.celebrate();}
-  if(p===8){this.plan();this.phoneStep='dpad';}
+  if(p===8){this.plan();this.phoneStep='getstarted';}
   if(p===9){this.finishPhone();this.phoneStep='getstarted';if(navigator.vibrate)navigator.vibrate([100,60,100]);document.getElementById('phone').hidden=false;}
-  if(p===10){this.membership();this.phoneStep='success';this.host.cue('cheer');this.celebrate();}
+  if(p===10){this.member=true;this.connected=true;this.phoneStep='dpad';this.showHub(true);return;}
   if(p!==0&&!same&&!instant)this.reveal(delay||180);if(this.buttons.length)this.setFocus(this.focus,true);this.onchange();if(p===1&&!instant){const serial=this.narrationSerial;this.later(()=>{if(serial===this.narrationSerial&&!document.hidden)this.narrate();},this.reduced?1250:2250);}else this.narrate();
  }
- narrate(){this.narrationSerial++;const p=this.phase;if(p===1)this.say('Hi friend. Welcome to Weekend. Get comfortable, and let your voice do the playing. A little music, a little trivia, and a few surprises. Ready? Your next great game night starts here.',2);
+ narrate(){if(this.hubVisible){this.replayHubPrompt?.();return;}this.narrationSerial++;const p=this.phase;if(p===1)this.say('Hi friend. Welcome to Weekend. Get comfortable, and let your voice do the playing. A little music, a little trivia, and a few surprises. Ready? Your next great game night starts here.',2);
   if(p===2){this.host.bed(true);this.say('On Weekend, discover puzzles and games, with fresh challenges every week. Now try this one. Which planet is known as the Red Planet? Venus, Mars, Jupiter, or Mercury. What’s your answer?');}
   if(p===3)this.say(this.correct?this.random(['That’s right! Mars. What a start!','You nailed it! Mars is the Red Planet.','Yes! Mars. You’re already on a roll.']):this.random(['Almost there! It’s Mars. That was just our warm-up.','Good try! The answer is Mars. Let’s give you another one.','You’re in the game! That one was Mars. Ready for something different?']),4);
   if(p===4)this.say('Now, let’s make it even more natural. On Weekend, you can use your voice to answer. Black and white, wild all over. Do you know this animal? Scan the code to give it a go.');
   if(p===5)this.say('Your phone is the buzzer and the microphone during the game. Allow microphone access so your answer can reach the TV.');
   if(p===6)this.say('Nice work! When you’re ready, press and hold the mic button on your phone, say your answer, then let go.',()=>this.revealMicHint());
-  if(p===7)this.say(this.random(['Zebra! You’ve got it. Now that sounds like a game show answer!','That’s it! Zebra. You’re a natural.','Yes! Zebra. Give yourself a big round of applause!']),8);
-  if(p===8)this.say('Great job! Sounds like you’re ready to play. Let’s get your Weekend plan started. One subscription, all our games. Choose Sign In on Your Phone, or take a look around.');
+  if(p===7)this.say(this.random(['Zebra! You’ve got it. Now that sounds like a game show answer!','That’s it! Zebra. You’re a natural.','Yes! Zebra. Give yourself a big round of applause!']),this.member?()=>{this.phoneStep='dpad';this.browse();}:8);
+  if(p===8)this.say('Finish on your phone. Your free week is just a few taps away.');
   if(p===9)this.say('Finish on your phone. Your free week is just a few taps away.');
   if(p===10)this.say('Welcome to the club! Your Weekend membership is ready. Let’s find your next game.');
  }
@@ -97,7 +100,7 @@ export class Scene {
    this.side=this.node({parent:this.ui,x:1480,y:422.86,w:280,h:357});const p=this.side;
    this.box(0,0,280,357,0x041c25ed,0x041c25ed,24,1,0xe4c77966,p,{color:0x00000055,projection:[0,15,48,0]});
    this.box(18,23,244,244,C.white,C.white,18,0,0,p);
-   this.node({parent:p,x:31,y:36,w:218,h:218,src:'assets/pairing-qr.png'});
+   this.node({parent:p,x:31,y:36,w:218,h:218,src:'assets/pairing-session.png'});
    this.text(this.phoneStep==='download'?'Continue on your phone':'Scan to answer',15,290,25,C.white,250,'center',p,'ReproMedium',1.25);
    return;
   }
@@ -106,6 +109,7 @@ export class Scene {
   if(this.phase!==6)return;
   if(this.voice==='listening')this.bubble=this.orbBubble('Listening',true);
   else if(this.voice==='processing')this.bubble=this.orbBubble('Got it');
+  else if(this.attempts)this.bubble=this.orbBubble('Hold the mic a little longer, then release');
   else if(this.micHinted)this.bubble=this.orbBubble('Press and hold the mic button to answer');
  }
  /** Shown once the host has finished asking for it, so it doesn't pre-empt the line. */
@@ -150,21 +154,49 @@ export class Scene {
  }
  /** The Wheel of Fortune logotype, seated on the crown of the stage arch. */
  archLogo(){this.node({parent:this.ui,x:775,y:96,w:370,h:139,src:'assets/logos/wheel-of-fortune.png'});}
- plan(){this.text('WEEKEND PREMIUM',144,262.7,24,C.sky,1632,'left',this.ui,'ReproMedium',1.3,3);this.text('One subscription.',144,313.7,80,C.white,1280,'left',this.ui,'ReproBold',1.06,-1.6);this.text('Every game night.',144,398.5,80,C.gold,1280,'left',this.ui,'ReproBold',1.06,-1.6);const view=this.node({x:144,y:508.3,w:1632,h:261,clipping:true});const rail=this.node({parent:view,x:0,y:20,w:3930,h:207});[0,2,1,3,4,0,2,1,3,4].forEach((id,i)=>this.box(i*393,0,365,207,0xffffffff,0xffffffff,24,2,0xffffff3d,rail));rail.children.forEach((n,i)=>{n.src='assets/hub/'+games[[0,2,1,3,4][i%5]][1]+'.png';});if(!this.reduced)rail.animate({x:-1965},{duration:34000,easing:'linear',loop:true}).start();this.node({parent:view,x:0,y:0,w:82,h:261,colorLeft:0x0a0322cc,colorRight:0x0a032200});this.node({parent:view,x:1550,y:0,w:82,h:261,colorLeft:0x0a032200,colorRight:0x0a0322cc});this.pill('Sign In on Your Phone',144,789.3,380.56,88,()=>this.go(9),true);this.pill('See All Games',550.56,789.3,275,88,()=>this.browse());}
- finishPhone(){this.box(820,283.125,280,280,C.white,C.white,26);this.node({x:837,y:300.125,w:246,h:246,src:'assets/pairing-qr.png'});this.text('Finish on your phone,\nor scan the QR code.',310,603.125,59,C.white,1300,'center',this.ui,'ReproBold',1.12,-1.6);this.pill('Skip for Now',830,775.28,260,81.6,()=>this.browse(),false,28);}
+ plan(){
+  this.text('WEEKEND PREMIUM',144,190,24,C.sky,1632,'left',this.ui,'ReproMedium',1.3,3);
+  this.text('One subscription.',144,238,80,C.white,1280,'left',this.ui,'ReproBold',1.06,-1.6);
+  this.text('Every game night.',144,326,80,C.gold,1280,'left',this.ui,'ReproBold',1.06,-1.6);
+  const view=this.node({x:0,y:436,w:1920,h:240,clipping:true});
+  // Lead with a partially visible tile; the first full tile still aligns with
+  // the headline. Enough repeated cards fill both edges for the entire loop.
+  const rail=this.node({parent:view,x:-249,y:16,w:4716,h:207});
+  [4,0,2,1,3,4,0,2,1,3,4,0].forEach((id,i)=>{const tile=this.box(i*393,0,365,207,0xffffffff,0xffffffff,24,2,0xffffff3d,rail);tile.src='assets/hub/'+games[id][1]+'.png';});
+  if(!this.reduced)rail.animate({x:-2214},{duration:34000,easing:'linear',loop:true}).start();
+  this.bitmap(shelfFadeLeft,0,0,240,240,view);
+  this.bitmap(shelfFadeRight,1680,0,240,240,view);
+  this.box(144,712,206,206,C.white,C.white,18);
+  this.node({x:157,y:725,w:180,h:180,src:'assets/pairing-session.png'});
+  this.text('Sign up on your phone to start your trial',386,718,36,C.white,1310,'left',this.ui,'ReproMedium');
+  this.text('or go to pair.weekend.com',386,779,30,C.white,1100);
+  this.text('WKND42',386,829,52,C.gold,800,'left',this.ui,'ReproBold',1.2,8);
+  this.text('Press BACK to see all games',1210,991,27,C.white,566,'right');
+ }
+ finishPhone(){this.box(820,283.125,280,280,C.white,C.white,26);this.node({x:837,y:300.125,w:246,h:246,src:'assets/pairing-session.png'});this.text('Finish on your phone,\nor scan the QR code.',310,603.125,59,C.white,1300,'center',this.ui,'ReproBold',1.12,-1.6);this.pill('Skip for Now',830,775.28,260,81.6,()=>this.browse(),false,28);}
  membership(){this.box(460,267.5,1000,604.984,0x1f1150f5,0x0a0322f8,38,2,0xffda0a66,this.ui,{color:0xffda0a24,projection:[0,0,110,0]});this.box(910,331.5,100,100,C.green,C.green,50);this.text('✓',910,345.5,54,0x071c10ff,100,'center',this.ui,'ReproBold');this.text('PAYMENT SUCCESSFUL · DEMO',524,459.5,24,C.sky,872,'center',this.ui,'ReproMedium',1.3,3);this.text('Welcome to',524,518.5,80,C.white,872,'center',this.ui,'ReproBold',1.12,-1.6);this.text('Weekend.',524,608.1,80,C.gold,872,'center',this.ui,'ReproBold',1.12,-1.6);this.text('Your membership is ready. All 20 games are yours.',524,729.69,32,0xe1deebff,872,'center',this.ui,'Repro',1.4);this.pill('Find Your Next Game',730,800,460,88,()=>this.browse(),true);}
 
  start(){if(this.started||this.isLoading)return;this.started=true;this.host.unlock();this.video.muted=!this.host.enabled;this.video.currentTime=0;this.video.style.display='block';const p=this.video.play();if(p&&p.catch)p.catch(()=>{this.started=false;this.video.style.display='none';});}
  loading(){if(this.phase!==0||this.isLoading)return;this.isLoading=true;this.video.style.display='none';this.clearUI(true);this.node({w:1920,h:1080,src:'assets/ident-final.jpg'});const ring=this.bitmap(spinner,930,790,52,52);ring.animate({rotation:Math.PI*2},{duration:800,easing:'linear',loop:true}).start();this.later(()=>this.go(1),2000);}
- scan(){this.phoneStep='download';this.pairStatus();this.say('Download the Weekend app on your phone to continue.');this.onchange();}
- openApp(){this.connected=true;this.phoneStep='rationale';this.go(5);}
+ scan(){this.phoneStep='appclip';this.pairStatus();this.onchange();}
+ openApp(){
+  this.phoneStep='connecting';this.onchange();
+  // This QR belongs to the zebra puzzle already on TV. App/App Clip launch
+  // attaches the phone to that puzzle; only checkout or explicit browsing
+  // hands off to the hub.
+  this.later(()=>{
+   this.connected=true;
+   this.phoneStep=this.permission?'mic':'rationale';
+   this.go(this.permission?6:5);
+  },1400);
+ }
  micAllowed(){this.connected=true;this.permission=true;this.phoneStep='mic';this.go(6);}
  startHold(){if(this.phase!==6||!this.permission||this.holdAt||this.voice==='processing')return;this.host.stop();this.voice='listening';this.holdAt=performance.now();this.pairStatus();this.holdTimer=setTimeout(()=>this.endHold(),10000);}
  cancelHold(){clearTimeout(this.holdTimer);this.holdAt=0;if(this.voice==='listening'){this.voice='ready';if(this.phase===6){this.pairStatus();this.onchange();}}}
- endHold(){if(!this.holdAt)return;const ms=performance.now()-this.holdAt;clearTimeout(this.holdTimer);this.holdAt=0;this.attempts++;if(ms<650&&this.attempts<3){this.voice='ready';this.pairStatus();this.onchange();this.say('Press and hold the mic button on your phone, and speak your answer.',()=>this.revealMicHint());return;}this.voice='processing';this.pairStatus();this.onchange();this.later(()=>this.go(7),900);}
- buy(){this.member=true;this.go(10);}
- browse(){openHub();}
- move(key){if(this.artOnly||this.busy||performance.now()<this.readyAt)return;if(key==='back'){if(this.phase===9||this.phase===10)this.go(8);else if(this.phase===8){this.phoneStep='pair';this.go(4);}else if(this.phase>=4&&this.phase<=6){this.phoneStep='pair';this.go(4);}else if(this.phase>1)this.go(this.phase-1);return;}
+ endHold(){if(!this.holdAt)return;const ms=performance.now()-this.holdAt;clearTimeout(this.holdTimer);this.holdAt=0;this.attempts++;if(ms<650){this.voice='ready';this.pairStatus();this.onchange();this.say('Press and hold the mic button on your phone, and speak your answer.',()=>this.revealMicHint());return;}this.voice='processing';this.pairStatus();this.onchange();this.later(()=>this.go(7),900);}
+ buy(){this.member=true;this.connected=true;this.phoneStep='dpad';this.showHub(true);}
+ browse(){if(this.showHub)this.showHub();else openHub();}
+ move(key){if(this.hubVisible){this.hubNavigate(key);return;}if(this.gameMenu){if(key==='back'){this.gameMenu.destroy();this.gameMenu=null;this.onchange();return;}if(key==='enter'){this.gameMenu.destroy();this.gameMenu=null;if(this.menuChoice===1){this.phoneStep='dpad';this.browse();}else this.onchange();return;}this.menuChoice=this.menuChoice===0?1:0;this.menuLabel.color=this.menuChoice===0?C.gold:C.white;this.exitLabel.color=this.menuChoice===1?C.gold:C.white;return;}if(this.artOnly||this.busy||performance.now()<this.readyAt)return;if(key==='back'){if(this.phase>=8){this.browse();}else if(this.phase>=5&&this.phase<=7){this.openGameMenu();}else if(this.phase===4){this.phoneStep='pair';this.go(4);}else if(this.phase>1)this.go(this.phase-1);return;}
   if(key==='enter'){const b=this.buttons[this.focus];if(b)b.action();return;}let f=this.focus;if(this.phase===2){if(key==='left'&&f%2)f--;if(key==='right'&&f%2===0)f++;if(key==='up'&&f>1)f-=2;if(key==='down'&&f<2)f+=2;}else f=key==='left'||key==='up'?0:1;if(this.buttons.length)this.setFocus(f);
  }
  click(x,y){if(this.artOnly||this.busy||performance.now()<this.readyAt)return;for(let i=0;i<this.buttons.length;i++){const b=this.buttons[i];if(x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h){this.focus=i;b.action();return;}}}
@@ -172,7 +204,18 @@ export class Scene {
  celebrate(){this.stopCelebration();if(this.reduced)return;const palette=[C.gold,C.gold,0xffe778ff,0xfff5d4ff,0xff79c6ff,0x6bdbedff,0xae91ffff],between=(a,b)=>a+Math.random()*(b-a),particles=[];for(let source=0;source<3;source++){for(let i=0;i<(source===2?44:110);i++){const center=source===2,angle=center?between(0,Math.PI*2):between(-1.35,-.55),speed=center?between(280,680):between(1080,1740),w=between(8,17),h=i%8===0?between(25,40):between(10,22),color=palette[Math.floor(Math.random()*palette.length)];const n=this.node({parent:this.fx,w,h,color,pivot:.5,alpha:0});const glint=this.node({parent:n,w,h:2,color:0xffffff47,alpha:0});particles.push({n,glint,x:center?960:source===0?115:1805,y:center?580:1090,vx:Math.cos(angle)*speed*(source===1?-1:1),vy:Math.sin(angle)*speed,rotation:between(0,Math.PI*2),spin:between(-9,9),flutter:between(7,13),delay:center?0:i<80?between(0,.045):between(.13,.20),age:0,life:between(2.7,3.5)});}}
   let previous=performance.now(),elapsed=0;const render=now=>{if(document.hidden){this.stopCelebration();return;}const dt=Math.min((now-previous)/1000,.04);previous=now;elapsed+=dt;for(const p of particles){if(elapsed<p.delay)continue;p.age+=dt;if(p.age>p.life||p.y>1160){p.n.alpha=0;continue;}p.vx*=Math.exp(-1.65*dt);p.vy+=1030*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.rotation+=p.spin*dt;const f=Math.cos(p.age*p.flutter+p.rotation);p.n.x=p.x+Math.sin(p.age*6+p.rotation)*7;p.n.y=p.y;p.n.rotation=p.rotation;p.n.scaleY=Math.max(.16,Math.abs(f));p.n.alpha=Math.min(1,(p.life-p.age)/.6);p.glint.alpha=f>.65?1:0;}if(elapsed<3.8)this.confettiFrame=requestAnimationFrame(render);else this.stopCelebration();};this.confettiFrame=requestAnimationFrame(render);
  }
- reset(){this.member=false;this.connected=false;this.permission=false;this.attempts=0;this.phoneStep='pair';this.artOnly=false;document.getElementById('caption').style.visibility='visible';const art=document.getElementById('artOnly');if(art)art.textContent='Stage Art Only';this.go(0,true);}
+ openGameMenu(){
+  this.cancelHold();this.host.stop();if(this.gameMenu)return;
+  this.timers.forEach(clearTimeout);this.timers=[];
+  if(this.voice==='processing')this.voice='ready';
+  this.menuChoice=0;
+  this.gameMenu=this.box(490,300,940,460,0x100c2afa,0x100c2afa,32,2,0x31ccf2ff);
+  this.text('Game paused',50,50,54,C.white,840,'center',this.gameMenu,'ReproBold');
+  this.menuLabel=this.text('Resume',50,180,42,C.gold,840,'center',this.gameMenu);
+  this.exitLabel=this.text('Exit to games',50,280,42,C.white,840,'center',this.gameMenu);
+  this.onchange();
+ }
+ reset(){this.resetHub?.();this.gameMenu=null;this.member=false;this.connected=false;this.permission=false;this.attempts=0;this.phoneStep='pair';this.artOnly=false;document.getElementById('caption').style.visibility='visible';const art=document.getElementById('artOnly');if(art)art.textContent='Stage Art Only';this.go(0,true);}
  replayStage(){const delay=this.stage.replay();this.reveal(delay);}
  toggleArt(){this.artOnly=!this.artOnly;this.ui.alpha=this.artOnly?0:1;this.brandFor(this.phase);this.orb.layout(this.phase,true);document.getElementById('caption').style.visibility=this.artOnly?'hidden':'visible';}
  pause(){this.narrationSerial++;this.cancelHold();this.stopCelebration();this.host.stop();this.host.bed(false);this.video.pause();this.orb.settle();this.stage.settle();}

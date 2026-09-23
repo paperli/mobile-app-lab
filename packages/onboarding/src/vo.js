@@ -1,10 +1,12 @@
-// Recorded host lines (ElevenLabs · Riyadh 2, mono MP3 @ 96k).
+// Recorded host lines (ElevenLabs · Riyadh 2, mono MP3 @ 96/128k).
 //
 // Keyed by the exact utterance so scene.js keeps passing plain strings and
 // nothing else has to learn about audio ids. Any line missing from this table
-// — or any file that fails to load — falls through to device TTS, so the flow
-// still narrates on a TV whose browser blocks media autoplay.
+// — or any file that fails to load — falls through to timed captions. Host
+// audio never switches to a device voice.
+export const PAIRING_SUCCESS_PROMPT = "You’re all set! Let’s get your game night started. Press OK on your phone to browse the games.";
 const TAKES = [
+ [PAIRING_SUCCESS_PROMPT, '10-pairing-success'],
  ["Hi friend. Welcome to Weekend. Get comfortable, and let your voice do the playing. A little music, a little trivia, and a few surprises. Ready? Your next great game night starts here.",
   'welcome'],
  ["On Weekend, discover puzzles and games, with fresh challenges every week. Now try this one. Which planet is known as the Red Planet? Venus, Mars, Jupiter, or Mercury. What’s your answer?",

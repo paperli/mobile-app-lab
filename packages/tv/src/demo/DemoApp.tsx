@@ -302,7 +302,7 @@ function Hub9View() {
         content={content}
         detailView={detailView}
         initialSignedIn={subscribed}
-        frame
+        frame={!params.has('onboardingOrigin')}
         onLaunch={(g: HubGame) => {
           // The onboarding is a separate prototype (Lightning + Blits), so it
           // is a navigation rather than a simulated launch.
