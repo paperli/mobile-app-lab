@@ -1,0 +1,13 @@
+body.phone-only { display:block; overflow:auto; background:#0a0322; margin:0; min-height:100dvh; }
+body.phone-only #phone.standalone-phone { display:block; position:relative; inset:auto; width:100%; max-width:480px; height:100dvh; max-height:none; margin:0 auto; padding:0; border:0; border-radius:0; box-shadow:none; transform:none; background:#0a0322; }
+#phone.standalone-phone .journey-phone { display:flex; flex-direction:column; position:relative; box-sizing:border-box; min-height:100%; height:100%; width:100%; padding:max(24px,env(safe-area-inset-top)) 28px max(28px,env(safe-area-inset-bottom)); overflow-y:auto; }
+.remote-status { position:fixed; z-index:100; inset:0; display:grid; place-items:center; padding:36px; background:#0a0322ed; color:white; text-align:center; font:18px 'Weekend Repro',sans-serif; }
+.remote-status[hidden] { display:none; }
+#phone.remote-offline .journey-phone { pointer-events:none; }
+body.mobile-preview #tvStage { visibility:hidden; }
+body.mobile-preview #phone.wk-phone { position:fixed; inset:0!important; width:100%; max-width:480px; height:100dvh; max-height:none; margin:auto; padding:0; border:0; border-radius:0; }
+body.mobile-preview #phone .wk-phone__bar, body.mobile-preview #phone .wk-phone__island, body.mobile-preview #phone .wk-phone__home { display:none; }
+body.mobile-preview #phone.wk-phone .wk-phone__frame { height:100%; aspect-ratio:auto; border:0; border-radius:0; padding:0; box-shadow:none; }
+body.mobile-preview #phone.wk-phone .wk-phone__screen { padding:max(24px,env(safe-area-inset-top)) 28px max(28px,env(safe-area-inset-bottom))!important; border-radius:0; }
+body.mobile-preview #phone.wk-phone .wk-phone__screen.checkout-screen,
+#phone.standalone-phone .journey-phone.checkout-screen { padding:0!important; }

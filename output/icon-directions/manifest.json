@@ -1,0 +1,97 @@
+{
+  "assets": [
+    {
+      "filename": "soft-puzzles.png",
+      "style": "soft",
+      "subject": "puzzles",
+      "path": "/Users/ken-junglee/Documents/projects/prototypes/mobile-app-lab/output/icon-directions/soft-puzzles.png",
+      "original": "/Users/ken-junglee/.codex/generated_images/01a0faa3-365c-7a80-b1c5-11457e5222a4/exec-c73f5933-ce23-41ad-97a8-f3bd893428e7.png",
+      "mode": "built-in image_gen",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "filename": "soft-voice.png",
+      "style": "soft",
+      "subject": "voice",
+      "path": "/Users/ken-junglee/Documents/projects/prototypes/mobile-app-lab/output/icon-directions/soft-voice.png",
+      "original": "/Users/ken-junglee/.codex/generated_images/01a0faa3-365c-7a80-b1c5-11457e5222a4/exec-9630aac7-11c4-4519-9aa3-fe9613b0fc57.png",
+      "mode": "built-in image_gen",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "filename": "gold-puzzles.png",
+      "style": "gold",
+      "subject": "puzzles",
+      "path": "/Users/ken-junglee/Documents/projects/prototypes/mobile-app-lab/output/icon-directions/gold-puzzles.png",
+      "original": "/Users/ken-junglee/.codex/generated_images/01a0faa3-365c-7a80-b1c5-11457e5222a4/exec-101d9f4b-5313-4587-8040-f916cdebd19d.png",
+      "mode": "built-in image_gen",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "filename": "gold-voice.png",
+      "style": "gold",
+      "subject": "voice",
+      "path": "/Users/ken-junglee/Documents/projects/prototypes/mobile-app-lab/output/icon-directions/gold-voice.png",
+      "original": "/Users/ken-junglee/.codex/generated_images/01a0faa3-365c-7a80-b1c5-11457e5222a4/exec-49fda1d1-6164-40ca-b2a8-09972614c1e6.png",
+      "mode": "built-in image_gen",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "filename": "glass-puzzles.png",
+      "style": "glass",
+      "subject": "puzzles",
+      "path": "/Users/ken-junglee/Documents/projects/prototypes/mobile-app-lab/output/icon-directions/glass-puzzles.png",
+      "original": "/Users/ken-junglee/.codex/generated_images/01a0faa3-365c-7a80-b1c5-11457e5222a4/exec-2e02b307-1edc-4461-b612-ff2f734bb870.png",
+      "mode": "built-in image_gen",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "filename": "glass-voice.png",
+      "style": "glass",
+      "subject": "voice",
+      "path": "/Users/ken-junglee/Documents/projects/prototypes/mobile-app-lab/output/icon-directions/glass-voice.png",
+      "original": "/Users/ken-junglee/.codex/generated_images/01a0faa3-365c-7a80-b1c5-11457e5222a4/exec-52919bac-efce-4a83-a301-26da2df536cc.png",
+      "mode": "built-in image_gen",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "filename": "pop-puzzles.png",
+      "style": "pop",
+      "subject": "puzzles",
+      "path": "/Users/ken-junglee/Documents/projects/prototypes/mobile-app-lab/output/icon-directions/pop-puzzles.png",
+      "original": "/Users/ken-junglee/.codex/generated_images/01a0faa3-365c-7a80-b1c5-11457e5222a4/exec-c63fcd59-a008-43a7-9861-f069712f9d7d.png",
+      "mode": "built-in image_gen",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    },
+    {
+      "filename": "pop-voice.png",
+      "style": "pop",
+      "subject": "voice",
+      "path": "/Users/ken-junglee/Documents/projects/prototypes/mobile-app-lab/output/icon-directions/pop-voice.png",
+      "original": "/Users/ken-junglee/.codex/generated_images/01a0faa3-365c-7a80-b1c5-11457e5222a4/exec-009b3d79-bfb9-4d9b-bd40-c29704160ceb.png",
+      "mode": "built-in image_gen",
+      "width": 1254,
+      "height": 1254,
+      "hasAlpha": true
+    }
+  ],
+  "review": {
+    "inspected": true,
+    "preferredSmallSize": "pop",
+    "reason": "The bold contours and separated yellow/violet shapes make the puzzle motif particularly clear; the soft pair is a close alternative for friendlier 3D styling."
+  }
+}

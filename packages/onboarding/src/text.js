@@ -15,10 +15,21 @@ export function measureWidth(text,size,font,tracking=0){
  return ctx.measureText(text).width+Math.max(0,text.length-1)*tracking;
 }
 
-export function textTexture(text,size,width,align,font,line,tracking,shadow=0){
- const key=[text,size,width,align,font,line,tracking,shadow].join('|');if(cache.has(key))return cache.get(key);
- const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d'),face=faces[font]||faces.Repro,fontString=face[1]+' '+size+'px "'+face[0]+'"';ctx.font=fontString;
- const measure=s=>ctx.measureText(s).width+Math.max(0,s.length-1)*tracking;
+export function textTexture(text,size,width,align,font,line,tracking,shadow=0,highlight=null){
+ const key=[text,size,width,align,font,line,tracking,shadow,JSON.stringify(highlight)].join('|');if(cache.has(key))return cache.get(key);
+ const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
+ const fontFor=name=>{const face=faces[name]||faces.Repro;return face[1]+' '+size+'px "'+face[0]+'"';},fontString=fontFor(font);
+ const runsFor=s=>{
+  const start=highlight?.word?s.indexOf(highlight.word):-1;
+  if(start<0)return [{text:s,font:fontString}];
+  return [{text:s.slice(0,start),font:fontString},{text:highlight.word,font:fontFor(highlight.font||font),accent:true},{text:s.slice(start+highlight.word.length),font:fontString}].filter(run=>run.text);
+ };
+ // Measure each weight before centering or wrapping, including the spacing
+ // between runs. Gradient words remain part of the same line and texture.
+ const measure=s=>{
+  const width=runsFor(s).reduce((sum,run)=>{ctx.font=run.font;return sum+ctx.measureText(run.text).width;},0);
+  ctx.font=fontString;return width+Math.max(0,s.length-1)*tracking;
+ };
  const lines=[];text.split('\n').forEach(paragraph=>{let row='';paragraph.split(' ').forEach(word=>{const candidate=row?row+' '+word:word;if(row&&measure(candidate)>width){lines.push(row);row=word;}else row=candidate;});lines.push(row);});
  const pad=shadow?Math.ceil(shadow*1.6):0;
  canvas.width=Math.ceil(width)+pad*2;canvas.height=Math.ceil(lines.length*size*line)+pad*2;canvas.pad=pad;
@@ -26,7 +37,14 @@ export function textTexture(text,size,width,align,font,line,tracking,shadow=0){
  if(shadow){ctx.shadowColor='rgba(0,0,0,.72)';ctx.shadowBlur=shadow;ctx.shadowOffsetY=Math.round(shadow*.28);}
  const metrics=ctx.measureText('Hg'),ascent=metrics.fontBoundingBoxAscent||size*.8,descent=metrics.fontBoundingBoxDescent||size*.2,baseline=(size*line-ascent-descent)/2+ascent;
  lines.forEach((row,i)=>{if('letterSpacing' in ctx)ctx.letterSpacing='0px';let x=(align==='center'?(width-measure(row))/2:align==='right'?width-measure(row):0)+pad;const y=baseline+i*size*line+pad;
-  if('letterSpacing' in ctx){ctx.letterSpacing=tracking+'px';ctx.fillText(row,x,y);}else if(!tracking)ctx.fillText(row,x,y);else{for(let j=0;j<row.length;j++){const offset=ctx.measureText(row.slice(0,j+1)).width-ctx.measureText(row[j]).width+j*tracking;ctx.fillText(row[j],x+offset,y);}}
+  runsFor(row).forEach(run=>{
+   if('letterSpacing' in ctx)ctx.letterSpacing='0px';
+   ctx.font=run.font;ctx.fillStyle='white';
+   const runWidth=ctx.measureText(run.text).width+Math.max(0,run.text.length-1)*tracking;
+   if(run.accent){const gradient=ctx.createLinearGradient(x,0,x+runWidth,0);gradient.addColorStop(0,highlight.from);gradient.addColorStop(1,highlight.to);ctx.fillStyle=gradient;}
+   if('letterSpacing' in ctx){ctx.letterSpacing=tracking+'px';ctx.fillText(run.text,x,y);}else if(!tracking)ctx.fillText(run.text,x,y);else{for(let j=0;j<run.text.length;j++){const offset=ctx.measureText(run.text.slice(0,j+1)).width-ctx.measureText(run.text[j]).width+j*tracking;ctx.fillText(run.text[j],x+offset,y);}}
+   x+=runWidth+tracking;
+  });
  });
  if(cache.size>=96)cache.delete(cache.keys().next().value);cache.set(key,canvas);return canvas;
 }

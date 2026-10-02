@@ -1,0 +1,29 @@
+/* Keep one transparent Lightning canvas above the HTML backdrop. Its world
+   fades out to reveal the upsell, while the host and Skip stay in front. */
+#app { z-index:7; }
+.tv-upsell { position:absolute; top:0; left:0; width:1920px; height:1080px; transform-origin:top left; z-index:6; pointer-events:none; overflow:hidden; color:#f3f4f1; font-family:'Weekend Repro',sans-serif; background:#060421; }
+.tv-upsell.is-leaving { opacity:0; transition:opacity 700ms ease-out; }
+.upsell-wall { position:absolute; inset:0; display:flex; gap:18px; padding:0 18px; overflow:hidden; }
+.upsell-column { flex:1; min-width:0; margin-top:var(--offset); }
+.upsell-belt { display:flex; flex-direction:column; gap:18px; animation:upsell-up var(--duration) linear infinite; animation-delay:var(--delay); }
+.upsell-column:nth-child(even) .upsell-belt { animation-name:upsell-down; }
+.upsell-belt img { width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:15px; box-shadow:0 6px 16px #0006; }
+.upsell-scrim { position:absolute; inset:0; background:linear-gradient(0deg,#060421,transparent 26%,transparent 80%,#060421),linear-gradient(90deg,#060421f5,#060421d9 34%,#06042148 68%,#06042144); }
+.upsell-brand { position:absolute; left:78px; top:42px; width:205px; height:56px; }
+.upsell-copy { position:absolute; top:242px; left:144px; }
+.upsell-eyebrow { color:#ade0eb; font-size:24px; font-weight:500; letter-spacing:3px; margin:0 0 30px; }
+.upsell-copy h1 { font-size:80px; font-weight:700; letter-spacing:-2.5px; line-height:1.06; margin:0; }
+.upsell-copy em { color:#ffda0a; font-style:normal; }
+.upsell-subtitle { margin:30px 0 0; font-size:36px; }
+.upsell-pairing { position:absolute; right:144px; top:207px; width:470px; padding:30px; border-radius:34px; text-align:center; background:#100b25eb; border:1px solid #ffffff30; box-shadow:0 20px 80px #0006; }
+.upsell-qr { display:block; width:410px; height:410px; padding:8px; box-sizing:border-box; margin:auto; background:white; border-radius:20px; }
+.upsell-pairing h2 { font-size:38px; margin:26px 0 12px; line-height:1.15; }
+.upsell-pairing p { font-size:23px; color:#d0cbdb; line-height:1.4; margin:0; }
+.upsell-connected { font-size:25px; color:#86edb1; margin-top:22px; }
+.paired .upsell-copy { top:185px; }
+.paired .upsell-pairing { display:flex; gap:30px; align-items:center; text-align:left; top:690px; left:144px; right:auto; width:1040px; padding:0; border:0; background:none; box-shadow:none; }
+.paired .upsell-qr { width:190px; height:190px; margin:0; }
+.paired .upsell-pairing h2 { margin:0 0 12px; font-size:34px; }
+@keyframes upsell-up { to { transform:translateY(calc(-50% - 9px)); } }
+@keyframes upsell-down { from { transform:translateY(calc(-50% - 9px)); } to { transform:translateY(0); } }
+@media(prefers-reduced-motion:reduce) { .upsell-belt { animation:none; } }

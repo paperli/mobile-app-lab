@@ -31,13 +31,23 @@ Useful query params:
   puzzle mic controller. The TV stays on the zebra puzzle throughout. App Clip
   Open uses the same transition; a phone with mic permission goes straight to
   the mic controller. There is no hub visit or game selection in this handoff.
-- `?scene=8`: the TV shows the QR below the carousel, `pair.weekend.com`, code
-  `WKND42`, and the Back hint. Get Started on the phone opens mock signup,
-  the trial offer, and mock Apple Pay. Confirmation first shows the success
-  modal over this same upsell. After its entrance, the upsell clears behind
-  it to reveal the hub; the modal remains until Browse Games / OK / Back.
-  The Riyadh 2 host invites the user to press OK on their phone. Dismissing
-  success stops that prompt; duplicate hub-ready events do not repeat it.
+- `?scene=8`: phones go directly to **Game night, every night.** with Google,
+  Apple and email signup choices, then the existing Premium paywall (monthly/yearly), a simulated App Store
+  confirmation, success, and the hub D-pad. The TV shows a larger QR when
+  unpaired and a smaller QR plus a connected status once a phone joins.
+- Jeopardy’s single **Fresh PUZZLES. Every week.** message follows
+  the recorded host. Both rounds use two-line copy inside the stage frame,
+  with a gold calendar/puzzle icon or microphone above it.
+  The question reveals in the board's center, then moves up as the first answer
+  pops in. Each answer scales up as its name is spoken. Focus appears after the final pop. Wheel’s
+  **Use your VOICE to answer.** follows the voice, then the tiles flip with clicks.
+  Both rounds use game music that ducks under speech and mutes during mic input;
+  correct answers use a recorded crowd cheer. Replay restarts speech and visuals
+  together. Sound-off and reduced-motion modes preserve the recorded pacing.
+- Every TV step after the intro has a bottom-right **Skip** (called **See All Games**
+  on the upsell). It starts unfocused;
+  Right/Down reaches it, including from the right/bottom edge of the answer
+  grid. Skipping a game shows Mars/Zebra before continuing to the next step.
 - Press Escape with TV focus to browse the hub while phone checkout remains
   at its current step. Confirming payment opens the hub's existing **Welcome
   to Premium** modal. The phone becomes a D-pad; OK dismisses the modal.
@@ -52,10 +62,64 @@ Useful query params:
   or Exit to games. Settings supports confirmed disconnect. Restart resets the
   phone and embedded hub.
 
-The camera, download, permissions, account, payment, connection, and voice input
-are simulations. No app installs, charges, account creation, or audio capture
-occur. The QR encodes `https://pair.weekend.com?code=WKND42`; it is illustrative,
-not a live server room. Use the phone simulator to rehearse the complete flow.
+The camera, download, permissions, account, payment, and voice input are
+simulations. No app installs, charges, account creation, or audio capture occur.
+Mock email/password fields are discarded on submit and never sent to the server.
+
+## Public preview and real phones
+
+```bash
+npm run build:pages
+npm run serve:public --workspace=@mobile-app-lab/onboarding
+# In a second terminal:
+ngrok http http://127.0.0.1:4180 --inspect=false
+```
+
+Open the HTTPS tunnel URL at `/onboarding/?clean=1` on the TV/computer. Scan its
+QR with a phone on **any network**. The preview server relays controller actions
+and onboarding state in memory; each TV gets its own random room. Keep the TV
+page open. Rooms expire five minutes after the host disconnects. The relay serves
+only the built artifact, and its port binds to loopback.
+
+`/onboarding/?scene=8&mobile=1` is a full-screen, independent mobile signup preview.
+`/onboarding/?scene=8` starts the full rehearsal at the upsell. With a real phone
+connected, the desktop phone simulator hides automatically. `?clean=1` also hides
+it, keeping the QR unobstructed. In a static-only deployment without the relay,
+the illustrative QR and desktop simulator remain available.
+
+The public tunnel requires this Mac to stay awake and both processes to stay
+running. Run them in persistent terminals or detached processes, since a coding
+session's foreground jobs may end with that session. It does not publish or
+change either upstream product repository. If the ngrok URL already serves the
+separate landing preview, set `LANDING_PREVIEW_URL=http://127.0.0.1:5173` on the
+preview server to forward `/web-checkout/` to that existing service.
+
+### Design references
+
+- Signup landing: the supplied phone screenshot — game-art wall, Weekend wordmark,
+  “Game night, every night.” and Google / Apple / email choices. Email opens the
+  existing account form; social buttons simulate sign-in without calling OAuth.
+- Trial, App Store sheet and success: the user's
+  [Weekend mobile prototype](https://weekend-entertainment.vercel.app/#mobile?theme=dark&paywall=trial),
+  inspected October 1, 2026. Reuses its trial timeline, $0 today / $14.99 monthly
+  offer, game artwork, app icon and success mark. The date is calculated seven
+  days from today. Prices are reference-prototype values; no purchase occurs.
+- Email form and legal destinations: `Volley-Inc/weekend-games-ios` at `1e5b4f3`,
+  `Screens/EmailAuthView.swift` and `App/LegalLinks.swift`.
+- TV hero and artwork: the **local** hub repo's
+  `apps/web-checkout/src/screens/LandingScreen.tsx`, its stylesheet, and
+  `src/assets/landing-wall/`. The prototype does not modify or publish that repo.
+
+### Verification
+
+```bash
+npm test --workspace=@mobile-app-lab/onboarding
+npx playwright install chromium
+# Start serve:public first, after build:pages.
+npm run test:e2e --workspace=@mobile-app-lab/onboarding
+# Optional: run against an HTTPS preview.
+PREVIEW_URL=https://your-preview-host npm run test:e2e --workspace=@mobile-app-lab/onboarding
+```
 
 Mobile visuals adapt `Volley-Inc/arcade-mobile-controller` at `dc484bb`:
 the DPad proportions, surfaces and gold select disc; Back–Weekend–Settings
@@ -133,12 +197,41 @@ replace `welcome.mp3`, regenerate it** or the mouth movement will drift.
 
 ## The orb
 
-`src/orb-shader.js` tracks [Speaking Orb Lab][lab], with two deliberate
-departures so it can sit on the TV stage: the background is black rather than
-the lab's `#080a0e`, and the fragment returns a computed alpha instead of `1.0`.
-Voice response (1.4×) and glow (40%) live in `src/host-orb.js`.
+`src/orb-shader.js` uses **A · Honey & Champagne** from [Speaking Orb Lab][lab]
+(published version 8), including its glossy reflections and inward rim feather.
+The TV adaptation replaces the flat background with premultiplied transparency
+and fades the quad's edges at full speech expansion. Voice response (1.4×) and
+glow (40%) live in `src/host-orb.js`.
 
-[lab]: https://speaking-orb-lab.weekend.chatgpt.site
+The opening brings up the empty studio over 3.2 seconds. The orb enters on its
+original cue, and the host starts speaking at 2.25 seconds while the stage is
+still revealing. Jeopardy's orb travels directly from the
+welcome to the side of its value text. The Wheel move follows its recorded
+voice cue. The orb drops below the board for the reveal, and moves along the
+floor as Jeopardy options
+appear. Answer reveals lift it to the left of the Jeopardy result and the right
+of the Wheel result; a gentle drift and
+celebration hop keep it active between cues. Movement becomes minimal during
+microphone input, and reduced motion removes travel animation and drift.
+On Wheel, it moves immediately left of the pairing QR on “Scan” at 9.26 seconds
+in the host recording, then nudges toward the code. On the large-QR upsell, the orb sits
+immediately left of the code at the same height; the paired layout keeps it
+below its smaller left-hand QR. It sits beside the centered finish-on-phone QR.
+The transparent Lightning canvas stays above the full-height HTML upsell, so
+the halo never meets an HTML panel edge. The outgoing studio fades away to
+reveal that backdrop. Game art is warmed during the intro, and QR/connection
+updates preserve the existing upsell instead of removing and rebuilding it.
+One persistent shader node survives scene changes; pause and replay cancel
+pending motion. The rehearsal diagnostics show its current pose and position.
+
+Value proposition artwork uses direction 02 (Playful 3D) from the icon study
+for both `public/assets/icons/value-puzzles.png` and `value-voice.png`.
+Original artwork and prompts are
+preserved in the repository's `output/icon-directions/` folder.
+The words “PUZZLES” and “VOICE” are uppercase in Repro Bold and use a left-to-right
+Canary (`#FFDA0A`) → Clementine (`#FB7928`) gradient; the rest is white Repro Medium.
+
+[lab]: https://speaking-orb-lab.weekend.chatgpt.site/?tint=honey
 
 ## Provenance
 

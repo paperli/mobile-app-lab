@@ -1,4 +1,5 @@
 import { templates } from './reference-phone.js';
+import { iosCheckout } from './ios-checkout.js';
 import { Rive, RuntimeLoader } from '@rive-app/canvas';
 import riveWasm from '@rive-app/canvas/rive.wasm?url';
 import { mountMicControl } from './mic-control.js';
@@ -16,7 +17,7 @@ export function setupPhone(s, modal) {
   let micControl, installTimer;
   let settings = false, disconnect = false;
   let swipeStart, suppressClick = false;
-  const setStep = step => { s.phoneStep = step; render(); };
+  const setStep = step => { s.phoneStep = step; s.syncPhone?.(); render(); };
 
   function render() {
     const micScreen = s.phase === 6 && !settings && !s.gameMenu && !s.hubVisible;
@@ -25,11 +26,15 @@ export function setupPhone(s, modal) {
     previousMic?.dispose();
     if(s.phase===0){settings=false;disconnect=false;clearTimeout(installTimer);}
     const step = s.phoneStep;
+    const renderKey = [s.phase,step,s.hubVisible,!!s.gameMenu,s.accountMode,settings,disconnect,s.connected,s.roomCode].join(':');
+    if(screen.dataset.renderKey===renderKey)return;
+    screen.dataset.renderKey=renderKey;
     let body = '';
     const controller = s.connected && (step === 'dpad' || s.gameMenu || (s.phase >= 5 && s.phase <= 7));
     screen.className = 'wk-phone__screen phone-screen journey-phone';
     if (s.phase < 4 && !s.hubVisible) body = `${logo}<h3 class="phone-title">Game night starts on TV.</h3><p class="phone-copy">Your phone will join after the first question.</p>`;
-    else if (settings) body = `${topbar}<h3 class="phone-title">Settings</h3><p class="phone-copy">Connected to Living Room TV<br>Pair code WKND42</p>${disconnect ? '<p class="phone-copy">Disconnect from this TV?</p>' + button('Disconnect', 'disconnect-confirm') + button('Stay connected', 'disconnect-cancel', true) : button('Disconnect from TV', 'disconnect', true)}${button('Done', 'close-settings')}`;
+    else if (settings) body = `${topbar}<h3 class="phone-title">Settings</h3><p class="phone-copy">Connected to Living Room TV<br>Pair code ${s.roomCode||'WKND42'}</p>${disconnect ? '<p class="phone-copy">Disconnect from this TV?</p>' + button('Disconnect', 'disconnect-confirm') + button('Stay connected', 'disconnect-cancel', true) : button('Disconnect from TV', 'disconnect', true)}${button('Done', 'close-settings')}`;
+    else if (step === 'success') body = iosCheckout('success');
     else if (s.gameMenu || (s.hubVisible && step === 'dpad')) body = `${topbar}<p class="connection-label">● Living Room TV</p><div class="controller-main">${pad()}</div><button type="button" class="arcade-back" data-action="remote-back" aria-label="Back">${backIcon}</button>`;
     else if (['pair', 'camera', 'detected'].includes(step)) body = `<div class="camera-preview"><div class="camera-tools">ϟ <span>⌃</span> ◎</div><p>Point your camera at the TV code</p><div class="camera-target"><img src="assets/pairing-session.png" alt="TV pairing QR code"></div>${step === 'detected' ? '<button class="scan-result" data-action="scan">↗ pair.weekend.com</button>' : '<button class="scan-result" data-action="detect">Scan QR code</button>'}<div class="camera-modes">VIDEO <strong>PHOTO</strong> PORTRAIT</div><button class="camera-shutter" data-action="detect" aria-label="Scan TV code"></button><small>Camera preview · simulation</small></div>`;
     else if (['appclip', 'download'].includes(step)) body = `${logo}<h3 class="phone-title">Your phone.<br>Your way to play.</h3><p class="phone-copy">Get Weekend to connect to your TV and join the fun.</p>${button('Download the app', 'app-store')}${button('Use App Clip', 'show-clip', true)}<p class="phone-copy">Your TV: WKND42</p>${step === 'appclip' ? '<section class="appclip-sheet" role="dialog" aria-label="Weekend App Clip"><button class="sheet-close" data-action="close-clip" aria-label="Close App Clip">×</button><img src="assets/weekend-mark.webp" alt=""><h3>Weekend</h3><p>Pick up. Connect. Play.</p>' + button('Open App Clip', 'launch-app') + '<small>App Clip · simulated preview</small></section>' : ''}`;
@@ -43,12 +48,10 @@ export function setupPhone(s, modal) {
     } else if (s.phase === 6) body = `${topbar}<p class="connection-label">● Living Room TV</p><div class="controller-main"><button type="button" class="arcade-mic" id="holdMic" aria-label="Press and hold to answer" aria-pressed="false"><canvas id="micOrb" width="440" height="440" aria-hidden="true"></canvas><span class="mic-fallback" aria-hidden="true"></span></button></div><p id="micStatus" class="controller-sr-only" role="status"></p>`;
     else if (s.phase === 7) body = `${topbar}<p class="connection-label">● Living Room TV</p><div class="controller-main"><div class="phone-success-check" role="status" aria-label="Answer accepted">✓</div></div>`;
     else {
-      const t = templates(8);
-      t.checkout = ({getstarted:'landing', signup:'account', offer:'offer', pay:'applepay'})[step] || 'landing';
-      t.accountMode = s.accountMode;
-      body = t.claimPhone().replace('Claim My Free Week', 'Get Started');
+      body = iosCheckout(['signup','email','offer','pay'].includes(step)?step:'signup',s.accountMode);
     }
     screen.innerHTML = body.replaceAll('assets/weekend-3d-yellow.svg', 'assets/weekend-logo.png');
+    screen.classList.toggle('checkout-screen',!!screen.querySelector('.ios-welcome,.ios-auth,.ios-paywall,.ios-success'));
     screen.scrollTop = 0;
     if (controller) screen.classList.add('arcade-controller');
     const hold = screen.querySelector('#holdMic');
@@ -64,6 +67,7 @@ export function setupPhone(s, modal) {
     if (suppressClick && action==='pad') { suppressClick=false; return; }
     suppressClick=false;
     s.host.unlock();
+    if(action==='toggle-password'){const input=screen.querySelector('#prototypePassword');input.type=input.type==='password'?'text':'password';target.setAttribute('aria-label',input.type==='password'?'Show password':'Hide password');return;}
     if (action === 'pad') {s.move(target.dataset.dir === 'select' ? 'enter' : target.dataset.dir);return;}
     if (action === 'remote-back') {settings=false;s.move('back');return;}
     if (action === 'detect') setStep('detected');
@@ -83,12 +87,28 @@ export function setupPhone(s, modal) {
     else if (action === 'grant') s.micAllowed();
     else if (action === 'deny') setStep('denied');
     else if (action === 'begin-signup') {s.accountMode='signup';setStep('signup');}
-    else if (action === 'switch-account') {s.accountMode=s.accountMode==='signup'?'signin':'signup';render();}
+    else if (action === 'signup-email') {s.accountMode='signup';setStep('email');}
+    // Social provider buttons simulate a completed login; never launch real OAuth.
+    else if (action === 'signup-google' || action === 'signup-apple') {s.connected=true;setStep('offer');}
+    else if (action === 'switch-account') {s.accountMode=s.accountMode==='signup'?'signin':'signup';s.syncPhone?.();render();}
     else if (action === 'account-complete' || action === 'back-to-offer') setStep('offer');
     else if (action === 'open-apple-pay') setStep('pay');
     else if (action === 'confirm-payment') s.buy();
-    else if (action === 'return-hub') {s.phoneStep='dpad';s.browse();}
+    else if (action === 'return-hub') {s.phoneStep='dpad';s.syncPhone?.();s.browse();}
     else if (['skip-trial','more-games','browse-after-success'].includes(action)) s.browse();
+  });
+  screen.addEventListener('input', () => {
+    const form=screen.querySelector('#signupForm');if(!form)return;
+    form.querySelector('[type=submit]').disabled=!(form.querySelector('#prototypeEmail').value.trim()&&form.querySelector('#prototypePassword').value.trim());
+  });
+  screen.addEventListener('submit', e => {
+    if(e.target.id!=='signupForm')return;e.preventDefault();
+    const email=screen.querySelector('#prototypeEmail'),password=screen.querySelector('#prototypePassword');
+    if(!email.validity.valid||!email.value.includes('.')||!password.value.trim()){
+      screen.querySelector('#signupError').textContent='Enter a valid email address and password.';return;
+    }
+    // Discard mock credentials; only the flow step is shared with the TV.
+    email.value='';password.value='';s.connected=true;setStep('offer');
   });
   screen.addEventListener('pointerdown', e => {
     if(e.target.closest('.dpad')) { swipeStart={x:e.clientX,y:e.clientY};suppressClick=false; }
