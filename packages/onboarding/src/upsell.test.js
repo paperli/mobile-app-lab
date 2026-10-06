@@ -63,3 +63,31 @@ test('the wall fills the TV without `inset` (unsupported before Chrome 87)', () 
     assert.match(r, /top:0;\s*right:0;\s*bottom:0;\s*left:0/, selector);
   }
 });
+
+test('the two Jeopardy! tiles never sit side by side in the middle of the screen', async () => {
+  const { wallColumns, timing } = await import('./upsell.js');
+  const img = rule('.upsell-belt img');
+  const tile = px(img, 'height'), pitch = tile + px(img, 'margin-bottom');
+  const loop = 6 * pitch;
+  // A tile's top edge `t` seconds in: the CSS loop with its negative delay and
+  // column offset, folded into one loop's span. Odd columns scroll up.
+  const top = (c, t) => {
+    const d = timing.duration[c], progress = ((((t - timing.delay[c]) % d) + d) % d) / d;
+    const shift = c % 2 === 0 ? -loop * progress : -loop * (1 - progress);
+    const y = timing.offset[c] + shift + wallColumns[c].indexOf('jeopardy') * pitch;
+    return ((y % loop) + loop) % loop;
+  };
+  const cols = wallColumns.flatMap((games, i) => (games.includes('jeopardy') ? [i] : []));
+  assert.equal(cols.length, 2);
+  const [first, second] = cols;
+  assert.equal(timing.duration[first], timing.duration[second], 'same speed, or their spacing drifts');
+  for (let t = 0; t < timing.duration[first] * 3; t += 0.05) {
+    const a = top(first, t), b = top(second, t);
+    if (Math.min(Math.abs(a - b), loop - Math.abs(a - b)) >= tile) continue;
+    for (const y of [a, b]) {
+      const mid = (y + tile / 2) % loop;
+      assert.ok(Math.abs(mid - 540) > tile, `side by side at t=${t.toFixed(2)}s, centred at y${Math.round(mid)}`);
+    }
+  }
+});
+
