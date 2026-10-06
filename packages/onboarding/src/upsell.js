@@ -32,14 +32,14 @@ export function renderUpsell(scene) {
   root.setAttribute('aria-label', 'Weekend Premium');
   root.innerHTML = `<div class="upsell-wall" aria-hidden="true">${columns.map((games, i) => `<div class="upsell-column" style="--duration:${timing.duration[i]}s;--offset:${timing.offset[i]}px;--delay:${timing.delay[i]}s"><div class="upsell-belt">${[...games,...games].map(game => `<img src="assets/landing-wall/tv-${game}.webp" alt="">`).join('')}</div></div>`).join('')}</div>
     <div class="upsell-scrim"></div><img class="upsell-brand" src="assets/weekend-logo.png" alt="Weekend">
-    <div class="upsell-copy"><p class="upsell-eyebrow">WEEKEND PREMIUM</p><h1>Unlimited puzzles,<br>shout out your answer<br><em>on TV</em></h1><p class="upsell-subtitle">Start free for 7 days</p><p class="upsell-connected" ${scene.connected?'':'hidden'}>✓ Phone connected</p></div>
-    <div class="upsell-pairing"><img class="upsell-qr" alt="Scan to sign up on your phone"><div><h2>${scene.connected ? 'Finish signing up<br>on your phone' : 'Scan to start<br>your free trial'}</h2><p>${scene.connected ? 'Your next game night is a few taps away.' : 'One subscription. Every game night.'}</p></div></div>`;
+    <div class="upsell-copy"><h1>Unlimited puzzles,<br>shout out your answer<br><em>on TV</em></h1><p class="upsell-subtitle"></p></div>
+    <div class="upsell-pairing"><img class="upsell-qr" alt="Scan to sign up on your phone"><h2>Scan to start<br>your free trial</h2></div>`;
   let qrSource;
   const update=()=>{
     root.className=`tv-upsell ${scene.connected?'paired':'unpaired'}`;
-    root.querySelector('.upsell-connected').hidden=!scene.connected;
-    root.querySelector('.upsell-pairing h2').innerHTML=scene.connected?'Finish signing up<br>on your phone':'Scan to start<br>your free trial';
-    root.querySelector('.upsell-pairing p').textContent=scene.connected?'Your next game night is a few taps away.':'One subscription. Every game night.';
+    // Once a phone is connected the copy folds into one line and the QR stands alone.
+    root.querySelector('.upsell-subtitle').textContent=scene.connected?'Finish signing up on your phone to start free for 7 days':'Start free for 7 days';
+    root.querySelector('.upsell-pairing h2').hidden=scene.connected;
     const nextSource=scene.qrSource||'assets/pairing-session.png';
     if(nextSource!==qrSource){root.querySelector('.upsell-qr').src=nextSource;qrSource=nextSource;}
   };

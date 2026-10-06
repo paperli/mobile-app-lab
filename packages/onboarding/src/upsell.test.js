@@ -91,3 +91,17 @@ test('the two Jeopardy! tiles never sit side by side in the middle of the screen
   }
 });
 
+
+test('once a phone is connected the copy folds into one line and the QR stands alone', async () => {
+  const { renderUpsell } = await import('./upsell.js');
+  const root = renderWall();
+  const scene = { connected: false, reduced: false };
+  const close = renderUpsell(scene);
+  assert.doesNotMatch(root.innerHTML, /WEEKEND PREMIUM|Phone connected|One subscription/);
+  assert.equal(root.querySelector('.upsell-subtitle').textContent, 'Start free for 7 days');
+  assert.equal(root.querySelector('.upsell-pairing h2').hidden, false);
+  scene.connected = true;
+  close.update();
+  assert.equal(root.querySelector('.upsell-subtitle').textContent, 'Finish signing up on your phone to start free for 7 days');
+  assert.equal(root.querySelector('.upsell-pairing h2').hidden, true);
+});
