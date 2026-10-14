@@ -828,10 +828,11 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // is in-memory only, so a hard refresh always returns to this logged-out state.
   const [signedIn, setSignedIn] = useState(initialSignedIn);
 
-  // Free-trial promo as the first hero slide. Phase 0 and the curated hub always
-  // show it; phase-1 variations show it only while signed out (signed-in users
-  // have already claimed the trial).
-  const showPromoSlide = isPhase0 || customHub ? true : !signedIn;
+  // Free-trial promo as the first hero slide. Phase 0 always shows it; the
+  // curated hub shows it unless it was opened as a subscriber (the Fire TV
+  // pre-roll lands here after checkout); phase-1 variations show it only while
+  // signed out (signed-in users have already claimed the trial).
+  const showPromoSlide = isPhase0 ? true : customHub ? !initialSignedIn : !signedIn;
   const promoOffset = showPromoSlide ? 1 : 0;
   // Curated merch slides (hub9) replace the plain game slides as the carousel.
   const merchSlides = content?.heroMerch ?? null;

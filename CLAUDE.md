@@ -31,14 +31,18 @@ This document provides comprehensive context for Claude Code (or any AI assistan
 
 ## Prototype Topology
 
-Two TV prototypes ship together but stay independent — different rendering
+Three TV prototypes ship together but stay independent — different rendering
 stacks, different bundles, neither importing the other:
 
 ```
 packages/tv          React + Vite        the game hub (?view=hub9)
 packages/onboarding  Lightning 3 + Blits the first-run flow
-        └── linked both ways by navigation, never bundled together
+packages/preroll     plain DOM + Vite    Fire TV ad → pre-roll upsell → paywall
+        └── linked by navigation, never bundled together
 ```
+
+The pre-roll lands on hub9 with `?subscribed=true`, which hides the free-trial
+hero (see `packages/preroll/README.md`).
 
 The onboarding is treated as a "game": hub9 carries a **Welcome to Weekend**
 tile that launches it, so it stays replayable after setup. The phone simulator
@@ -245,6 +249,7 @@ npm run dev:server       # Server only
 npm run dev:tv           # TV only
 npm run dev:mobile       # Mobile only
 npm run dev:onboarding   # Onboarding prototype only (port 5175)
+npm run dev:preroll      # Fire TV pre-roll prototype only (port 5176)
 ```
 
 ### Building for Production
@@ -255,10 +260,11 @@ npm run typecheck        # Type check all packages
 
 ### Building the GitHub Pages bundle
 ```bash
-npm run build:pages      # shared → tv demo → onboarding, into packages/tv/dist-demo
+npm run build:pages      # shared → tv demo → onboarding → preroll, into packages/tv/dist-demo
 ```
-The hub lands at `/<base>/` and the onboarding at `/<base>/onboarding/`, in one
-artifact. Order matters: the TV demo build empties `dist-demo`, and the
+The hub lands at `/<base>/`, the onboarding at `/<base>/onboarding/` and the
+pre-roll at `/<base>/preroll/` (landing page; the prototype is
+`play.html`), in one artifact. Order matters: the TV demo build empties `dist-demo`, and the
 onboarding build writes into it. `.github/workflows/deploy-hub-demo.yml` runs
 this on push.
 
@@ -438,6 +444,7 @@ scanner.start()
 | TV      | 5173 | https://localhost:5173 | https://YOUR_IP:5173 |
 | Mobile  | 5174 | https://localhost:5174 | https://YOUR_IP:5174 |
 | Onboarding | 5175 | https://localhost:5175 | https://YOUR_IP:5175 |
+| Pre-roll | 5176 | https://localhost:5176/preroll/ | https://YOUR_IP:5176/preroll/ |
 
 ## Files to Know
 

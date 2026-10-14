@@ -1,0 +1,626 @@
+/* Fire TV pre-roll prototype. Every measurement below is in the 1920×1080
+   design space; #stage is scaled to the viewport as a whole by main.js. */
+
+@font-face {
+  font-family: 'Weekend Repro';
+  src: url(/assets/fonts/WeekendRepro-Regular.woff2) format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Weekend Repro';
+  src: url(/assets/fonts/WeekendRepro-Medium.woff2) format('woff2');
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Weekend Repro';
+  src: url(/assets/fonts/WeekendRepro-Bold.woff2) format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+  --canary: #ffda0a;
+  --base-950: #0a0322;
+  --primary-text: #f3f4f1;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  /* Figma specs Gilroy for body copy; it isn't licensed into the repo, so
+     Weekend Repro Regular stands in. */
+  --font-body: 'Gilroy', 'Weekend Repro', system-ui, sans-serif;
+  --font-display: 'Weekend Repro', system-ui, sans-serif;
+  /* Amazon's system UI face; falls back to a neutral grotesk. */
+  --font-system: 'Amazon Ember', 'Helvetica Neue', Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; }
+button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; }
+
+/* ── TV frame (geometry from @weekend/ui/device, applied in main.js) ───── */
+#tvStage {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+#tvFrame { position: relative; }
+#tv { position: relative; overflow: hidden; background: #000; }
+#stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1920px;
+  height: 1080px;
+  transform-origin: 0 0;
+  overflow: hidden;
+  background: #000;
+}
+#tvLed { display: none; }
+body.framed #tvLed { display: block; position: absolute; left: 50%; transform: translateX(-50%); border-radius: 50%; }
+
+/* ── Review toolbar + controls panel (mirrors the onboarding's) ───────── */
+#tools {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 12px system-ui, sans-serif;
+  opacity: 0.75;
+}
+#tools:hover, #tools:focus-within { opacity: 1; }
+#tools > span { margin-right: auto; color: var(--canary); background: rgba(17, 17, 17, 0.867); padding: 8px; border-radius: 6px; font-size: 10px; letter-spacing: 0.06em; }
+#tools button, #tools a {
+  background: rgba(23, 23, 19, 0.937);
+  border: 1px solid #ffffff25;
+  color: #d7d0bd;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  text-decoration: none;
+}
+/* Framed: the bar sits under the TV rather than over the picture. */
+body.framed #tools { position: static; width: auto; margin-top: 14px; justify-content: center; opacity: 1; }
+body.framed #tools > span { margin-right: 0; }
+body.clean #tools { display: none; }
+
+#controls {
+  position: fixed;
+  bottom: 70px;
+  right: 20px;
+  z-index: 30;
+  width: 380px;
+  max-height: 85vh;
+  overflow: auto;
+  padding: 24px;
+  border-radius: 18px;
+  background: rgba(24, 14, 56, 0.96);
+  border: 1px solid #ffffff25;
+  font: 14px/1.5 system-ui, sans-serif;
+  color: #f7f4ec;
+}
+#controls h2 { font-size: 20px; margin: 0 0 12px; }
+#controls h3 { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #a79fc0; margin: 16px 0 8px; }
+#controls .row { display: flex; flex-wrap: wrap; gap: 6px; }
+#controls button {
+  background: #282135;
+  color: #e3d9bf;
+  border: 1px solid #ffffff25;
+  border-radius: 7px;
+  padding: 9px;
+  font-size: 13px;
+}
+#controls button.is-on { background: var(--canary); color: var(--base-950); border-color: var(--canary); }
+#controls button:focus-visible, #controls a:focus-visible { outline: 2px solid var(--canary); outline-offset: 2px; }
+#controls .row + .row { margin-top: 6px; }
+#controls label.num { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #cbc7d9; }
+#controls input[type='number'] {
+  width: 58px;
+  padding: 7px 8px;
+  border-radius: 7px;
+  border: 1px solid #ffffff25;
+  background: #282135;
+  color: #e3d9bf;
+  font: inherit;
+}
+#controls ul { margin: 0; padding-left: 18px; }
+#controls li { margin: 3px 0; }
+#controls a { color: #ffe84a; }
+#controls p { font-size: 12px; color: #cbc7d9; margin: 16px 0 0; }
+
+@media (max-width: 700px) {
+  #tools > span { display: none; }
+  #tools { flex-wrap: wrap; justify-content: center; gap: 5px; }
+  #tools button, #tools a { font-size: 12px; padding: 8px; }
+  #controls { right: 10px; max-width: calc(100vw - 20px); }
+}
+
+/* ── Screens ──────────────────────────────────────────────────────────── */
+.screen {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.45s var(--ease), visibility 0s linear 0.45s;
+}
+.screen.is-active { opacity: 1; visibility: visible; transition: opacity 0.45s var(--ease); }
+
+/* ── 1 · Fire TV home ─────────────────────────────────────────────────── */
+#screen-home { background: #000; font-family: var(--font-system); }
+.ft-hero {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 640px;
+  overflow: hidden;
+  background: radial-gradient(120% 140% at 0% 50%, #2b0b52 0%, #1a0636 55%, #0d0320 100%);
+}
+.ft-hero__art {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 1140px;
+  height: 640px;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 30%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 30%);
+}
+.ft-hero__art img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 45%; }
+/* The ad's diagonal brand stripe, as on the reference creative. */
+.ft-hero__stripe {
+  position: absolute;
+  left: 860px;
+  top: -40px;
+  width: 22px;
+  height: 760px;
+  background: linear-gradient(#ffe84a, #fb7928);
+  transform: rotate(-24deg);
+  transform-origin: 50% 0;
+  box-shadow: 0 0 40px rgba(251, 121, 40, 0.5);
+}
+.ft-hero::after {
+  /* Fade the hero into the rows, like the home's own scrim. */
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 120px;
+  background: linear-gradient(rgba(0, 0, 0, 0), #000);
+}
+.ft-hero__copy { position: absolute; left: 104px; top: 196px; width: 720px; }
+.ft-hero__brand { display: block; width: 214px; height: 52px; }
+.ft-hero__copy h1 {
+  margin: 34px 0 0;
+  font: 700 58px/1.1 var(--font-display);
+  letter-spacing: 0.01em;
+  color: #fff;
+}
+.ft-hero__copy p {
+  margin: 22px 0 0;
+  font: 500 24px/1.3 var(--font-system);
+  letter-spacing: 0.06em;
+  color: #d9c9ff;
+}
+.ft-pill {
+  margin-top: 40px;
+  height: 64px;
+  padding: 0 36px;
+  border-radius: 32px;
+  font: 500 30px/64px var(--font-system);
+  color: #e6e6e6;
+  background: rgba(70, 70, 70, 0.92);
+  transition: transform 0.2s var(--ease), background 0.2s, color 0.2s;
+}
+.ft-pill.is-focused { background: #fff; color: #111; transform: scale(1.06); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); }
+.ft-hero__sponsored {
+  position: absolute;
+  right: 104px;
+  bottom: 70px;
+  z-index: 2;
+  font: 500 20px/1 var(--font-system);
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+.ft-nav {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 170px;
+  padding: 35px 0 0 104px;
+  display: flex;
+  gap: 24px;
+  background: linear-gradient(#000 0%, rgba(0, 0, 0, 0.85) 45%, rgba(0, 0, 0, 0));
+}
+.ft-nav__icon {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: center / 34px no-repeat;
+}
+.ft-nav__icon.is-home { background-color: #e8e8e8; }
+.ft-nav__icon em {
+  position: absolute;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  font: 500 22px/1.2 var(--font-system);
+  font-style: normal;
+  color: #fff;
+}
+/* Line icons, drawn rather than shipped as files so the nav stays crisp. */
+.ft-nav__icon[data-icon='menu'] { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e6e6e6' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M3 6h18M3 12h18M3 18h18'/%3E%3C/svg%3E"); }
+.ft-nav__icon[data-icon='search'] { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e6e6e6' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='10.5' cy='10.5' r='6.5'/%3E%3Cpath d='m15.5 15.5 5 5'/%3E%3C/svg%3E"); }
+.ft-nav__icon[data-icon='home'] { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23222' stroke-width='1.8' stroke-linejoin='round'%3E%3Cpath d='M3 11 12 3l9 8M5.5 9v11.5h13V9'/%3E%3C/svg%3E"); }
+.ft-nav__icon[data-icon='film'] { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e6e6e6' stroke-width='1.8' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='16' rx='2'/%3E%3Cpath d='M3 9h18M7 4l2 5M12 4l2 5M17 4l2 5M10 12.5v5l4.5-2.5z'/%3E%3C/svg%3E"); }
+.ft-nav__icon[data-icon='monitor'] { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e6e6e6' stroke-width='1.8' stroke-linejoin='round'%3E%3Crect x='2.5' y='4' width='19' height='13' rx='1.5'/%3E%3Cpath d='M8 21h8M12 17v4'/%3E%3C/svg%3E"); }
+.ft-nav__icon[data-icon='live'] { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e6e6e6' stroke-width='1.8' stroke-linejoin='round'%3E%3Crect x='3' y='8' width='18' height='13' rx='1.5'/%3E%3Cpath d='m8 3 4 5 4-5'/%3E%3C/svg%3E"); }
+.ft-nav__icon[data-icon='sports'] { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e6e6e6' stroke-width='1.8'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M5 6c4 2 6 6 6 15M19 6c-4 2-6 6-6 15M3.5 10h17'/%3E%3C/svg%3E"); }
+.ft-nav__icon[data-icon='news'] { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e6e6e6' stroke-width='1.8' stroke-linejoin='round'%3E%3Crect x='4' y='3' width='16' height='18' rx='1.5'/%3E%3Cpath d='M7.5 7h9M7.5 11h4M7.5 15h4M13.5 11h3v4h-3z'/%3E%3C/svg%3E"); }
+.ft-nav__icon[data-icon='kids'] { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e6e6e6' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='13' r='8'/%3E%3Cpath d='M9 2.5 10.5 5M15 2.5 13.5 5M9 12h.01M15 12h.01M9 16c1.6 1.4 4.4 1.4 6 0'/%3E%3C/svg%3E"); }
+.ft-nav__logo {
+  position: absolute;
+  right: 104px;
+  top: 38px;
+  font: 700 40px/1 var(--font-system);
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.ft-rows { position: absolute; left: 0; top: 606px; width: 1920px; height: 474px; display: block; }
+
+/* ── 2 · Ident ────────────────────────────────────────────────────────── */
+#screen-ident { background: #000; }
+#identVideo { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ── 3 · Pre-roll upsell ──────────────────────────────────────────────── */
+#screen-preroll { background: #3c115e; font-family: var(--font-display); --pop: cubic-bezier(0.34, 1.56, 0.64, 1); }
+.pr-video, .pr-overlay { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }
+.pr-video { object-fit: cover; }
+.pr-overlay { display: none; pointer-events: none; }
+[data-version='1'] .pr-overlay--v1,
+[data-version='2'] .pr-overlay--v2,
+[data-version='2'] .pr-vignette--v2 { display: block; }
+
+/* Shadows under the content. Same shapes as Figma's layers (v1: "Upsell Asset
+   Overlay" left + bottom fades; v2: 72% dim + blurred ellipse), but denser:
+   in Figma they only sit over the empty purple placeholder, and at Figma's
+   values the moving game wall shows through far more than the frames suggest. */
+.pr-overlay--v1 {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 31, 0) 48%, rgba(0, 0, 31, 0.75) 78%, #00001f 100%),
+    linear-gradient(90deg, #0e0319 0%, #0e0319 38%, rgba(14, 3, 25, 0.82) 52%, rgba(14, 3, 25, 0) 80%);
+}
+.pr-overlay--v2 { background: rgba(0, 0, 0, 0.72); }
+.pr-vignette--v2 {
+  /* Ellipse 1: 1130×936 centred on the frame, blurred out to nothing. */
+  background: radial-gradient(ellipse 680px 560px at 50% 50%, rgba(0, 0, 0, 0.88) 0%, rgba(0, 0, 0, 0.8) 55%, rgba(0, 0, 0, 0) 100%);
+}
+
+.pr-wordmark { position: absolute; left: 138px; top: 53px; width: 261px; height: 64px; }
+
+/* Ad-game tile, measured from the Figma render: the 480×270 art, a 6px
+   base-950 keyline, then a 6px canary → clementine rim, 12px in all. The rim
+   is the "rimming" pen: a radial highlight whose position orbits the tile. */
+.pr-tile {
+  position: absolute;
+  width: 480px;
+  height: 270px;
+  --r: 12px;
+  opacity: 0;
+  scale: 0.6;
+  transition: opacity 0.35s ease, scale 0.75s var(--pop), translate 0.8s var(--ease);
+}
+.pr-tile::before,
+.pr-tile::after { content: ''; position: absolute; }
+.pr-tile::before {
+  inset: -12px;
+  border-radius: calc(var(--r) + 6px);
+  background: radial-gradient(circle, #fff3a1 0%, var(--canary) 14%, #fb7928 33%);
+  background-size: 200% 200%;
+  animation: pr-rim 4.8s linear infinite;
+  box-shadow: 0 0 36px #000;
+}
+.pr-tile::after { inset: -6px; border-radius: calc(var(--r) + 3px); background: var(--base-950); }
+.pr-tile img {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--r);
+}
+[data-version='3'] .pr-tile { --r: 24px; }
+[data-version='3'] .pr-tile::before { box-shadow: 0 0 36px rgba(0, 0, 0, 0.25); }
+@keyframes pr-rim {
+  0% { background-position: 0% 0%; }
+  25% { background-position: 100% 0%; }
+  50% { background-position: 100% 100%; }
+  75% { background-position: 0% 100%; }
+  100% { background-position: 0% 0%; }
+}
+
+.pr-title { margin: 0; font-weight: 700; color: var(--primary-text); }
+.pr-title span { display: block; white-space: nowrap; }
+.pr-body { margin: 0; font: 400 32px/1.2 var(--font-body); }
+
+/* Reveal: copy fades in while rising (staggered). */
+.pr-title span, .pr-body {
+  opacity: 0;
+  translate: 0 36px;
+  transition: opacity 0.6s ease, translate 0.75s var(--ease);
+}
+.pr-title__game { transition-delay: 0.1s; }
+.pr-body { transition-delay: 0.2s; }
+
+/* CTA: arrives unfocused (a quiet glass pill, so it reads as a button), then
+   takes focus — the canary fill and glow come up on a separate layer. */
+.pr-cta {
+  position: absolute;
+  height: 56px;
+  padding: 0 24px;
+  border-radius: 9999px;
+  font: 500 24px/1.2 var(--font-display);
+  color: var(--primary-text);
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.24), 0 12px 30px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+  opacity: 0;
+  translate: 0 24px;
+  transition: opacity 0.45s ease, translate 0.6s var(--ease), scale 0.45s var(--pop), color 0.3s ease, box-shadow 0.4s ease;
+}
+.pr-cta::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(#fff09e, var(--canary));
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.pr-cta span { position: relative; }
+/* Tabular figures on the digit only, so the countdown doesn't jitter.
+   On the whole label they'd also widen Repro's space to ~2.5×. */
+.pr-cta .pr-cta__num { font-variant-numeric: tabular-nums; }
+.pr-cta.is-focused {
+  color: var(--base-950);
+  scale: 1.06;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 5.533px 22.133px rgba(255, 228, 1, 0.35);
+}
+.pr-cta.is-focused::before { opacity: 1; }
+
+/* Stage classes, added in order by main.js. */
+.s-text .pr-title span, .s-text .pr-body { opacity: 1; translate: 0 0; }
+.s-tile .pr-tile { opacity: 1; scale: 1; }
+.s-cta .pr-cta { opacity: 1; translate: 0 0; }
+
+/* v1 — left-aligned stack over the left fade. */
+[data-version='1'] .pr-tile { left: 138px; top: 241px; }
+[data-version='1'] .pr-copy {
+  position: absolute;
+  left: 138px;
+  top: 543px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+[data-version='1'] .pr-title { font-size: 64px; line-height: 80px; letter-spacing: -0.96px; }
+[data-version='1'] .pr-body { width: 504px; color: #b3b1b5; }
+[data-version='1'] .pr-cta { left: 138px; top: 851px; transform-origin: 0 50%; }
+
+/* v2 / v3 — centred: headline, game name, subline, tile, CTA. */
+[data-version='2'] .pr-copy,
+[data-version='3'] .pr-copy { position: absolute; inset: 0; pointer-events: none; }
+[data-version='2'] .pr-title__lead,
+[data-version='3'] .pr-title__lead {
+  position: absolute;
+  left: 50%;
+  top: 185px;
+  transform: translateX(-50%);
+  font-size: 56px;
+  line-height: 72px;
+  letter-spacing: -0.84px;
+}
+[data-version='2'] .pr-title__game,
+[data-version='3'] .pr-title__game {
+  position: absolute;
+  left: 50%;
+  top: 257px;
+  transform: translateX(-50%);
+  font-size: 80px;
+  line-height: 1.2;
+  letter-spacing: -1.6px;
+  background: linear-gradient(90deg, #ffe84a, #fb7928);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+[data-version='2'] .pr-body,
+[data-version='3'] .pr-body {
+  position: absolute;
+  left: 966px;
+  top: 374px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  color: #e2e2dd;
+}
+/* The tile lands alone in the middle of the screen (its slot sits 62px below
+   centre), then settles into the slot as the copy comes in. */
+[data-version='2'] .pr-tile,
+[data-version='3'] .pr-tile { left: 720px; top: 467px; translate: 0 -62px; }
+/* It reveals big (1.3×) as the hero of the screen, then shrinks to its slot
+   as the copy pushes in — on a smooth ease, so the shrink doesn't bounce. */
+[data-version='2'].s-tile .pr-tile,
+[data-version='3'].s-tile .pr-tile { scale: 1.3; }
+[data-version='2'].s-text .pr-tile,
+[data-version='3'].s-text .pr-tile {
+  translate: 0 0;
+  scale: 1;
+  transition: opacity 0.35s ease, scale 0.85s var(--ease), translate 0.85s var(--ease);
+}
+/* Centred with `translate`, not `transform`: the individual `scale` (focus
+   grow) applies before `transform`, so a transform-based centring would make
+   it grow from the button's right edge. */
+[data-version='2'] .pr-cta,
+[data-version='3'] .pr-cta { left: calc(50% + 0.5px); top: 792px; translate: -50% 24px; }
+[data-version='2'].s-cta .pr-cta,
+[data-version='3'].s-cta .pr-cta { translate: -50% 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pr-tile, .pr-title span, .pr-body, .pr-cta { transition-duration: 0.01s; transition-delay: 0s; }
+  .pr-tile::before { animation: none; }
+}
+
+/* ── 4 · Fire TV paywall ──────────────────────────────────────────────── */
+#screen-paywall { background: #1b1b1c; font-family: var(--font-system); color: #fff; }
+.pw-bg { position: absolute; inset: 0; overflow: hidden; opacity: 0; transition: opacity 0.6s var(--ease); }
+.pw-wall {
+  position: absolute;
+  left: 380px;
+  top: -560px;
+  width: 2400px;
+  display: grid;
+  grid-template-columns: repeat(6, 380px);
+  gap: 34px;
+  transform: rotate(-24deg) skewX(8deg);
+  transform-origin: 0 0;
+}
+.pw-wall img { width: 380px; height: 214px; object-fit: cover; border-radius: 10px; display: block; }
+.pw-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(27, 27, 28, 0.88) 0%, rgba(27, 27, 28, 0.6) 55%, rgba(27, 27, 28, 0.35) 100%),
+    rgba(0, 0, 0, 0.35);
+}
+.pw-loading, .pw-processing {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(60% 60% at 50% 30%, #3a3a3b 0%, #1b1b1c 70%);
+  transition: opacity 0.4s;
+}
+.pw-processing { opacity: 0; pointer-events: none; background: rgba(15, 15, 16, 0.78); }
+.pw-spinner {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 5px solid rgba(255, 255, 255, 0.15);
+  border-top-color: #fff;
+  animation: pw-spin 0.9s linear infinite;
+}
+@keyframes pw-spin { to { transform: rotate(360deg); } }
+.pw-content { position: absolute; inset: 0; opacity: 0; transition: opacity 0.5s var(--ease); }
+#screen-paywall.is-ready .pw-bg,
+#screen-paywall.is-ready .pw-content { opacity: 1; }
+#screen-paywall.is-ready .pw-loading { opacity: 0; pointer-events: none; }
+#screen-paywall.is-processing .pw-processing { opacity: 1; pointer-events: auto; }
+
+.pw-icon { position: absolute; left: 104px; top: 78px; width: 252px; height: 142px; }
+.pw-icon img { width: 100%; height: 100%; display: block; }
+.pw-title {
+  position: absolute;
+  left: 104px;
+  top: 300px;
+  width: 1712px;
+  margin: 0;
+  font: 300 56px/1.3 var(--font-system);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pw-plan, .pw-price { position: absolute; left: 104px; margin: 0; font: 400 32px/1.3 var(--font-system); }
+.pw-plan { top: 428px; color: #e8e8e8; }
+.pw-price { top: 480px; color: #cfcfcf; }
+.pw-legal {
+  position: absolute;
+  left: 104px;
+  top: 608px;
+  width: 1712px;
+  margin: 0;
+  font: 700 28px/39px var(--font-system);
+  color: #ececec;
+}
+.pw-check {
+  position: absolute;
+  left: 104px;
+  top: 851px;
+  width: 1020px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 0 36px;
+  border-radius: 4px;
+  font: 400 30px/1 var(--font-system);
+  color: #e6e6e6;
+  background: rgba(255, 255, 255, 0.08);
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+}
+.pw-check b { font-weight: 700; }
+.pw-check__box {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 4px;
+  border: 2.5px solid currentColor;
+  background: transparent;
+}
+.pw-check.is-checked .pw-check__box {
+  border-color: #e6e6e6;
+  background: #e6e6e6 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23222' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 24px no-repeat;
+}
+.pw-check.is-focused { background: #fff; color: #111; }
+.pw-check.is-focused.is-checked .pw-check__box { border-color: #111; background-color: #111; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
+
+.pw-actions { position: absolute; left: 104px; top: 955px; display: flex; gap: 18px; }
+.pw-btn {
+  height: 60px;
+  width: 520px;
+  border-radius: 4px;
+  font: 400 30px/60px var(--font-system);
+  color: #d0d0d0;
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  transition: background 0.15s, color 0.15s;
+}
+.pw-btn--primary { width: 480px; }
+.pw-btn:disabled { color: rgba(255, 255, 255, 0.28); cursor: default; }
+.pw-btn.is-focused { background: linear-gradient(#fff, #e9e9e9); color: #111; }
+.pw-caret {
+  width: 14px;
+  height: 14px;
+  border-right: 2.5px solid currentColor;
+  border-bottom: 2.5px solid currentColor;
+  transform: translateY(-4px) rotate(45deg);
+}
+.pw-toast {
+  position: absolute;
+  right: 48px;
+  top: 967px;
+  height: 65px;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  border-radius: 12px;
+  background: #fff;
+  color: #222;
+  font: 400 26px/1 var(--font-system);
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.35s var(--ease), transform 0.35s var(--ease);
+}
+#screen-paywall.show-toast .pw-toast { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .screen, .screen.is-active, .pw-toast, .pw-bg, .pw-content { transition: none; }
+}

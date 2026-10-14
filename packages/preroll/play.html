@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <title>Weekend · Fire TV Pre-roll</title>
+    <meta
+      name="description"
+      content="Fire TV pre-roll upsell prototype: Meme Supreme ad, Weekend ident, pre-roll upsell, Fire TV paywall, then the subscribed hub."
+    />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230a0322'/%3E%3Cpath d='m10 18 10 29 12-23 12 23 10-29' fill='none' stroke='%23ffda0a' stroke-width='6'/%3E%3C/svg%3E"
+    />
+    <!-- Inline, so it applies before the module script (and the stylesheet it
+         imports) arrives: keep the TV hidden until main.js has styled, fitted
+         and font-loaded it, so the first paint isn't the raw markup. -->
+    <style>
+      html, body { margin: 0; background: #000; }
+      body:not(.ready) #tvStage { visibility: hidden; }
+    </style>
+  </head>
+  <body>
+    <div id="tvStage">
+      <div id="tvFrame">
+        <div id="tv">
+          <div id="stage">
+            <!-- 1 · Fire TV home with the Meme Supreme sponsored hero -->
+            <section class="screen" id="screen-home" data-screen="home">
+              <div class="ft-hero">
+                <div class="ft-hero__art">
+                  <img src="assets/img/meme-supreme-tile.jpg" alt="" />
+                </div>
+                <div class="ft-hero__stripe"></div>
+                <div class="ft-hero__copy">
+                  <img class="ft-hero__brand" src="assets/img/weekend-wordmark.svg" alt="Weekend" />
+                  <h1>THE PARTY GAME<br />FOR MEME LORDS</h1>
+                  <p>NEW ON WEEKEND · YOUR PHONE IS THE CONTROLLER</p>
+                  <button class="ft-pill" data-focus="home-cta">Play Now</button>
+                </div>
+                <span class="ft-hero__sponsored">Sponsored</span>
+              </div>
+              <div class="ft-nav">
+                <span class="ft-nav__icon" data-icon="menu"></span>
+                <span class="ft-nav__icon" data-icon="search"></span>
+                <span class="ft-nav__icon is-home" data-icon="home"><em>Home</em></span>
+                <span class="ft-nav__icon" data-icon="film"></span>
+                <span class="ft-nav__icon" data-icon="monitor"></span>
+                <span class="ft-nav__icon" data-icon="live"></span>
+                <span class="ft-nav__icon" data-icon="sports"></span>
+                <span class="ft-nav__icon" data-icon="news"></span>
+                <span class="ft-nav__icon" data-icon="kids"></span>
+                <span class="ft-nav__logo">fire tv</span>
+              </div>
+              <img class="ft-rows" src="assets/img/firetv-home-rows.jpg" alt="" />
+            </section>
+
+            <!-- 2 · Weekend ident (same file as the onboarding) -->
+            <section class="screen" id="screen-ident" data-screen="ident">
+              <video id="identVideo" playsinline preload="auto" poster="assets/img/ident-final.jpg">
+                <source src="assets/video/weekend-ident.mp4" type="video/mp4" />
+              </video>
+            </section>
+
+            <!-- 3 · Pre-roll upsell (v1 / v2 / v3 from Figma, set via data-version) -->
+            <section class="screen" id="screen-preroll" data-screen="preroll" data-version="1">
+              <video id="prerollVideo" class="pr-video" playsinline loop preload="auto"></video>
+              <div class="pr-overlay pr-overlay--v1"></div>
+              <div class="pr-overlay pr-overlay--v2"></div>
+              <div class="pr-overlay pr-vignette--v2"></div>
+
+              <img class="pr-wordmark" src="assets/img/weekend-wordmark.svg" alt="Weekend" />
+              <div class="pr-tile">
+                <img src="assets/img/meme-supreme-tile.jpg" alt="Meme Supreme" />
+              </div>
+              <div class="pr-copy">
+                <h1 class="pr-title">
+                  <span class="pr-title__lead">One step away to play</span>
+                  <span class="pr-title__game">Meme Supreme</span>
+                </h1>
+                <p class="pr-body">And all Weekend games for your game nights</p>
+              </div>
+              <button class="pr-cta" data-focus="preroll-cta"><span id="prerollCtaLabel">Get Started</span></button>
+            </section>
+
+            <!-- 4 · Fire TV system paywall (mocked from firetv_paywall.mp4) -->
+            <section class="screen" id="screen-paywall" data-screen="paywall">
+              <div class="pw-bg">
+                <div class="pw-wall" id="paywallWall"></div>
+              </div>
+              <div class="pw-shade"></div>
+              <div class="pw-loading" id="paywallLoading"><span class="pw-spinner"></span></div>
+              <div class="pw-content" id="paywallContent">
+                <div class="pw-icon">
+                  <img src="assets/img/firetv-weekend-appicon.png" alt="Weekend Games" />
+                </div>
+                <h1 class="pw-title">Subscription Terms for Weekend Games - Jeopardy!, Song Quiz, CoComelon Sing &amp; Play with JJ &amp; More</h1>
+                <p class="pw-plan">Selected Plan: Weekend Games - Jeopardy, Wheel of Fortune, Song Quiz &amp; More</p>
+                <p class="pw-price">$18.99 monthly</p>
+                <p class="pw-legal">
+                  By selecting "Continue with Subscription", you agree to the Amazon Appstore Terms of Use
+                  www.amazon.com/appstoretou. You authorize us to charge your selected payment method or another
+                  payment method you have on file $18.99 monthly plus any applicable taxes until you cancel. You may
+                  cancel at any time by going to www.amazon.com/appstoresubscriptions and following the instructions
+                  on screen. To avoid the next charge, you must cancel before the next renewal date. You will be
+                  notified if the price changes.
+                </p>
+                <button class="pw-check" data-focus="pw-check" role="checkbox" aria-checked="false">
+                  <span class="pw-check__box"></span>
+                  <span>Authorize recurring monthly charges to <b>Visa ending in 8060</b></span>
+                </button>
+                <div class="pw-actions">
+                  <button class="pw-btn pw-btn--primary" data-focus="pw-continue" disabled>Continue with Subscription</button>
+                  <button class="pw-btn" data-focus="pw-change">Change Payment Preference <span class="pw-caret"></span></button>
+                </div>
+              </div>
+              <div class="pw-toast" id="paywallToast">You're almost there. Just a few steps left.</div>
+              <div class="pw-processing" id="paywallProcessing"><span class="pw-spinner"></span></div>
+            </section>
+          </div>
+        </div>
+        <span id="tvLed" aria-hidden="true"></span>
+      </div>
+      <nav id="tools">
+        <span>FIRE TV · PRE-ROLL</span>
+        <button id="controlsToggle">Prototype Controls</button>
+        <button id="resetTop">↻ Restart</button>
+        <button id="soundTop">Sound On</button>
+        <button id="fullTop">Full Screen</button>
+        <!-- Href is set from hub-link.js so dev and Pages both resolve. -->
+        <a id="hubLink" href="../">Game Hub →</a>
+      </nav>
+    </div>
+    <aside id="controls" hidden>
+      <h2>Pre-roll rehearsal</h2>
+      <h3>Pre-roll version</h3>
+      <div class="row" role="group" aria-label="Pre-roll version">
+        <button data-version="1">V1 · Left stack</button>
+        <button data-version="2">V2 · Centred, dimmed</button>
+        <button data-version="3">V3 · Centred, clear</button>
+      </div>
+      <h3>Background video</h3>
+      <div class="row" role="group" aria-label="Pre-roll background video">
+        <button data-bg="pan">Panning</button>
+        <button data-bg="crawl">Crawling</button>
+        <button data-bg="auto">Version default</button>
+      </div>
+      <h3>Get Started countdown</h3>
+      <div class="row" role="group" aria-label="Auto-advance countdown">
+        <button data-auto="on">Counts down</button>
+        <button data-auto="off">Waits for OK</button>
+        <button data-auto="default">Version default</button>
+      </div>
+      <div class="row" role="group" aria-label="Countdown length">
+        <button data-countdown="3">3s</button>
+        <button data-countdown="5">5s</button>
+        <button data-countdown="10">10s</button>
+        <button data-countdown="15">15s</button>
+        <label class="num">Custom <input id="countdownInput" type="number" min="1" max="60" step="1" /> s</label>
+      </div>
+      <h3>Jump to step</h3>
+      <div class="row" role="group" aria-label="Jump to step">
+        <button data-jump="home">1 · Fire TV ad</button>
+        <button data-jump="ident">2 · Ident</button>
+        <button data-jump="preroll">3 · Pre-roll</button>
+        <button data-jump="paywall">4 · Paywall</button>
+      </div>
+      <h3>Variation links</h3>
+      <ul id="variationLinks"></ul>
+      <p>Arrow keys / D-pad · Enter / OK · Esc / Back<br />P / Menu / red: controls<br />Add ?clean=1 to hide the review toolbar.</p>
+    </aside>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

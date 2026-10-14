@@ -2,7 +2,8 @@ name: Deploy Hub Demo to Pages
 
 # Builds the static prototypes and publishes them to GitHub Pages as one
 # artifact: the hub-layout demo (packages/tv) at the site root, and the
-# Lightning/Blits onboarding (packages/onboarding) at /onboarding/.
+# Lightning/Blits onboarding (packages/onboarding) at /onboarding/, and the
+# Fire TV pre-roll upsell (packages/preroll) at /preroll/.
 # Requires Settings → Pages → Source = "GitHub Actions".
 
 on:
@@ -11,6 +12,7 @@ on:
     paths:
       - 'packages/tv/**'
       - 'packages/onboarding/**'
+      - 'packages/preroll/**'
       - 'packages/ui-weekend/**'
       - 'packages/shared/**'
       - '.github/workflows/deploy-hub-demo.yml'

@@ -1,0 +1,19 @@
+{
+  "name": "@mobile-app-lab/preroll",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Fire TV pre-roll upsell — ad → Weekend ident → pre-roll → Fire TV paywall → hub, as a standalone prototype",
+  "scripts": {
+    "dev": "vite --port 5176",
+    "build": "vite build",
+    "build:pages": "PAGES_OUT_DIR=../tv/dist-demo/preroll vite build",
+    "preview": "vite preview --port 4176"
+  },
+  "dependencies": {
+    "@weekend/ui": "*"
+  },
+  "devDependencies": {
+    "vite": "^5.0.8"
+  }
+}
