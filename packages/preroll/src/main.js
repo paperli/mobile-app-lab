@@ -67,7 +67,7 @@ const DEFAULT_AUTO = { 1: false, 2: true, 3: true };
 const DEFAULT_COUNTDOWN = 10;
 const parseCountdown = (v) => Math.min(60, Math.max(1, Math.round(Number(v)) || DEFAULT_COUNTDOWN));
 // The hub's dwell time is independent of the upsell CTA countdown.
-const DEFAULT_HUB_DELAY = 4;
+const DEFAULT_HUB_DELAY = 3;
 const DEFAULT_LOADING_DELAY = 2; // matches the onboarding ident's loading pause
 const parseDelay = (v, fallback) => Number.isFinite(Number(v)) && Number(v) > 0
   ? Math.min(60, Math.max(1, Math.round(Number(v)))) : fallback;

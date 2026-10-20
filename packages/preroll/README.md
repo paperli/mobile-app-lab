@@ -32,7 +32,7 @@ seconds**, matching onboarding. Set `loadingDelay=N` or use **Prototype Controls
 to load, the ident and spinner remain until it is ready; a failed load offers a
 retry on this same screen.
 
-The hub preview defaults to **4 seconds**. Set `hubDelay=3` / `4` / `5` in the
+The hub preview defaults to **3 seconds**. Set `hubDelay=3` / `4` / `5` in the
 URL, or use **Prototype Controls → Hub preview before paywall**, including a
 custom duration from 1–60 seconds. The timer starts after the hub's fonts and
 artwork load; opening the controls or hiding the tab pauses it, and closing the
@@ -52,12 +52,12 @@ onboarding (`/onboarding/`) — in dev as well as on Pages.
 | Prototype | https://localhost:5176/preroll/play.html | `/<base>/preroll/play.html` |
 
 The landing page links V1–V3 with the countdown on (`auto=1`) and V4–V5 with a
-2-second loading pause followed by a 4-second hub preview. Each card starts the
+2-second loading pause followed by a 3-second hub preview. Each card starts the
 full flow from the Fire TV ad, with a second link straight to the pre-roll or hub
 preview. The params below go on `play.html`.
 
-- With trial hero: `play.html?v=4&hubDelay=4`
-- Without trial hero: `play.html?v=5&hubDelay=4`
+- With trial hero: `play.html?v=4&hubDelay=3`
+- Without trial hero: `play.html?v=5&hubDelay=3`
 
 ## Running it
 
@@ -73,7 +73,7 @@ npm run dev:tv        # required for V4/V5 previews and the hub after checkout
 | `?screen=home\|ident\|preroll\|loading\|hub\|paywall` | Start on a step (`loading` / `hub` for V4/V5) |
 | `?auto=on\|off` (or `1\|0`) | Get Started counts down and continues by itself, or waits for OK. Default: v1 off, v2/v3 on |
 | `?countdown=N` | Countdown length in seconds, 1–60 (default 10). Also on the controls panel |
-| `?hubDelay=N` | Hub preview duration in seconds, 1–60 (default 4), for V4/V5 |
+| `?hubDelay=N` | Hub preview duration in seconds, 1–60 (default 3), for V4/V5 |
 | `?loadingDelay=N` | Simulated loading on the ident's final frame, in seconds, 1–60 (default 2), for V4/V5 |
 | `?sound=off` | Start muted |
 | `?clean=1` | Hide the review toolbar |
