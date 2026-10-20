@@ -6,7 +6,7 @@
     <title>Weekend · Fire TV Pre-roll</title>
     <meta
       name="description"
-      content="Fire TV pre-roll upsell prototype: Meme Supreme ad, Weekend ident, pre-roll upsell, Fire TV paywall, then the subscribed hub."
+      content="Fire TV pre-roll prototypes: ad, Weekend ident, upsell or timed hub preview, Fire TV paywall, then the subscribed hub."
     />
     <link
       rel="icon"
@@ -62,6 +62,18 @@
               </video>
             </section>
 
+            <!-- V4/V5 hold the ident's final frame, matching onboarding's loader. -->
+            <section class="screen" id="screen-loading" data-screen="loading" aria-label="Loading game hub">
+              <img class="ident-still" src="assets/img/ident-final.jpg" alt="Weekend. Game night starts here." />
+              <div class="ident-loading" role="status" aria-label="Loading game hub">
+                <span class="ident-spinner" aria-hidden="true"></span>
+              </div>
+              <div class="hub-status" id="hubStatus" role="status" hidden>
+                <p id="hubStatusText"></p>
+                <button id="hubRetry" hidden>Try again</button>
+              </div>
+            </section>
+
             <!-- 3 · Pre-roll upsell (v1 / v2 / v3 from Figma, set via data-version) -->
             <section class="screen" id="screen-preroll" data-screen="preroll" data-version="1">
               <video id="prerollVideo" class="pr-video" playsinline loop preload="auto"></video>
@@ -82,6 +94,9 @@
               </div>
               <button class="pr-cta" data-focus="preroll-cta"><span id="prerollCtaLabel">Get Started</span></button>
             </section>
+
+            <!-- V4/V5 reveal the real hub after the ident's loading pause. -->
+            <section class="screen" id="screen-hub" data-screen="hub" aria-label="Game hub preview"></section>
 
             <!-- 4 · Fire TV system paywall (mocked from firetv_paywall.mp4) -->
             <section class="screen" id="screen-paywall" data-screen="paywall">
@@ -138,31 +153,56 @@
         <button data-version="1">V1 · Left stack</button>
         <button data-version="2">V2 · Centred, dimmed</button>
         <button data-version="3">V3 · Centred, clear</button>
+        <button data-version="4">V4 · Hub with trial hero</button>
+        <button data-version="5">V5 · Hub without trial hero</button>
       </div>
-      <h3>Background video</h3>
-      <div class="row" role="group" aria-label="Pre-roll background video">
-        <button data-bg="pan">Panning</button>
-        <button data-bg="crawl">Crawling</button>
-        <button data-bg="auto">Version default</button>
+      <div data-upsell-only>
+        <h3>Background video</h3>
+        <div class="row" role="group" aria-label="Pre-roll background video">
+          <button data-bg="pan">Panning</button>
+          <button data-bg="crawl">Crawling</button>
+          <button data-bg="auto">Version default</button>
+        </div>
+        <h3>Get Started countdown</h3>
+        <div class="row" role="group" aria-label="Auto-advance countdown">
+          <button data-auto="on">Counts down</button>
+          <button data-auto="off">Waits for OK</button>
+          <button data-auto="default">Version default</button>
+        </div>
+        <div class="row" role="group" aria-label="Countdown length">
+          <button data-countdown="3">3s</button>
+          <button data-countdown="5">5s</button>
+          <button data-countdown="10">10s</button>
+          <button data-countdown="15">15s</button>
+          <label class="num">Custom <input id="countdownInput" type="number" min="1" max="60" step="1" /> s</label>
+        </div>
       </div>
-      <h3>Get Started countdown</h3>
-      <div class="row" role="group" aria-label="Auto-advance countdown">
-        <button data-auto="on">Counts down</button>
-        <button data-auto="off">Waits for OK</button>
-        <button data-auto="default">Version default</button>
-      </div>
-      <div class="row" role="group" aria-label="Countdown length">
-        <button data-countdown="3">3s</button>
-        <button data-countdown="5">5s</button>
-        <button data-countdown="10">10s</button>
-        <button data-countdown="15">15s</button>
-        <label class="num">Custom <input id="countdownInput" type="number" min="1" max="60" step="1" /> s</label>
+      <div data-hub-only hidden>
+        <h3>Simulated hub loading</h3>
+        <div class="row" role="group" aria-label="Simulated hub loading duration">
+          <button data-loading-delay="1">1s</button>
+          <button data-loading-delay="2">2s</button>
+          <button data-loading-delay="3">3s</button>
+          <button data-loading-delay="5">5s</button>
+          <label class="num">Custom <input id="loadingDelayInput" type="number" min="1" max="60" step="1" /> s</label>
+        </div>
+        <p>Hold the final ident frame with the canary spinner before revealing the hub.</p>
+        <h3>Hub preview before paywall</h3>
+        <div class="row" role="group" aria-label="Hub preview duration">
+          <button data-hub-delay="3">3s</button>
+          <button data-hub-delay="4">4s</button>
+          <button data-hub-delay="5">5s</button>
+          <label class="num">Custom <input id="hubDelayInput" type="number" min="1" max="60" step="1" /> s</label>
+        </div>
+        <p>The hub timer starts when the hub appears. Both timers pause while these controls are open and restart when you close them.</p>
       </div>
       <h3>Jump to step</h3>
       <div class="row" role="group" aria-label="Jump to step">
         <button data-jump="home">1 · Fire TV ad</button>
         <button data-jump="ident">2 · Ident</button>
-        <button data-jump="preroll">3 · Pre-roll</button>
+        <button data-jump="preroll" data-upsell-only>3 · Pre-roll</button>
+        <button data-jump="loading" data-hub-only hidden>3 · Hub loading</button>
+        <button data-jump="hub" data-hub-only hidden>4 · Hub preview</button>
         <button data-jump="paywall">4 · Paywall</button>
       </div>
       <h3>Variation links</h3>

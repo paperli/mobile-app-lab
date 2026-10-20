@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <title>Fire TV Pre-roll Versions</title>
-    <meta name="description" content="The three Fire TV pre-roll upsell versions, each linked with the auto-advance countdown on." />
+    <meta name="description" content="Compare three Fire TV pre-roll upsells and two timed hub previews, with or without the trial hero, before the Fire TV paywall." />
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230a0322'/%3E%3Cpath d='m10 18 10 29 12-23 12 23 10-29' fill='none' stroke='%23ffda0a' stroke-width='6'/%3E%3C/svg%3E"
@@ -43,6 +43,8 @@
       .flow li.here { color: var(--bg); background: var(--canary); border-color: var(--canary); font-weight: 500; }
 
       .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+      .section-heading { margin: 40px 0 20px; }
+      .section-heading p { margin: 10px 0 0; color: var(--muted); }
       .card {
         display: flex;
         flex-direction: column;
@@ -84,13 +86,13 @@
         <img class="brand" src="assets/img/weekend-wordmark.svg" alt="Weekend" width="150" height="37" />
         <h1>Fire TV pre-roll upsell</h1>
         <p class="lede">
-          Three versions of the screen shown between tapping a Weekend game ad and Amazon's subscription
-          sheet. Every link below has the countdown on (<code>auto=1</code>), so Get Started counts down and continues by itself.
+          Compare three pre-roll upsells and two hub previews between tapping a Weekend game ad and
+          Amazon's subscription sheet. Each flow moves to the Fire TV paywall automatically.
         </p>
         <ol class="flow" aria-label="Flow">
           <li>Fire TV ad</li>
           <li>Weekend ident</li>
-          <li class="here">Pre-roll upsell</li>
+          <li class="here">Pre-roll upsell or hub preview</li>
           <li>Fire TV paywall</li>
           <li>Hub, subscribed</li>
         </ol>
@@ -143,9 +145,46 @@
         </article>
       </section>
 
+      <div class="section-heading">
+        <h2 id="hub-previews-heading">Hub before paywall</h2>
+        <p>After the ad and ident, a canary spinner holds on the Weekend logo for <strong>2 seconds</strong>.
+          The hub then appears for <strong>4 seconds</strong> before the same Fire TV paywall.
+          Adjust both durations in Prototype Controls.</p>
+      </div>
+      <section class="grid" aria-labelledby="hub-previews-heading">
+        <article class="card">
+          <a class="thumb" href="play.html?v=4&amp;hubDelay=4" aria-label="Play V4 with the trial hero from the Fire TV ad">
+            <img src="assets/img/landing-v4.jpg" alt="The hub prototype with the free-trial hero above the game shelves" loading="lazy" />
+          </a>
+          <div class="body">
+            <span class="tag">V4 · HUB PREVIEW</span>
+            <h2>With trial hero</h2>
+            <p>Lead with the free-trial offer and the game shelves. Hold for 4 seconds, then open the Fire TV paywall.</p>
+            <div class="actions">
+              <a class="btn btn-primary" href="play.html?v=4&amp;hubDelay=4">Play full flow</a>
+              <a class="btn btn-ghost" href="play.html?screen=hub&amp;v=4&amp;hubDelay=4">Jump to hub</a>
+            </div>
+          </div>
+        </article>
+        <article class="card">
+          <a class="thumb" href="play.html?v=5&amp;hubDelay=4" aria-label="Play V5 without the trial hero from the Fire TV ad">
+            <img src="assets/img/landing-v5.jpg" alt="The hub prototype with the game-night hero above the game shelves" loading="lazy" />
+          </a>
+          <div class="body">
+            <span class="tag">V5 · HUB PREVIEW</span>
+            <h2>Without trial hero</h2>
+            <p>Lead with the games, starting on the hub's first editorial hero. Hold for 4 seconds, then open the Fire TV paywall.</p>
+            <div class="actions">
+              <a class="btn btn-primary" href="play.html?v=5&amp;hubDelay=4">Play full flow</a>
+              <a class="btn btn-ghost" href="play.html?screen=hub&amp;v=5&amp;hubDelay=4">Jump to hub</a>
+            </div>
+          </div>
+        </article>
+      </section>
+
       <footer>
-        In the prototype, press <strong>P</strong> or use <strong>Prototype Controls</strong> to switch version, video and
-        countdown. Thumbnails are the Figma frames.
+        In the prototype, press <strong>P</strong> or use <strong>Prototype Controls</strong> to switch version and adjust
+        the countdown, loading pause or hub preview duration. V1–V3 thumbnails are the Figma frames; V4–V5 show the live hub prototype.
       </footer>
     </main>
   </body>

@@ -12,6 +12,7 @@ import '@weekend/ui/device/phone-modal.css';
 import { HeroExample, SmallGameRow, LargeGameRow, PromoBanner, GameGridKit, SongQuizBanner } from './ComponentKit';
 import Simulator from '../simulator/Simulator';
 import HowItWorks from '../simulator/HowItWorks';
+import { PrerollHubPreview } from './PrerollHubPreview';
 
 interface LayoutOption {
   phase: number;
@@ -109,7 +110,11 @@ export default function DemoApp() {
   if (params.get('view') === 'simulator') return <Simulator />;
   if (params.get('view') === 'how-it-works') return <HowItWorks />;
   if (params.get('view') === 'components') return <Playground />;
-  if (params.get('view') === 'hub9') return <Hub9View />;
+  if (params.get('view') === 'hub9') {
+    const prerollOrigin = params.get('prerollOrigin');
+    if (prerollOrigin) return <PrerollHubPreview origin={prerollOrigin} showTrialHero={params.get('trialHero') !== 'off'} />;
+    return <Hub9View />;
+  }
   if (!params.has('variation') && !params.has('phase')) return <Gallery />;
   const phase = params.has('phase') ? Number(params.get('phase')) : 1;
   const variation = params.has('variation') ? Number(params.get('variation')) : 1;

@@ -741,6 +741,10 @@ interface GameHubProps {
    * (the curated hub) still demo the subscribed state.
    */
   initialSignedIn?: boolean;
+  /** Override the trial hero for a merchandising experiment without signing in. */
+  showTrialHero?: boolean;
+  /** Hold the initial hero during a timed preview. Defaults to normal rotation. */
+  autoRotateHero?: boolean;
 }
 
 interface NavState {
@@ -780,6 +784,8 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
     content,
     detailView = 'sidebar',
     initialSignedIn = false,
+    showTrialHero,
+    autoRotateHero = true,
   },
   ref
 ) {
@@ -832,7 +838,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   // curated hub shows it unless it was opened as a subscriber (the Fire TV
   // pre-roll lands here after checkout); phase-1 variations show it only while
   // signed out (signed-in users have already claimed the trial).
-  const showPromoSlide = isPhase0 ? true : customHub ? !initialSignedIn : !signedIn;
+  const showPromoSlide = showTrialHero ?? (isPhase0 ? true : customHub ? !initialSignedIn : !signedIn);
   const promoOffset = showPromoSlide ? 1 : 0;
   // Curated merch slides (hub9) replace the plain game slides as the carousel.
   const merchSlides = content?.heroMerch ?? null;
@@ -2471,7 +2477,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
   useEffect(() => {
     // The subscription-success modal covers the hero — hold the slide it opened
     // over rather than cycling behind the scrim.
-    if (page !== 'home' || nav.sec !== 0 || reduceMotion || panel.game || subSuccess !== 'closed') {
+    if (!autoRotateHero || page !== 'home' || nav.sec !== 0 || reduceMotion || panel.game || subSuccess !== 'closed') {
       // Leaving the hero abandons the countdown — it starts fresh on return.
       heroCycleRef.current = { slide: -1, remain: HERO_AUTOPLAY_MS };
       return;
@@ -2499,7 +2505,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
       clearTimeout(t);
       if (!fired) cycle.remain = Math.max(0, cycle.remain - (Date.now() - startedAt));
     };
-  }, [page, nav.sec, nav.heroSlide, panel.game, heroPaused, subSuccess]);
+  }, [page, nav.sec, nav.heroSlide, panel.game, heroPaused, subSuccess, autoRotateHero]);
 
   // Slideshow on a focused slideshow-tile: hold the cover art for 1s, then
   // start looping the game's screenshots.
@@ -3499,7 +3505,7 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
             >
               {Array.from({ length: heroSlideCount }).map((_, i) => {
                 const active = i === nav.heroSlide;
-                const countdown = active && nav.sec === 0 && !navFocus && !reduceMotion && !panel.game;
+                const countdown = autoRotateHero && active && nav.sec === 0 && !navFocus && !reduceMotion && !panel.game;
                 return (
                   <span
                     key={`dot-${i}`}

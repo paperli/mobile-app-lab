@@ -35,6 +35,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #000; color: #fff; }
 button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; }
 
@@ -191,6 +192,7 @@ body.clean #tools { display: none; }
   inset: auto 0 0 0;
   height: 120px;
   background: linear-gradient(rgba(0, 0, 0, 0), #000);
+  pointer-events: none;
 }
 .ft-hero__copy { position: absolute; left: 104px; top: 196px; width: 720px; }
 .ft-hero__brand { display: block; width: 214px; height: 52px; }
@@ -275,6 +277,24 @@ body.clean #tools { display: none; }
 /* ── 2 · Ident ────────────────────────────────────────────────────────── */
 #screen-ident { background: #000; }
 #identVideo { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* The onboarding ident's 52px canary ring, in the same 1920×1080 position. */
+#screen-loading { background: #05011c; }
+.ident-still { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ident-loading { position: absolute; top: 790px; left: calc(50% - 26px); }
+.ident-spinner {
+  display: block;
+  width: 52px;
+  height: 52px;
+  border: 5px solid #ffda0a30;
+  border-top-color: var(--canary);
+  border-radius: 50%;
+  animation: ident-loading-spin 0.8s linear infinite;
+}
+@keyframes ident-loading-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .ident-spinner { animation-duration: 2s; }
+}
 
 /* ── 3 · Pre-roll upsell ──────────────────────────────────────────────── */
 #screen-preroll { background: #3c115e; font-family: var(--font-display); --pop: cubic-bezier(0.34, 1.56, 0.64, 1); }
@@ -474,6 +494,30 @@ body.clean #tools { display: none; }
   .pr-tile, .pr-title span, .pr-body, .pr-cta { transition-duration: 0.01s; transition-delay: 0s; }
   .pr-tile::before { animation: none; }
 }
+
+/* ── 3 · Timed hub preview (the real hub bundle, in the same TV stage) ─── */
+#screen-hub { background: var(--base-950); }
+#hubPreview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+#screen-hub.is-ready #hubPreview { opacity: 1; }
+.hub-status {
+  position: absolute;
+  inset: 870px 96px auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  font: 400 24px/1.4 var(--font-display);
+}
+.hub-status p { max-width: 900px; margin: 0; text-align: center; }
+.hub-status button { padding: 16px 28px; border-radius: 40px; color: var(--base-950); background: var(--canary); }
 
 /* ── 4 · Fire TV paywall ──────────────────────────────────────────────── */
 #screen-paywall { background: #1b1b1c; font-family: var(--font-system); color: #fff; }

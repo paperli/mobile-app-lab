@@ -14,3 +14,13 @@ export function hubUrl() {
   if (override) return override
   return import.meta.env.DEV ? DEV_HUB : DEPLOYED_HUB
 }
+
+/** Preview the same hub before checkout, independently of subscription state. */
+export function hubPreviewUrl(showTrialHero) {
+  const url = new URL(hubUrl(), location.href)
+  url.searchParams.set('view', 'hub9')
+  url.searchParams.set('subscribed', 'false')
+  url.searchParams.set('prerollOrigin', location.origin)
+  url.searchParams.set('trialHero', showTrialHero ? 'on' : 'off')
+  return url
+}

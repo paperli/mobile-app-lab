@@ -1,11 +1,12 @@
 // Fire TV pre-roll upsell prototype.
 //
-//   home (Meme Supreme ad) → ident → pre-roll (v1/v2/v3) → Fire TV paywall → hub
+//   home → ident → pre-roll (v1–v3) or loading + hub preview (v4/v5) → paywall → hub
 //
-// One 1920×1080 stage, four screens, a D-pad focus model and a review toolbar.
+// One 1920×1080 stage, a D-pad focus model and a review toolbar.
 // The paywall is a mock of Amazon's system sheet; nothing is charged.
 import { fitStage, STAGE_W, STAGE_H, FRAME_BEZEL, FRAME_CHIN, TV_FRAME_CHROME } from '@weekend/ui/device';
 import { hubUrl } from './hub-link.js';
+import { setupHubPreview } from './hub-preview.js';
 import './style.css';
 
 const query = new URLSearchParams(location.search);
@@ -65,16 +66,25 @@ const DEFAULT_BG = { 1: 'pan', 2: 'pan', 3: 'crawl' };
 const DEFAULT_AUTO = { 1: false, 2: true, 3: true };
 const DEFAULT_COUNTDOWN = 10;
 const parseCountdown = (v) => Math.min(60, Math.max(1, Math.round(Number(v)) || DEFAULT_COUNTDOWN));
+// The hub's dwell time is independent of the upsell CTA countdown.
+const DEFAULT_HUB_DELAY = 4;
+const DEFAULT_LOADING_DELAY = 2; // matches the onboarding ident's loading pause
+const parseDelay = (v, fallback) => Number.isFinite(Number(v)) && Number(v) > 0
+  ? Math.min(60, Math.max(1, Math.round(Number(v)))) : fallback;
+const parseHubDelay = (v) => parseDelay(v, DEFAULT_HUB_DELAY);
+const parseLoadingDelay = (v) => parseDelay(v, DEFAULT_LOADING_DELAY);
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const state = {
   screen: null,
-  version: ['1', '2', '3'].includes(query.get('v')) ? Number(query.get('v')) : 1,
+  version: ['1', '2', '3', '4', '5'].includes(query.get('v')) ? Number(query.get('v')) : 1,
   bg: VIDEOS[query.get('bg')] ? query.get('bg') : null, // null → version default
   // Auto-advance countdown on the CTA. null → version default (as in Figma:
   // v1 waits for OK, v2/v3 count down).
   auto: { on: true, 1: true, true: true, off: false, 0: false, false: false }[query.get('auto')] ?? null,
   countdown: parseCountdown(query.get('countdown')), // seconds
+  hubDelay: parseHubDelay(query.get('hubDelay')), // seconds, after the hub is ready
+  loadingDelay: parseLoadingDelay(query.get('loadingDelay')), // seconds on the ident's final frame
   sound: query.get('sound') !== 'off',
   focus: null,
   checked: false,
@@ -82,6 +92,8 @@ const state = {
 const timers = new Set();
 const later = (fn, ms) => { const t = setTimeout(() => { timers.delete(t); fn(); }, ms); timers.add(t); return t; };
 const clearTimers = () => { timers.forEach(clearTimeout); timers.clear(); };
+const usesHubPreview = () => state.version === 4 || state.version === 5;
+const afterIdent = () => usesHubPreview() ? 'loading' : 'preroll';
 
 function syncUrl() {
   const p = new URLSearchParams(location.search);
@@ -89,6 +101,8 @@ function syncUrl() {
   if (state.bg) p.set('bg', state.bg); else p.delete('bg');
   if (state.auto === null) p.delete('auto'); else p.set('auto', state.auto ? 'on' : 'off');
   if (state.countdown === DEFAULT_COUNTDOWN) p.delete('countdown'); else p.set('countdown', String(state.countdown));
+  if (state.hubDelay === DEFAULT_HUB_DELAY) p.delete('hubDelay'); else p.set('hubDelay', String(state.hubDelay));
+  if (state.loadingDelay === DEFAULT_LOADING_DELAY) p.delete('loadingDelay'); else p.set('loadingDelay', String(state.loadingDelay));
   history.replaceState(null, '', '?' + p.toString());
 }
 
@@ -99,7 +113,16 @@ function syncTools() {
   controls.querySelectorAll('[data-countdown]').forEach((b) => b.classList.toggle('is-on', Number(b.dataset.countdown) === state.countdown));
   const cdInput = $('#countdownInput');
   if (document.activeElement !== cdInput) cdInput.value = String(state.countdown);
+  controls.querySelectorAll('[data-hub-delay]').forEach((b) => b.classList.toggle('is-on', Number(b.dataset.hubDelay) === state.hubDelay));
+  const hubInput = $('#hubDelayInput');
+  if (document.activeElement !== hubInput) hubInput.value = String(state.hubDelay);
+  controls.querySelectorAll('[data-loading-delay]').forEach((b) => b.classList.toggle('is-on', Number(b.dataset.loadingDelay) === state.loadingDelay));
+  const loadingInput = $('#loadingDelayInput');
+  if (document.activeElement !== loadingInput) loadingInput.value = String(state.loadingDelay);
+  controls.querySelectorAll('[data-upsell-only]').forEach((el) => { el.hidden = usesHubPreview(); });
+  controls.querySelectorAll('[data-hub-only]').forEach((el) => { el.hidden = !usesHubPreview(); });
   controls.querySelectorAll('[data-jump]').forEach((b) => b.classList.toggle('is-on', b.dataset.jump === state.screen));
+  controls.querySelector('[data-jump="paywall"]').textContent = usesHubPreview() ? '5 · Paywall' : '4 · Paywall';
   $('#soundTop').textContent = state.sound ? 'Sound On' : 'Sound Off';
 }
 const currentBg = () => state.bg || DEFAULT_BG[state.version];
@@ -116,8 +139,48 @@ const identVideo = $('#identVideo');
 const prerollVideo = $('#prerollVideo');
 const prerollScreen = $('#screen-preroll');
 const ctaLabel = $('#prerollCtaLabel');
+let loadingComplete = false;
+const hubPreview = setupHubPreview(() => {
+  if (state.screen === 'loading') revealLoadedHub();
+  else scheduleHubPaywall();
+});
+
+function revealLoadedHub() {
+  if (state.screen === 'loading' && loadingComplete && hubPreview.ready && controls.hidden && !document.hidden) go('hub');
+}
+
+function scheduleLoading() {
+  if (state.screen !== 'loading') return;
+  clearTimers();
+  loadingComplete = false;
+  if (controls.hidden && !document.hidden) {
+    later(() => { loadingComplete = true; revealLoadedHub(); }, state.loadingDelay * 1000);
+  }
+}
+
+function scheduleHubPaywall() {
+  if (state.screen !== 'hub') return;
+  clearTimers();
+  // Rehearsal controls and background tabs pause the preview. Closing the
+  // panel or returning to the tab gives the hub its full chosen duration.
+  if (hubPreview.ready && controls.hidden && !document.hidden) {
+    later(() => go('paywall'), state.hubDelay * 1000);
+  }
+}
+function schedulePreview() {
+  if (state.screen === 'loading') scheduleLoading();
+  else scheduleHubPaywall();
+}
+document.addEventListener('visibilitychange', schedulePreview);
+
+function preloadHub() {
+  if (usesHubPreview()) hubPreview.load(state.version === 4);
+  else hubPreview.reset();
+}
 
 function stopMedia() {
+  identVideo.onended = null;
+  identVideo.onerror = null;
   [identVideo, prerollVideo].forEach((v) => { v.pause(); });
 }
 
@@ -125,10 +188,19 @@ function play(video) {
   video.muted = !state.sound;
   const p = video.play();
   // Autoplay with sound needs a gesture; fall back to muted rather than stall.
-  if (p && p.catch) p.catch(() => { video.muted = true; video.play().catch(() => {}); });
+  if (p && p.catch) p.catch(() => {
+    if (!video.closest('.screen').classList.contains('is-active')) return;
+    video.muted = true;
+    video.play().catch(() => {});
+  });
 }
 
 function go(screen) {
+  if (screen === 'preroll' && usesHubPreview()) screen = 'loading';
+  if (screen === 'hub' || screen === 'loading') {
+    if (!usesHubPreview()) screen = 'preroll';
+    else if (screen === 'hub' && !hubPreview.ready) screen = 'loading';
+  }
   clearTimers();
   stopMedia();
   state.screen = screen;
@@ -140,18 +212,32 @@ function go(screen) {
 const enter = {
   home() {
     setFocus('home-cta');
+    preloadHub();
   },
   ident() {
     setFocus(null);
+    preloadHub();
     identVideo.currentTime = 0;
-    identVideo.onended = () => go('preroll');
-    identVideo.onerror = () => go('preroll');
+    const finish = () => { if (state.screen === 'ident') go(afterIdent()); };
+    identVideo.onended = finish;
+    identVideo.onerror = finish;
     play(identVideo);
     // The ident is ~5s; if it stalls (slow network, deferred media load),
     // don't strand the flow on its poster.
-    later(() => go('preroll'), 9000);
+    later(finish, 9000);
+  },
+  loading() {
+    setFocus(null);
+    preloadHub();
+    scheduleLoading();
+  },
+  hub() {
+    setFocus(null);
+    preloadHub();
+    scheduleHubPaywall();
   },
   preroll() {
+    hubPreview.reset();
     prerollScreen.dataset.version = String(state.version);
     loadPrerollVideo();
     setFocus(null);
@@ -252,7 +338,7 @@ const NAV = {
 };
 
 function back() {
-  if (state.screen === 'paywall') go('preroll');
+  if (state.screen === 'paywall') go(usesHubPreview() ? 'hub' : 'preroll');
   else if (state.screen !== 'home') go('home');
   // Back on the Fire TV home leaves the prototype for the versions landing page.
   else location.href = './';
@@ -275,7 +361,7 @@ function onKey(e) {
       toggleControls(false);
     } else if (e.key.startsWith('Arrow')) {
       e.preventDefault();
-      const all = Array.from(panel.querySelectorAll('button,a,input'));
+      const all = Array.from(panel.querySelectorAll('button,a,input')).filter((el) => el.getClientRects().length);
       const step = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1;
       all[(all.indexOf(e.target) + step + all.length) % all.length].focus();
     }
@@ -287,10 +373,11 @@ function onKey(e) {
   if (!dir && !isOk && !isBack) return;
   // Toolbar buttons keep their own keyboard behaviour.
   if (e.target.closest && e.target.closest('#tools')) return;
+  if (e.target.closest && e.target.closest('#hubStatus') && !isBack) return;
   if (e.target.blur) e.target.blur();
   e.preventDefault();
   if (isBack) return back();
-  if (state.screen === 'ident' && isOk) return go('preroll'); // skip the ident
+  if (state.screen === 'ident' && isOk) return go(afterIdent()); // skip the ident
   if (state.screen === 'preroll' && !state.focus) {
     // Mid-reveal: any key finishes it rather than being swallowed. The pending
     // focus timer still fires and starts the countdown (if it's on).
@@ -318,6 +405,7 @@ function toggleControls(open = controls.hidden) {
   controls.hidden = !open;
   if (document.activeElement) document.activeElement.blur();
   if (open) controls.querySelector('button')?.focus();
+  schedulePreview();
 }
 function toggleSound() {
   state.sound = !state.sound;
@@ -340,13 +428,17 @@ controls.addEventListener('click', (e) => {
   if (b.dataset.version) {
     state.version = Number(b.dataset.version);
     syncUrl();
-    go('preroll');
+    go(afterIdent());
   } else if (b.dataset.bg) {
     state.bg = b.dataset.bg === 'auto' ? null : b.dataset.bg;
     syncUrl();
     if (state.screen === 'preroll') go('preroll'); else syncTools();
   } else if (b.dataset.countdown) {
     setCountdown(b.dataset.countdown);
+  } else if (b.dataset.hubDelay) {
+    setHubDelay(b.dataset.hubDelay);
+  } else if (b.dataset.loadingDelay) {
+    setLoadingDelay(b.dataset.loadingDelay);
   } else if (b.dataset.auto) {
     state.auto = { on: true, off: false, default: null }[b.dataset.auto];
     syncUrl();
@@ -364,6 +456,24 @@ function setCountdown(v) {
 }
 $('#countdownInput').addEventListener('change', (e) => setCountdown(e.target.value));
 
+function setHubDelay(value) {
+  state.hubDelay = parseHubDelay(value);
+  $('#hubDelayInput').value = String(state.hubDelay);
+  syncUrl();
+  syncTools();
+  scheduleHubPaywall();
+}
+$('#hubDelayInput').addEventListener('change', (e) => setHubDelay(e.target.value));
+
+function setLoadingDelay(value) {
+  state.loadingDelay = parseLoadingDelay(value);
+  $('#loadingDelayInput').value = String(state.loadingDelay);
+  syncUrl();
+  syncTools();
+  scheduleLoading();
+}
+$('#loadingDelayInput').addEventListener('change', (e) => setLoadingDelay(e.target.value));
+
 // Every reviewable variation as a direct link, so a link can be shared
 // straight to the state someone should look at.
 const VARIATIONS = [
@@ -379,6 +489,11 @@ const VARIATIONS = [
   ['V1 · auto-advance countdown on', 'screen=preroll&v=1&auto=on'],
   ['V2 · countdown off (waits for OK)', 'screen=preroll&v=2&auto=off'],
   ['V3 · countdown off (waits for OK)', 'screen=preroll&v=3&auto=off'],
+  ['Hub loading · ident with canary spinner', 'screen=loading&v=4'],
+  ['V4 · hub with trial hero · full flow', 'v=4'],
+  ['V4 · jump to hub with trial hero', 'screen=hub&v=4'],
+  ['V5 · hub without trial hero · full flow', 'v=5'],
+  ['V5 · jump to hub without trial hero', 'screen=hub&v=5'],
   ['Fire TV paywall', 'screen=paywall'],
   ['Hub after subscribing', null],
 ];
@@ -395,7 +510,7 @@ const WALL = [
 $('#paywallWall').innerHTML = Array.from({ length: 36 }, (_, i) =>
   `<img src="assets/img/tv-${WALL[i % WALL.length]}.webp" alt="" />`).join('');
 
-const startScreen = ['home', 'ident', 'preroll', 'paywall'].includes(query.get('screen')) ? query.get('screen') : 'home';
+const startScreen = ['home', 'ident', 'preroll', 'loading', 'hub', 'paywall'].includes(query.get('screen')) ? query.get('screen') : 'home';
 go(startScreen);
 
 // Reveal the TV once it's fitted and its fonts are in (or after a short cap,
