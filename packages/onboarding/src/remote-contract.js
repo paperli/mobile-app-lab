@@ -10,7 +10,8 @@ export function applyPhoneCommand(scene, command) {
     const patch=command.value;
     if (!patch || typeof patch !== 'object') return;
     // A client can navigate the prototype's phone UI, never grant membership.
-    if(phoneSteps.includes(patch.phoneStep))scene.phoneStep=patch.phoneStep;
+    const checkout = ['signup','email','offer','pay','success'].includes(patch.phoneStep);
+    if(phoneSteps.includes(patch.phoneStep)&&!(scene.member&&checkout))scene.phoneStep=patch.phoneStep;
     if(['signup','signin'].includes(patch.accountMode))scene.accountMode=patch.accountMode;
     scene.onchange();return;
   }

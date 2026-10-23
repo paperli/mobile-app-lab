@@ -16,10 +16,10 @@ const httpsConfig =
 // /<base>/ and the onboarding at /<base>/onboarding/ in one artifact.
 const pagesOutDir = process.env.PAGES_OUT_DIR;
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   // Relative, so the build runs from any path — it is published to a
   // subdirectory of the Pages site (/<base>/onboarding/).
-  base: './',
+  base: command === 'serve' ? '/onboarding/' : './',
   plugins: [
     // TV browsers lag well behind desktop; the legacy bundle is the point of
     // building this on Lightning in the first place.
@@ -39,6 +39,8 @@ export default defineConfig({
     outDir: pagesOutDir || 'dist',
     // Never wipe the directory when building into the TV demo's output.
     emptyOutDir: !pagesOutDir,
+    // The variations gallery and the TV rehearsal ship together.
+    rollupOptions: { input: { index: path.resolve(__dirname, 'index.html'), play: path.resolve(__dirname, 'play.html') } },
     // Keeps the GLSL in the orb shader readable in a deployed build.
     minify: 'terser',
     terserOptions: { compress: { drop_console: true } },
@@ -48,4 +50,4 @@ export default defineConfig({
     host: true,
     https: httpsConfig,
   },
-});
+}));

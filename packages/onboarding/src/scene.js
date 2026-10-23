@@ -10,6 +10,9 @@ import { openHub } from './hub-link.js';
 import { nextFocus, skipDestination } from './onboarding-flow.js';
 import { ROUND_TIMELINES } from './round-timeline.js';
 import { renderUpsell,warmUpsellArt } from './upsell.js';
+import { variationFor, endingPhase, OUTRO_PHASE, PAYWALL_PHASE } from './variations.js';
+import { showFireTVPaywall } from './firetv-paywall.js';
+import { startHubOutro } from './hub-outro.js';
 const C={gold:0xffda0aff,cream:0xffdf72ff,white:0xf3f4f1ff,ink:0x0a0322ff,sky:0xade0ebff,green:0x32d172ff};
 const EASE='cubic-bezier(.16,1,.3,1)';
 // Puzzle board: sits under the clue while playing, then rises to centre stage
@@ -18,7 +21,8 @@ const BOARD_Y=472,BOARD_SOLVED_Y=380;
 const QUESTION_CENTER=547,QUESTION_TOP=364;
 const OPENING_STAGE_MS=3200,OPENING_DISSOLVE_MS=1800;
 export class Scene {
- constructor(r,parent,profile){
+ constructor(r,parent,profile,flow='standard'){
+  this.flow=variationFor(flow);
   this.r=r;this.parent=parent;this.profile=profile;this.phase=-1;this.focus=0;this.selectedGame=0;this.connected=false;this.permission=false;this.member=false;this.correct=true;this.attempts=0;this.phoneStep='pair';this.voice='ready';this.scenario='happy';this.artOnly=false;this.accountMode='signup';this.hubZone=0;this.hubCol=0;this.generation=0;this.narrationSerial=0;this.timers=[];this.ghosts=[];this.buttons=[];this.reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;this.onchange=()=>{};this.host=new AudioHost();this.history=[];
   this.world=this.node({parent,w:1920,h:1080,color:C.ink});this.node({parent:this.world,w:1920,h:1080,src:'assets/studio-empty.png'});this.scenery=this.node({parent:this.world,w:1920,h:1080});this.stage=new Stage(this);
   this.bitmap(readability,0,0,1920,972,this.world);this.node({parent:this.world,y:810,w:1920,h:270,colorTop:0x04021300,colorBottom:0x04021322});
@@ -44,16 +48,20 @@ export class Scene {
  reveal(delay=180){if(this.artOnly){this.ui.alpha=0;return;}this.ui.alpha=0;this.ui.y=35;this.animate(this.ui,{alpha:1,y:0},1100,delay);this.readyAt=performance.now()+(this.reduced?0:delay+1050);}
  brandFor(p){this.brand.alpha=p===0||this.artOnly?0:1;this.brand.x=78;this.brand.y=42;this.brand.w=205;this.brand.h=56;this.brand.zIndex=4;if(this.brandHalo){const scale=this.brand.w/950;this.brandHalo.x=this.brand.x-90*scale;this.brandHalo.y=this.brand.y-90*scale;this.brandHalo.w=1130*scale;this.brandHalo.h=437*scale;this.brandHalo.alpha=this.brand.alpha;this.brandHalo.zIndex=3;}this.fx.zIndex=5;}
  go(p,instant=false){
+  if(this.member&&(p===8||p===9||p===10))p=OUTRO_PHASE;
+  this.closePaywall?.();this.closePaywall=null;this.closeOutro?.();this.closeOutro=null;
   this.hideHub?.();this.gameMenu=null;this.closeUpsell?.(instant||p===8);this.closeUpsell=null;this.clearOpening();
-  if(p>=4&&!this.remotePhone&&!document.body.classList.contains('clean')){const phone=document.getElementById('phone');if(phone)phone.hidden=false;}
+  if(p>=4&&p!==PAYWALL_PHASE&&!this.remotePhone&&!document.body.classList.contains('clean')){const phone=document.getElementById('phone');if(phone)phone.hidden=false;}
   const prior=this.phase,same=prior>=4&&prior<=6&&p>=4&&p<=6;this.generation++;this.timers.forEach(clearTimeout);this.timers=[];this.cancelHold();this.stopCelebration();this.host.stop();this.host.effectsPaused=false;this.host.stopEffects();this.host.bed(p>=4&&p<=6?'wheel':false);this.video.pause();this.video.style.display='none';this.phase=p;this.focus=p===0?0:-1;this.puzzleReady=false;this.roundBoardShown=false;this.roundNarrated=false;this.voice='ready';this.busy=false;this.readyAt=0;this.micHinted=false;this.stopDots();this.history.push({scene:phases[p],atMs:Math.round(performance.now())});if(this.history.length>100)this.history.shift();
   const opening=p===1&&!instant&&!this.reduced;
   this.scanPrompted=false;
-  this.clearUI(instant||same);this.brandFor(p);this.orb.layout(p,instant);const set=p<=1?'empty':p<=3?'jeopardy':p<=7?'wheel':'empty',delay=p===8?0:this.stage.change(set,instant);
+  this.clearUI(instant||same);this.brandFor(p);this.orb.layout(p,instant);const set=p===OUTRO_PHASE?'wheel':p<=1?'empty':p<=3?'jeopardy':p<=7?'wheel':'empty',delay=p===8?0:this.stage.change(set,instant);
   // Crossfade the intact set to the upsell; retire its parts only when hidden.
   if(p===8)this.later(()=>this.stage.change('empty',true),instant||this.reduced?0:950);
   if(opening)this.world.alpha=0;
   this.animate(this.world,{alpha:p===0||p===8?0:p===9?.45:1},instant?0:opening?OPENING_STAGE_MS:900,0,opening?'ease-in-out':EASE);
+  if(p===PAYWALL_PHASE){this.member=false;this.resetHub?.();this.brandFor(0);this.closePaywall=showFireTVPaywall(this);document.getElementById('phone').hidden=true;this.onchange();return;}
+  if(p===OUTRO_PHASE){this.phoneStep='dpad';this.closeOutro=startHubOutro(this);this.onchange();return;}
   if(p===0){this.started=false;this.isLoading=false;this.node({w:1920,h:1080,src:'assets/ident-final.jpg'});this.pill('Begin with sound',708.23,853.65,503.54,92.7,()=>this.start(),true,30,'OK / Enter');}
   // Clear the ident before the original speech cue; the studio keeps fading in behind the host.
   if(opening){this.openingDissolve=this.node({parent:this.parent,w:1920,h:1080,zIndex:7,...(prior===0?{src:'assets/ident-final.jpg'}:{color:C.ink})});this.openingMotion=this.animate(this.openingDissolve,{alpha:0},OPENING_DISSOLVE_MS,0,'ease-in-out');this.later(()=>this.clearOpening(),OPENING_DISSOLVE_MS+50);}
@@ -61,7 +69,7 @@ export class Scene {
   if(p===3){this.text(this.skippedGame?'THE ANSWER IS':this.correct?'THAT’S THE ONE!':'A GREAT WARM-UP',144,375,28,C.sky,1632,'center',this.ui,'ReproMedium',1.3,3);this.text('Mars.',144,435,170,C.gold,1632,'center',this.ui,'ReproBold',1.1,-6);this.host.cue(this.correct?'cheer':'almost');if(this.correct&&!this.skippedGame)this.celebrate();}
   if(p===6&&prior!==6)this.attempts=0;
   if(p>=4&&p<=6){if(p===4)this.revealPuzzle(()=>{this.wheel(true);this.pairStatus();});else{this.wheel();this.pairStatus();this.puzzleReady=true;}}
-  if(p===7){this.wheelSolved();this.phoneStep='voice-success';this.host.cue('cheer');this.celebrate();}
+  if(p===7){this.wheelSolved();this.phoneStep=this.member?'dpad':'voice-success';this.host.cue('cheer');this.celebrate();}
   if(p===8){this.phoneStep='signup';this.brand.alpha=0;if(this.brandHalo)this.brandHalo.alpha=0;this.plan();}
   if(p===9){this.finishPhone();this.phoneStep='signup';if(navigator.vibrate)navigator.vibrate([100,60,100]);if(!this.remotePhone&&!document.body.classList.contains('clean'))document.getElementById('phone').hidden=false;}
   if(p===10){this.member=true;this.connected=true;this.phoneStep='dpad';this.showHub(true);return;}
@@ -83,8 +91,9 @@ export class Scene {
   if(p===5||p===6)this.host.bed('wheel');
   if(p===5)this.say('Your phone is the buzzer and the microphone during the game. Allow microphone access so your answer can reach the TV.');
   if(p===6)this.say('Nice work! When you’re ready, press and hold the mic button on your phone, say your answer, then let go.',()=>this.revealMicHint());
-  if(p===7&&this.skippedGame){this.say('The answer is Zebra.',8);return;}
-  if(p===7)this.say(this.random(['Zebra! You’ve got it. Now that sounds like a game show answer!','That’s it! Zebra. You’re a natural.','Yes! Zebra. Give yourself a big round of applause!']),this.member?()=>{this.phoneStep='dpad';this.browse();}:8);
+  if(p===7&&this.skippedGame){this.say('The answer is Zebra.',endingPhase(this.member));return;}
+  if(p===7)this.say(this.random(['Zebra! You’ve got it. Now that sounds like a game show answer!','That’s it! Zebra. You’re a natural.','Yes! Zebra. Give yourself a big round of applause!']),endingPhase(this.member));
+  if(p===OUTRO_PHASE){this.replayOutro?.();return;}
   if(p===8)this.say('Finish on your phone. Your free week is just a few taps away.');
   if(p===9)this.say('Finish on your phone. Your free week is just a few taps away.');
   if(p===10)this.say('Welcome to the club! Your Weekend membership is ready. Let’s find your next game.');
@@ -133,7 +142,7 @@ export class Scene {
   }
  }
  addSkip(){const upsell=this.phase===8,w=upsell?300:184;this.pill(upsell?'See All Games':'Skip',1824-w,944,w,72,()=>this.skip(),false,28);this.buttons[this.buttons.length-1].isSkip=true;}
- skip(){const next=skipDestination(this.phase);if(next==='hub'){this.browse();return;}if(next===null)return;this.skippedGame=this.phase===2||(this.phase>=4&&this.phase<=6);if(this.phase===2)this.correct=false;this.go(next);}
+ skip(){const next=skipDestination(this.phase,this.member);if(next==='hub'){this.browse();return;}if(next===null)return;this.skippedGame=this.phase===2||(this.phase>=4&&this.phase<=6);if(this.phase===2)this.correct=false;this.go(next);}
  jeopardy(){
   this.box(396,246,1128,511.53,0,0,19,2,0xd8b866aa,this.ui,{color:0x00000077,projection:[0,28,65,0]});
   this.box(398,248,1124,507.53,0,0,17,7,0x04072bff);
@@ -240,7 +249,7 @@ export class Scene {
  endHold(remoteDuration){if(!this.holdAt)return;this.host.listening(false);const ms=Number.isFinite(remoteDuration)?Math.max(0,Math.min(remoteDuration,10000)):performance.now()-this.holdAt;clearTimeout(this.holdTimer);this.holdAt=0;this.attempts++;if(ms<650){this.voice='ready';this.pairStatus();this.onchange();this.say('Press and hold the mic button on your phone, and speak your answer.',()=>this.revealMicHint());return;}this.voice='processing';this.pairStatus();this.onchange();this.later(()=>this.go(7),900);}
  buy(){if(this.member)return;this.member=true;this.connected=true;this.phoneStep='success';this.onchange();this.showHub(true);clearTimeout(this.successTimer);this.successTimer=setTimeout(()=>{if(this.member&&this.phoneStep==='success'){this.phoneStep='dpad';this.onchange();}},1800);}
  browse(){if(this.showHub)this.showHub();else openHub();}
- move(key){if(this.hubVisible){this.hubNavigate(key);return;}if(this.gameMenu){if(key==='back'){this.gameMenu.destroy();this.gameMenu=null;this.onchange();return;}if(key==='enter'){this.gameMenu.destroy();this.gameMenu=null;if(this.menuChoice===1){this.phoneStep='dpad';this.browse();}else this.onchange();return;}this.menuChoice=this.menuChoice===0?1:0;this.menuLabel.color=this.menuChoice===0?C.gold:C.white;this.exitLabel.color=this.menuChoice===1?C.gold:C.white;return;}if(this.artOnly||this.busy)return;if(key==='back'){if(this.phase>=8){this.browse();}else if(this.phase>=5&&this.phase<=7){this.openGameMenu();}else if(this.phase===4){this.phoneStep='pair';this.go(4);}else if(this.phase>1)this.go(this.phase-1);return;}
+ move(key){if(this.phase===PAYWALL_PHASE){this.paywallMove?.(key);return;}if(this.hubVisible){this.hubNavigate(key);return;}if(this.member&&this.phase===7&&!this.gameMenu)this.go(OUTRO_PHASE);if(this.phase===OUTRO_PHASE){this.outroNavigate?.(key);return;}if(this.gameMenu){if(key==='back'){this.gameMenu.destroy();this.gameMenu=null;this.onchange();return;}if(key==='enter'){this.gameMenu.destroy();this.gameMenu=null;if(this.menuChoice===1){this.phoneStep='dpad';this.browse();}else this.onchange();return;}this.menuChoice=this.menuChoice===0?1:0;this.menuLabel.color=this.menuChoice===0?C.gold:C.white;this.exitLabel.color=this.menuChoice===1?C.gold:C.white;return;}if(this.artOnly||this.busy)return;if(key==='back'){if(this.phase>=8){this.browse();}else if(this.phase>=5&&this.phase<=7){this.openGameMenu();}else if(this.phase===4){this.phoneStep='pair';this.go(4);}else if(this.phase>1)this.go(this.phase-1);return;}
   if(key==='enter'){const b=this.buttons[this.focus];if(b&&(b.isSkip||this.phase!==2||this.puzzleReady))b.action();return;}
   this.setFocus(nextFocus(this.buttons,this.focus,key,this.puzzleReady));
  }
@@ -260,10 +269,18 @@ export class Scene {
   this.exitLabel=this.text('Exit to games',50,280,42,C.white,840,'center',this.gameMenu);
   this.onchange();
  }
- reset(){clearTimeout(this.successTimer);this.resetHub?.();this.gameMenu=null;this.member=false;this.connected=false;this.permission=false;this.attempts=0;this.phoneStep='pair';this.artOnly=false;document.getElementById('caption').style.visibility='visible';const art=document.getElementById('artOnly');if(art)art.textContent='Stage Art Only';this.go(0,true);}
+ acceptFireTVPaywall(subscribed){
+  this.flow=variationFor(subscribed?'firetv-subscribed':'firetv-skipped');
+  this.member=subscribed;
+  const url=new URL(location.href);url.searchParams.set('flow',this.flow.id);url.searchParams.delete('scene');history.replaceState(null,'',url);
+  this.onFlowChange?.();
+  this.go(1);
+  if(subscribed)this.prepareHub();
+ }
+ reset(){clearTimeout(this.successTimer);this.resetHub?.();this.gameMenu=null;this.member=false;this.connected=false;this.permission=false;this.attempts=0;this.phoneStep='pair';this.artOnly=false;document.getElementById('caption').style.visibility='visible';const art=document.getElementById('artOnly');if(art)art.textContent='Stage Art Only';this.go(this.flow.fireTV?PAYWALL_PHASE:0,true);}
  replayStage(){const delay=this.stage.replay();this.reveal(delay);}
  toggleArt(){this.artOnly=!this.artOnly;this.ui.alpha=this.artOnly?0:1;this.brandFor(this.phase);this.orb.layout(this.phase,true);document.getElementById('caption').style.visibility=this.artOnly?'hidden':'visible';}
  pause(){this.narrationSerial++;this.clearOpening();if(this.phase===1)this.animate(this.world,{alpha:1},0);this.cancelHold();this.stopCelebration();this.host.stop();this.host.effectsPaused=true;this.host.stopEffects();this.host.bed(false);this.video.pause();this.orb.settle();this.stage.settle();}
  resume(){this.orb.resume();this.host.effectsPaused=false;if(this.phase===0&&this.started){if(this.video.ended)this.loading();else this.video.play().catch(()=>{});}else this.narrate();}
- dispose(){clearTimeout(this.successTimer);this.clearOpening();this.closeUpsell?.(true);this.stopDots();this.stage.dispose();this.orb.dispose();this.host.dispose();this.timers.forEach(clearTimeout);this.stopCelebration();cancelAnimationFrame(this.raf);}
+ dispose(){this.closePaywall?.();this.closeOutro?.();clearTimeout(this.successTimer);this.clearOpening();this.closeUpsell?.(true);this.stopDots();this.stage.dispose();this.orb.dispose();this.host.dispose();this.timers.forEach(clearTimeout);this.stopCelebration();cancelAnimationFrame(this.raf);}
 }

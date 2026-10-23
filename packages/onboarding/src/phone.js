@@ -11,6 +11,7 @@ const button = (label, action, alt = false) => `<button class="phone-button ${al
 const logo = '<p class="phone-logo"><img src="assets/weekend-logo.png" alt="Weekend"></p>';
 const topbar = `<nav class="arcade-topbar" aria-label="Controller"><button type="button" data-action="remote-back" aria-label="Back">${backIcon}</button><span class="arcade-mark"><img src="assets/weekend-mark.webp" alt="Weekend"></span><button type="button" data-action="phone-settings" aria-label="Settings">⚙</button></nav>`;
 const pad = () => templates(8).dpad();
+const hubController = () => `${topbar}<p class="connection-label">● Living Room TV</p><div class="controller-main">${pad()}</div><button type="button" class="arcade-back" data-action="remote-back" aria-label="Back">${backIcon}</button>`;
 
 export function setupPhone(s, modal) {
   const screen = modal.screen;
@@ -25,17 +26,19 @@ export function setupPhone(s, modal) {
     const previousMic = micControl; micControl = null;
     previousMic?.dispose();
     if(s.phase===0){settings=false;disconnect=false;clearTimeout(installTimer);}
-    const step = s.phoneStep;
-    const renderKey = [s.phase,step,s.hubVisible,!!s.gameMenu,s.accountMode,settings,disconnect,s.connected,s.roomCode].join(':');
+    // Subscription already happened on TV. A stale mic/checkout snapshot must
+    // never render signup between the answer reveal and the hub becoming ready.
+    const step = s.member && (s.phase === 7 || s.phase === 11) ? 'dpad' : s.phoneStep;
+    const renderKey = [s.phase,step,s.member,s.hubVisible,!!s.gameMenu,s.accountMode,settings,disconnect,s.connected,s.roomCode].join(':');
     if(screen.dataset.renderKey===renderKey)return;
     screen.dataset.renderKey=renderKey;
     let body = '';
     const controller = s.connected && (step === 'dpad' || s.gameMenu || (s.phase >= 5 && s.phase <= 7));
     screen.className = 'wk-phone__screen phone-screen journey-phone';
-    if (s.phase < 4 && !s.hubVisible) body = `${logo}<h3 class="phone-title">Game night starts on TV.</h3><p class="phone-copy">Your phone will join after the first question.</p>`;
+    if ((s.phase < 4 || s.phase === 12) && !s.hubVisible) body = `${logo}<h3 class="phone-title">Game night starts on TV.</h3><p class="phone-copy">Your phone will join after the first question.</p>`;
     else if (settings) body = `${topbar}<h3 class="phone-title">Settings</h3><p class="phone-copy">Connected to Living Room TV<br>Pair code ${s.roomCode||'WKND42'}</p>${disconnect ? '<p class="phone-copy">Disconnect from this TV?</p>' + button('Disconnect', 'disconnect-confirm') + button('Stay connected', 'disconnect-cancel', true) : button('Disconnect from TV', 'disconnect', true)}${button('Done', 'close-settings')}`;
     else if (step === 'success') body = iosCheckout('success');
-    else if (s.gameMenu || (s.hubVisible && step === 'dpad')) body = `${topbar}<p class="connection-label">● Living Room TV</p><div class="controller-main">${pad()}</div><button type="button" class="arcade-back" data-action="remote-back" aria-label="Back">${backIcon}</button>`;
+    else if (s.gameMenu || ((s.hubVisible || s.phase === 11 || (s.member && s.phase === 7)) && step === 'dpad')) body = hubController();
     else if (['pair', 'camera', 'detected'].includes(step)) body = `<div class="camera-preview"><div class="camera-tools">ϟ <span>⌃</span> ◎</div><p>Point your camera at the TV code</p><div class="camera-target"><img src="assets/pairing-session.png" alt="TV pairing QR code"></div>${step === 'detected' ? '<button class="scan-result" data-action="scan">↗ pair.weekend.com</button>' : '<button class="scan-result" data-action="detect">Scan QR code</button>'}<div class="camera-modes">VIDEO <strong>PHOTO</strong> PORTRAIT</div><button class="camera-shutter" data-action="detect" aria-label="Scan TV code"></button><small>Camera preview · simulation</small></div>`;
     else if (['appclip', 'download'].includes(step)) body = `${logo}<h3 class="phone-title">Your phone.<br>Your way to play.</h3><p class="phone-copy">Get Weekend to connect to your TV and join the fun.</p>${button('Download the app', 'app-store')}${button('Use App Clip', 'show-clip', true)}<p class="phone-copy">Your TV: WKND42</p>${step === 'appclip' ? '<section class="appclip-sheet" role="dialog" aria-label="Weekend App Clip"><button class="sheet-close" data-action="close-clip" aria-label="Close App Clip">×</button><img src="assets/weekend-mark.webp" alt=""><h3>Weekend</h3><p>Pick up. Connect. Play.</p>' + button('Open App Clip', 'launch-app') + '<small>App Clip · simulated preview</small></section>' : ''}`;
     else if (['store', 'installing', 'installed'].includes(step)) body = `<p class="store-back">‹ Apps</p><div class="store-app"><img src="assets/weekend-mark.webp" alt="Weekend app icon"><h3>Weekend</h3><p>Game night. Every night.</p></div>${step === 'store' ? button('Get', 'install') : step === 'installed' ? button('Open', 'launch-app') : '<div class="download-progress" role="status">Downloading…<progress aria-label="Download progress"></progress></div>'}<div class="store-ratings"><span>4.9 ★<small>RATINGS</small></span><span>12+<small>AGE</small></span><span>Games<small>CATEGORY</small></span></div><div class="store-promo"><h3>Your TV.<br>Your friends.<br>Your Weekend.</h3><img src="assets/hub/wheel-of-fortune.png" alt="Wheel of Fortune"></div><small class="simulation-note">App Store preview · no app is installed</small>`;
@@ -48,7 +51,7 @@ export function setupPhone(s, modal) {
     } else if (s.phase === 6) body = `${topbar}<p class="connection-label">● Living Room TV</p><div class="controller-main"><button type="button" class="arcade-mic" id="holdMic" aria-label="Press and hold to answer" aria-pressed="false"><canvas id="micOrb" width="440" height="440" aria-hidden="true"></canvas><span class="mic-fallback" aria-hidden="true"></span></button></div><p id="micStatus" class="controller-sr-only" role="status"></p>`;
     else if (s.phase === 7) body = `${topbar}<p class="connection-label">● Living Room TV</p><div class="controller-main"><div class="phone-success-check" role="status" aria-label="Answer accepted">✓</div></div>`;
     else {
-      body = iosCheckout(['signup','email','offer','pay'].includes(step)?step:'signup',s.accountMode);
+      body = s.member ? hubController() : iosCheckout(['signup','email','offer','pay'].includes(step)?step:'signup',s.accountMode);
     }
     screen.innerHTML = body.replaceAll('assets/weekend-3d-yellow.svg', 'assets/weekend-logo.png');
     screen.classList.toggle('checkout-screen',!!screen.querySelector('.ios-welcome,.ios-auth,.ios-paywall,.ios-success'));

@@ -99,38 +99,7 @@
             <section class="screen" id="screen-hub" data-screen="hub" aria-label="Game hub preview"></section>
 
             <!-- 4 · Fire TV system paywall (mocked from firetv_paywall.mp4) -->
-            <section class="screen" id="screen-paywall" data-screen="paywall">
-              <div class="pw-bg">
-                <div class="pw-wall" id="paywallWall"></div>
-              </div>
-              <div class="pw-shade"></div>
-              <div class="pw-loading" id="paywallLoading"><span class="pw-spinner"></span></div>
-              <div class="pw-content" id="paywallContent">
-                <div class="pw-icon">
-                  <img src="assets/img/firetv-weekend-appicon.png" alt="Weekend Games" />
-                </div>
-                <h1 class="pw-title">Subscription Terms for Weekend Games - Jeopardy!, Song Quiz, CoComelon Sing &amp; Play with JJ &amp; More</h1>
-                <p class="pw-plan">Selected Plan: Weekend Games - Jeopardy, Wheel of Fortune, Song Quiz &amp; More</p>
-                <p class="pw-price">$18.99 monthly</p>
-                <p class="pw-legal">
-                  By selecting "Continue with Subscription", you agree to the Amazon Appstore Terms of Use
-                  www.amazon.com/appstoretou. You authorize us to charge your selected payment method or another
-                  payment method you have on file $18.99 monthly plus any applicable taxes until you cancel. You may
-                  cancel at any time by going to www.amazon.com/appstoresubscriptions and following the instructions
-                  on screen. To avoid the next charge, you must cancel before the next renewal date. You will be
-                  notified if the price changes.
-                </p>
-                <button class="pw-check" data-focus="pw-check" role="checkbox" aria-checked="false">
-                  <span class="pw-check__box"></span>
-                  <span>Authorize recurring monthly charges to <b>Visa ending in 8060</b></span>
-                </button>
-                <div class="pw-actions">
-                  <button class="pw-btn pw-btn--primary" data-focus="pw-continue" disabled>Continue with Subscription</button>
-                  <button class="pw-btn" data-focus="pw-change">Change Payment Preference <span class="pw-caret"></span></button>
-                </div>
-              </div>
-              <div class="pw-toast" id="paywallToast">You're almost there. Just a few steps left.</div>
-              <div class="pw-processing" id="paywallProcessing"><span class="pw-spinner"></span></div>
+            <section id="screen-paywall" data-screen="paywall" class="screen fire-tv-paywall">
             </section>
           </div>
         </div>

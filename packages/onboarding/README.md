@@ -7,10 +7,45 @@ because it has to run acceptably on TV hardware.
 It is a **standalone prototype**. It embeds the separately built hub during
 the rehearsal, keeping phone signup and controller state alive across the handoff.
 
+## Three onboarding variations
+
+`/onboarding/` is the landing page. Each card launches the complete rehearsal or
+jumps straight to its ending. `/onboarding/play.html` runs the prototype.
+
+| Flow | URL | Ending |
+|---|---|---|
+| Original · LG / Samsung | `play.html?flow=standard` | Onboarding → Premium upsell → phone checkout / hub |
+| Fire TV · Subscribed | `play.html?flow=firetv-subscribed` | Fire TV subscription → onboarding → narrated hub reveal |
+| Fire TV · Paywall skipped | `play.html?flow=firetv-skipped` | Skip Fire TV paywall → onboarding → existing end-game upsell |
+
+Both Fire TV variations start on the same Amazon subscription-sheet mock used by
+pre-roll, now shared through `@weekend/ui/fire-tv-paywall`. Subscribe or **Skip for
+now** determines the actual path; Back also skips. The subscribed variation
+initially focuses the authorization checkbox; the skipped variation focuses Skip.
+Restart returns to that variation's paywall and clears the simulated purchase.
+
+The subscribed ending uses the integrated `onboarding` repo's paired/unpaired
+sign-off recordings (`12-outro-*.mp3`, source revision `839c68f`). It reveals the
+real, subscribed Hub9 underneath the studio, then fades the orb away over three
+seconds. It waits for the hub's fonts and images, offers retry if loading stalls,
+and does not open an upsell or a second purchase-success modal. A paired phone
+becomes the D-pad as soon as the WOF answer is revealed, with no mobile signup,
+trial, or checkout. The D-pad stays visible during hub loading/retry and phone
+reconnection, and controls the hub while the orb speaks and fades. Input during
+the answer reveal starts the hub handoff; the latest input is retained until the
+hub is ready. An unpaired viewer is prompted to use their remote. Reduced
+motion removes the fades while preserving the narration. All paths through the
+answer reveals, including Skip, use the same membership-aware ending.
+
+Ending previews: `play.html?flow=firetv-subscribed&scene=11` and
+`play.html?flow=firetv-skipped&scene=8`. Scene 12 previews the Fire TV paywall.
+Existing `?scene=`, `?phone=`, `?mobile=`, and `?clean=1` links at `/onboarding/`
+continue to open the rehearsal. The review toolbar links back to all variations.
+
 ## Running it
 
 ```bash
-npm run dev:onboarding      # http://localhost:5175
+npm run dev:onboarding      # https://localhost:5175/onboarding/ (HTTP without local certs)
 npm run dev:tv              # the hub, on :5173 — needed for the handoff
 ```
 
@@ -18,7 +53,8 @@ Useful query params:
 
 | Param | Effect |
 |---|---|
-| `?scene=N` | Jump to a phase (0–10, see `src/catalog.js`) |
+| `?scene=N` | Jump to a phase (0–12, see `src/catalog.js`) |
+| `?flow=standard\|firetv-subscribed\|firetv-skipped` | Choose the onboarding variation |
 | `?quality=1080` | Render at 1080p instead of the 720p default |
 | `?renderer=canvas` | Force the Canvas fallback instead of WebGL |
 | `?clean=1` | Hide the review toolbar |

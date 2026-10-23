@@ -23,10 +23,10 @@ export class HostOrb {
  }
  layout(phase,instant=false){
   this.phase=phase;this.paused=false;this.cheerStarted=0;
-  const visible=phase>=1&&phase<=10&&!this.scene.artOnly;
+  const visible=phase>=1&&phase<=11&&!this.scene.artOnly;
   const qr=phase===8||phase===9||(phase===4&&this.scene.scanPrompted);
   const value=phase===2&&!this.scene.roundBoardShown;
-  const position=qr?this.qrPosition():value?VALUE:phase===1?{x:510,y:65,w:900,h:900}:phase===3?{x:280,y:350,w:400,h:400}:phase===7?{x:1240,y:350,w:400,h:400}:phase<=7?FLOOR:{x:1530,y:710,w:280,h:280};
+  const position=phase===11?{x:1500,y:700,w:340,h:340}:qr?this.qrPosition():value?VALUE:phase===1?{x:510,y:65,w:900,h:900}:phase===3?{x:280,y:350,w:400,h:400}:phase===7?{x:1240,y:350,w:400,h:400}:phase<=7?FLOOR:{x:1530,y:710,w:280,h:280};
   this.pose=qr?'QR code':value?'value proposition':phase===1?'welcome':phase===3||phase===7?'celebration':'puzzle';
   this.rest={...position};
   const key=[position.x,position.y,position.w,visible].join(':');if(key===this.target)return;this.target=key;

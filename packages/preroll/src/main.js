@@ -8,6 +8,9 @@ import { fitStage, STAGE_W, STAGE_H, FRAME_BEZEL, FRAME_CHIN, TV_FRAME_CHROME } 
 import { hubUrl } from './hub-link.js';
 import { setupHubPreview } from './hub-preview.js';
 import './style.css';
+import { paywallMarkup } from '@weekend/ui/fire-tv-paywall';
+import '@weekend/ui/fire-tv-paywall/style.css';
+document.getElementById('screen-paywall').innerHTML = paywallMarkup();
 
 const query = new URLSearchParams(location.search);
 if (query.has('clean')) document.body.classList.add('clean');
@@ -502,13 +505,6 @@ $('#variationLinks').innerHTML = '<li><a href="./">All versions (landing page)</
     `<li><a href="${q === null ? hubUrl() : '?' + q}">${label}</a></li>`).join('');
 
 // ── Paywall background: the game wall, tilted, as on device ─────────────
-const WALL = [
-  'jeopardy', 'song-quiz', 'wheel-of-fortune', 'cocomelon', 'guess-the-emoji', 'bingo',
-  'spot-on', 'sketchy-af', 'bffs', 'werds', 'wits-end', 'short-list', 'meme-supreme',
-  'weekend-poker', 'spot-the-gubs', 'word-rush', '20-questions', 'the-price-is-right',
-];
-$('#paywallWall').innerHTML = Array.from({ length: 36 }, (_, i) =>
-  `<img src="assets/img/tv-${WALL[i % WALL.length]}.webp" alt="" />`).join('');
 
 const startScreen = ['home', 'ident', 'preroll', 'loading', 'hub', 'paywall'].includes(query.get('screen')) ? query.get('screen') : 'home';
 go(startScreen);

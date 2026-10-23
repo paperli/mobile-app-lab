@@ -41,6 +41,11 @@ step changes cancel the previous timer.
 
 Plain DOM + Vite, standalone like the onboarding. Nothing is charged.
 
+The Amazon subscription sheet's markup and styling live in
+`@weekend/ui/fire-tv-paywall`, shared with the onboarding Fire TV variations.
+Pre-roll keeps its existing subscription-to-hub handoff; onboarding adds a Skip
+action and continues into its selected first-run experience.
+
 ## URLs
 
 Everything lives under `/preroll/`, apart from the hub (`/`) and the

@@ -27,7 +27,8 @@ export async function setupRemoteHost(scene) {
   socket.on('command',command=>applyPhoneCommand(scene,command));
   socket.on('phone-joined',()=>{
     scene.connected=true;scene.remotePhone=true;document.getElementById('phone').hidden=true;
-    if(scene.phase>=8&&!scene.member&&!['signup','email','offer','pay'].includes(scene.phoneStep))scene.phoneStep='signup';
+    if(scene.member&&(scene.hubVisible||scene.phase===7||scene.phase===11))scene.phoneStep='dpad';
+    else if(scene.phase>=8&&!scene.member&&!['signup','email','offer','pay'].includes(scene.phoneStep))scene.phoneStep='signup';
     else if(scene.phase===4)scene.openApp();
     if(scene.phase===8)scene.plan();
     scene.onchange();

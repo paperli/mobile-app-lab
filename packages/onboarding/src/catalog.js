@@ -5,6 +5,6 @@ export const games=[
  ['Weekend Poker',null,'TOUCH'],['Discat Hero',null,'MOTION'],['Bingo',null,'TOUCH'],['Twenty Questions',null,'VOICE'],['Karaoke',null,'VOICE'],
  ['Game 15 · Preview',null,'PREVIEW'],['Game 16 · Preview',null,'PREVIEW'],['Game 17 · Preview',null,'PREVIEW'],['Game 18 · Preview',null,'PREVIEW'],['Game 19 · Preview',null,'PREVIEW'],['Game 20 · Preview',null,'PREVIEW']
 ];
-// The flow ends at Membership. The old 'Game hub' and 'Game selected' phases
-// are gone — the hub is a separate prototype the onboarding links out to.
-export const phases=['Ident','Welcome','Jeopardy!','Answer reveal','Wheel pairing','Mic setup','Hold to speak','Voice celebration','Weekend plan','Finish on phone','Membership'];
+// Both endings hand off to the separately built hub. Keep existing scene IDs
+// stable for shared review URLs; Fire TV adds an outro and a paywall entry.
+export const phases=['Ident','Welcome','Jeopardy!','Answer reveal','Wheel pairing','Mic setup','Hold to speak','Voice celebration','Weekend plan','Finish on phone','Membership','Game night ready','Fire TV paywall'];

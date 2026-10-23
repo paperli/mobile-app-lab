@@ -12,7 +12,9 @@
     "./device/phone-modal.css": "./src/device/phone-modal.css",
     "./tailwind.preset": "./tailwind.preset.cjs",
     "./tokens/tokens.css": "./src/tokens/tokens.css",
-    "./tokens/fonts.css": "./src/tokens/fonts.css"
+    "./tokens/fonts.css": "./src/tokens/fonts.css",
+    "./fire-tv-paywall": "./src/fire-tv-paywall/index.js",
+    "./fire-tv-paywall/style.css": "./src/fire-tv-paywall/style.css"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

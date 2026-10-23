@@ -1,9 +1,11 @@
-export function skipDestination(phase) {
+import { endingPhase } from './variations.js';
+
+export function skipDestination(phase, member = false) {
   if (phase <= 1) return null;
   if (phase === 2) return 3;
   if (phase === 3) return 4;
   if (phase <= 6) return 7;
-  if (phase === 7) return 8;
+  if (phase === 7) return endingPhase(member);
   return 'hub';
 }
 

@@ -2418,6 +2418,20 @@ export const GameHub = forwardRef<HubHandle, GameHubProps>(function GameHub(
         openSubSuccess();
       }
       if (event.data.command === 'sample') focusGame('wheel-of-fortune');
+      if (event.data.command === 'prepare-reveal') {
+        const requestId = event.data.value?.requestId;
+        if (event.data.value?.member === true) {
+          signedInRef.current = true;
+          setSignedIn(true);
+        }
+        // Wait for the first paint with its fonts/art before dissolving FTUE.
+        requestAnimationFrame(() => {
+          Promise.all([
+            document.fonts.ready,
+            ...Array.from(document.images, image => image.decode().catch(() => {})),
+          ]).then(() => window.parent.postMessage({ type: 'weekend:hub-reveal-ready', requestId }, origin));
+        });
+      }
       if (event.data.command === 'navigate') {
         const key = event.data.value;
         if (key === 'enter' || key === 'back') doAction(key === 'enter' ? 'ok' : 'back');

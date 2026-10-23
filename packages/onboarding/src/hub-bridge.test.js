@@ -19,7 +19,7 @@ function harness() {
   let stops = 0;
   const scene = {connected:false,member:false,permission:false,host:{say:line=>spoken.push(line),stop:()=>stops++},pause(){},onchange(){},go:phase=>phases.push(phase)};
   setupHubBridge(scene);
-  const emit = (type, extra={}) => receive({source:frame.contentWindow,origin:'http://localhost:5173',data:{type},...extra});
+  const emit = (type, extra={}) => receive({source:frame.contentWindow,origin:'http://localhost:5173',data:{type,requestId:messages.at(-1)?.[0].value?.requestId},...extra});
   return {scene,frame,messages,phases,emit,spoken,get stops(){return stops;}};
 }
 
@@ -85,4 +85,24 @@ test('late or untrusted acknowledgements do not narrate after leaving success',(
   h.emit('weekend:success-visible',{origin:'https://unrelated.example'});
   h.scene.hideHub();h.emit('weekend:success-visible');
   assert.equal(h.spoken.length,0);
+});
+test('a subscriber waits for hub artwork readiness without opening the success modal',()=>{
+  const h=harness();h.scene.member=true;let reveals=0;
+  h.scene.prepareHub(()=>reveals++);
+  assert.equal(new URL(h.frame.src).searchParams.get('subscribed'),'true');
+  h.emit('weekend:hub-ready');
+  assert.deepEqual(h.messages.map(([message])=>message.command),['prepare-reveal']);
+  assert.equal(reveals,0);
+  h.emit('weekend:hub-reveal-ready',{origin:'https://unrelated.example'});assert.equal(reveals,0);
+  h.emit('weekend:hub-reveal-ready');h.emit('weekend:hub-reveal-ready');assert.equal(reveals,1);
+  assert.equal(h.spoken.length,0);
+});
+test('restarting while the hub loads cancels the pending outro',()=>{
+  const h=harness();let reveals=0;
+  h.scene.prepareHub(()=>reveals++);h.scene.resetHub();
+  h.emit('weekend:hub-reveal-ready');assert.equal(reveals,0);
+  h.scene.prepareHub(()=>reveals++);h.emit('weekend:hub-ready');
+  h.emit('weekend:hub-reveal-ready',{data:{type:'weekend:hub-reveal-ready',requestId:1}});
+  assert.equal(reveals,0);
+  h.emit('weekend:hub-reveal-ready');assert.equal(reveals,1);
 });

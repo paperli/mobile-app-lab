@@ -5,7 +5,13 @@
 // — or any file that fails to load — falls through to timed captions. Host
 // audio never switches to a device voice.
 export const PAIRING_SUCCESS_PROMPT = "You’re all set! Let’s get your game night started. Press OK on your phone to browse the games.";
+export const OUTRO_PROMPTS = {
+ paired: 'You’re all set. Now use the d-pad on your phone to find tonight’s game.',
+ unpaired: 'You’re all set. Now grab your remote and find tonight’s game.',
+};
 const TAKES = [
+ [OUTRO_PROMPTS.paired, '12-outro-paired'],
+ [OUTRO_PROMPTS.unpaired, '12-outro-unpaired'],
  [PAIRING_SUCCESS_PROMPT, '10-pairing-success'],
  ["Hi friend. Welcome to Weekend. Get comfortable, and let your voice do the playing. A little music, a little trivia, and a few surprises. Ready? Your next great game night starts here.",
   'welcome'],
