@@ -1,6 +1,10 @@
 // Fire TV pre-roll upsell prototype.
 //
-//   home → ident → pre-roll (v1–v3) or loading + hub preview (v4/v5) → paywall → hub
+//   home → app store → launch → ident → pre-roll (v1–v3) or loading + hub preview (v4/v5) → paywall → hub
+//   home → app store → launch → study ident (ident3/ident4) → loading on its final frame → paywall → hub
+//
+// The app store's Get turns into Downloading by itself; after the simulated
+// download the app opens on a beat of Midnight Blue, then the ident.
 //
 // One 1920×1080 stage, a D-pad focus model and a review toolbar.
 // The paywall is a mock of Amazon's system sheet; nothing is charged.
@@ -76,11 +80,27 @@ const parseDelay = (v, fallback) => Number.isFinite(Number(v)) && Number(v) > 0
   ? Math.min(60, Math.max(1, Math.round(Number(v)))) : fallback;
 const parseHubDelay = (v) => parseDelay(v, DEFAULT_HUB_DELAY);
 const parseLoadingDelay = (v) => parseDelay(v, DEFAULT_LOADING_DELAY);
+// Ident study: the tiles idents from weekend/brand/renders/ident_tiles_study,
+// each followed straight by the loader on its final frame, then the paywall.
+// Internally versions 6/7; the URL says ?v=ident3 / ?v=ident4.
+const DEFAULT_IDENT = { video: 'assets/video/weekend-ident.mp4', still: 'assets/img/ident-final.jpg' };
+const IDENT_STUDY = {
+  6: { param: 'ident3', video: 'assets/video/ident-v3-tiles-reveal.mp4', still: 'assets/img/ident-v3-final.jpg' },
+  7: { param: 'ident4', video: 'assets/video/ident-v4-tiles-slide.mp4', still: 'assets/img/ident-v4-final.jpg' },
+};
+function parseVersion(v) {
+  const study = Object.keys(IDENT_STUDY).find((k) => IDENT_STUDY[k].param === v);
+  if (study) return Number(study);
+  return ['1', '2', '3', '4', '5', '6', '7'].includes(v) ? Number(v) : 1;
+}
+const STORE_AUTO_GET = 1200; // ms on the app page before Get presses itself
+const STORE_DOWNLOAD = 2000; // simulated download
+const LAUNCH_BEAT = 1000; // Midnight Blue before the ident
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const state = {
   screen: null,
-  version: ['1', '2', '3', '4', '5'].includes(query.get('v')) ? Number(query.get('v')) : 1,
+  version: parseVersion(query.get('v')),
   bg: VIDEOS[query.get('bg')] ? query.get('bg') : null, // null → version default
   // Auto-advance countdown on the CTA. null → version default (as in Figma:
   // v1 waits for OK, v2/v3 count down).
@@ -96,11 +116,14 @@ const timers = new Set();
 const later = (fn, ms) => { const t = setTimeout(() => { timers.delete(t); fn(); }, ms); timers.add(t); return t; };
 const clearTimers = () => { timers.forEach(clearTimeout); timers.clear(); };
 const usesHubPreview = () => state.version === 4 || state.version === 5;
-const afterIdent = () => usesHubPreview() ? 'loading' : 'preroll';
+const usesIdentStudy = () => state.version in IDENT_STUDY;
+// Both the hub previews and the ident study hold the ident's final frame.
+const usesLoader = () => usesHubPreview() || usesIdentStudy();
+const afterIdent = () => usesLoader() ? 'loading' : 'preroll';
 
 function syncUrl() {
   const p = new URLSearchParams(location.search);
-  p.set('v', String(state.version));
+  p.set('v', IDENT_STUDY[state.version]?.param || String(state.version));
   if (state.bg) p.set('bg', state.bg); else p.delete('bg');
   if (state.auto === null) p.delete('auto'); else p.set('auto', state.auto ? 'on' : 'off');
   if (state.countdown === DEFAULT_COUNTDOWN) p.delete('countdown'); else p.set('countdown', String(state.countdown));
@@ -122,10 +145,11 @@ function syncTools() {
   controls.querySelectorAll('[data-loading-delay]').forEach((b) => b.classList.toggle('is-on', Number(b.dataset.loadingDelay) === state.loadingDelay));
   const loadingInput = $('#loadingDelayInput');
   if (document.activeElement !== loadingInput) loadingInput.value = String(state.loadingDelay);
-  controls.querySelectorAll('[data-upsell-only]').forEach((el) => { el.hidden = usesHubPreview(); });
-  controls.querySelectorAll('[data-hub-only]').forEach((el) => { el.hidden = !usesHubPreview(); });
+  controls.querySelectorAll('[data-upsell-only]').forEach((el) => { el.hidden = usesLoader(); });
+  controls.querySelectorAll('[data-hub-only]').forEach((el) => { el.hidden = !usesLoader(); });
+  controls.querySelectorAll('[data-preview-only]').forEach((el) => { el.hidden = !usesHubPreview(); });
   controls.querySelectorAll('[data-jump]').forEach((b) => b.classList.toggle('is-on', b.dataset.jump === state.screen));
-  controls.querySelector('[data-jump="paywall"]').textContent = usesHubPreview() ? '5 · Paywall' : '4 · Paywall';
+  controls.querySelector('[data-jump="paywall"]').textContent = usesHubPreview() ? '6 · Paywall' : '5 · Paywall';
   $('#soundTop').textContent = state.sound ? 'Sound On' : 'Sound Off';
 }
 const currentBg = () => state.bg || DEFAULT_BG[state.version];
@@ -157,7 +181,11 @@ function scheduleLoading() {
   clearTimers();
   loadingComplete = false;
   if (controls.hidden && !document.hidden) {
-    later(() => { loadingComplete = true; revealLoadedHub(); }, state.loadingDelay * 1000);
+    later(() => {
+      loadingComplete = true;
+      if (usesIdentStudy()) go('paywall');
+      else revealLoadedHub();
+    }, state.loadingDelay * 1000);
   }
 }
 
@@ -181,6 +209,28 @@ function preloadHub() {
   else hubPreview.reset();
 }
 
+const identStill = $('.ident-still');
+/** Point the ident video and the loader's still at the current version's ident. */
+function syncIdent() {
+  const { video, still } = IDENT_STUDY[state.version] || DEFAULT_IDENT;
+  if (identVideo.getAttribute('src') !== video) {
+    // A src attribute overrides the markup's <source>, so this also preloads.
+    identVideo.setAttribute('src', video);
+  }
+  if (identStill.getAttribute('src') !== still) {
+    identStill.src = still;
+    identStill.decode?.().catch(() => {});
+  }
+}
+
+// Screens that share a frame swap on a hard cut instead of cross-fading.
+const CUTS = new Set(['ident>loading', 'launch>ident']);
+function cutIfShared(from, to) {
+  if (!CUTS.has(`${from}>${to}`)) return;
+  stage.classList.add('is-cut');
+  requestAnimationFrame(() => requestAnimationFrame(() => stage.classList.remove('is-cut')));
+}
+
 function stopMedia() {
   identVideo.onended = null;
   identVideo.onerror = null;
@@ -199,13 +249,14 @@ function play(video) {
 }
 
 function go(screen) {
-  if (screen === 'preroll' && usesHubPreview()) screen = 'loading';
-  if (screen === 'hub' || screen === 'loading') {
-    if (!usesHubPreview()) screen = 'preroll';
-    else if (screen === 'hub' && !hubPreview.ready) screen = 'loading';
-  }
+  if (screen === 'preroll' && usesLoader()) screen = 'loading';
+  if (screen === 'hub' && !usesHubPreview()) screen = 'loading';
+  if (screen === 'loading' && !usesLoader()) screen = 'preroll';
+  if (screen === 'hub' && !hubPreview.ready) screen = 'loading';
   clearTimers();
   stopMedia();
+  syncIdent();
+  cutIfShared(state.screen, screen);
   state.screen = screen;
   document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('is-active', s.dataset.screen === screen));
   enter[screen]();
@@ -216,6 +267,16 @@ const enter = {
   home() {
     setFocus('home-cta');
     preloadHub();
+  },
+  store() {
+    setFocus('store-get');
+    resetDownload();
+    preloadHub();
+    later(startDownload, STORE_AUTO_GET);
+  },
+  launch() {
+    setFocus(null);
+    later(() => go('ident'), LAUNCH_BEAT);
   },
   ident() {
     setFocus(null);
@@ -284,6 +345,19 @@ const enter = {
   },
 };
 
+const storeGet = $('.st-get');
+function resetDownload() {
+  storeGet.classList.remove('is-downloading');
+  $('#storeGetLabel').textContent = 'Get';
+}
+function startDownload() {
+  if (state.screen !== 'store' || storeGet.classList.contains('is-downloading')) return;
+  clearTimers();
+  storeGet.classList.add('is-downloading');
+  $('#storeGetLabel').textContent = 'Downloading…';
+  later(() => go('launch'), STORE_DOWNLOAD);
+}
+
 const countdownLabel = (n) => `Get Started in <span class="pr-cta__num">${n}</span>`;
 const STAGES = ['s-tile', 's-text', 's-cta'];
 /** Finish the pre-roll reveal and focus the CTA (also used to skip ahead). */
@@ -333,7 +407,8 @@ function startSubscription() {
 // ── Input ─────────────────────────────────────────────────────────────────
 // Each focus key's neighbours and OK action. Anything missing is a no-op.
 const NAV = {
-  'home-cta': { ok: () => go('ident') },
+  'home-cta': { ok: () => go('store') },
+  'store-get': { ok: startDownload },
   'preroll-cta': { ok: () => go('paywall') },
   'pw-check': { ok: toggleCheck, down: () => state.checked && 'pw-continue' },
   'pw-continue': { ok: startSubscription, up: 'pw-check', right: 'pw-change' },
@@ -341,7 +416,7 @@ const NAV = {
 };
 
 function back() {
-  if (state.screen === 'paywall') go(usesHubPreview() ? 'hub' : 'preroll');
+  if (state.screen === 'paywall') go(usesHubPreview() ? 'hub' : usesIdentStudy() ? 'ident' : 'preroll');
   else if (state.screen !== 'home') go('home');
   // Back on the Fire TV home leaves the prototype for the versions landing page.
   else location.href = './';
@@ -481,7 +556,12 @@ $('#loadingDelayInput').addEventListener('change', (e) => setLoadingDelay(e.targ
 // straight to the state someone should look at.
 const VARIATIONS = [
   ['Full flow (from the Fire TV ad)', ''],
+  ['Ident V3 · tiles reveal · full flow', 'v=ident3'],
+  ['Ident V3 · jump to ident', 'screen=ident&v=ident3'],
+  ['Ident V4 · tiles slide · full flow', 'v=ident4'],
+  ['Ident V4 · jump to ident', 'screen=ident&v=ident4'],
   ['Fire TV ad', 'screen=home'],
+  ['Fire TV app store · Get → Downloading', 'screen=store'],
   ['Weekend ident', 'screen=ident'],
   ['V1 · left stack · panning', 'screen=preroll&v=1'],
   ['V1 · left stack · crawling', 'screen=preroll&v=1&bg=crawl'],
@@ -506,7 +586,7 @@ $('#variationLinks').innerHTML = '<li><a href="./">All versions (landing page)</
 
 // ── Paywall background: the game wall, tilted, as on device ─────────────
 
-const startScreen = ['home', 'ident', 'preroll', 'loading', 'hub', 'paywall'].includes(query.get('screen')) ? query.get('screen') : 'home';
+const startScreen = ['home', 'store', 'launch', 'ident', 'preroll', 'loading', 'hub', 'paywall'].includes(query.get('screen')) ? query.get('screen') : 'home';
 go(startScreen);
 
 // Reveal the TV once it's fitted and its fonts are in (or after a short cap,

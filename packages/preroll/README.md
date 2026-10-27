@@ -7,6 +7,10 @@ board (Section 1, `preroll v1/v2/v3`), plus two hub-before-paywall variations.
 ```
 Fire TV home (Meme Supreme sponsored hero)
   → OK on Play Now
+Fire TV app page (mocked from firetv_see_ads_hero.mp4 at 02:31)
+  → Get turns into Downloading… by itself after 1.2s (or OK), with a
+    spinner around the download icon; the download takes 2s
+App launch: 1s of Weekend Midnight Blue (#0A0322), then a hard cut to
 Weekend ident (same file as the onboarding)
   → ends, or OK to skip
 Pre-roll upsell — ad-game tile + "One step away to play Meme Supreme"
@@ -17,6 +21,12 @@ Fire TV paywall (mock of Amazon's sheet)
   → OK on Continue with Subscription
 Hub9, signed in (?subscribed=true): no free-trial hero
 ```
+
+**Ident study** (`?v=ident3`, `?v=ident4`) swaps the Weekend ident for the
+tiles idents from `weekend/brand/renders/ident_tiles_study/` (V3 Tiles Reveal,
+V4 Tiles Slide, 1080p) and skips the upsell: ad → study ident → canary spinner
+on the ident's final frame (`loadingDelay`, default 2s) → Fire TV paywall →
+subscribed hub. They are listed first on the landing page.
 
 V4 and V5 replace the pre-roll upsell with a brief look at the **real Hub9
 prototype**: ad → ident → simulated loading → hub preview → the same Fire TV
@@ -73,13 +83,13 @@ npm run dev:tv        # required for V4/V5 previews and the hub after checkout
 
 | Param | Effect |
 |---|---|
-| `?v=1\|2\|3\|4\|5` | V1–V3: upsell; V4: hub with trial hero; V5: hub without trial hero |
+| `?v=1\|2\|3\|4\|5\|ident3\|ident4` | V1–V3: upsell; V4: hub with trial hero; V5: hub without trial hero; ident3/ident4: study ident, loader, paywall |
 | `?bg=pan\|crawl` | Force a background video. Default: v1/v2 pan, v3 crawl |
-| `?screen=home\|ident\|preroll\|loading\|hub\|paywall` | Start on a step (`loading` / `hub` for V4/V5) |
+| `?screen=home\|store\|launch\|ident\|preroll\|loading\|hub\|paywall` | Start on a step (`loading` / `hub` for V4/V5) |
 | `?auto=on\|off` (or `1\|0`) | Get Started counts down and continues by itself, or waits for OK. Default: v1 off, v2/v3 on |
 | `?countdown=N` | Countdown length in seconds, 1–60 (default 10). Also on the controls panel |
 | `?hubDelay=N` | Hub preview duration in seconds, 1–60 (default 3), for V4/V5 |
-| `?loadingDelay=N` | Simulated loading on the ident's final frame, in seconds, 1–60 (default 2), for V4/V5 |
+| `?loadingDelay=N` | Simulated loading on the ident's final frame, in seconds, 1–60 (default 2), for V4/V5 and the ident study |
 | `?sound=off` | Start muted |
 | `?clean=1` | Hide the review toolbar |
 | `?hub=<url>` | Override the hub URL used for checkout and V4/V5 previews |
@@ -100,6 +110,14 @@ deployment, including under a repository subpath. If loading fails, the preview
 offers a retry instead of consuming the delay on a blank frame.
 
 ## Assets
+
+- `store-tile-wall.jpg` is `tile-wall-5col-t0.00s.png` from
+  `weekend/hub-upsell-video/output/tile-wall-5col-v3-stills/`, tilted and dimmed
+  behind the app page as on device.
+
+- `ident-v3-tiles-reveal.mp4`, `ident-v4-tiles-slide.mp4` are copies of
+  `Ident_V3_TilesReveal_1080p.mp4` / `Ident_V4_TilesSlide_1080p.mp4`;
+  `ident-v3-final.jpg` / `ident-v4-final.jpg` are their last frames for the loader.
 
 - `assets/video/upsell-pan.mp4`, `upsell-crawl.mp4` are web re-encodes
   (bitrate-capped H.264, faststart) of the masters in

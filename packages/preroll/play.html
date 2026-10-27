@@ -6,7 +6,7 @@
     <title>Weekend · Fire TV Pre-roll</title>
     <meta
       name="description"
-      content="Fire TV pre-roll prototypes: ad, Weekend ident, upsell or timed hub preview, Fire TV paywall, then the subscribed hub."
+      content="Fire TV pre-roll prototypes: ad, app store, Weekend ident, upsell or timed hub preview, Fire TV paywall, then the subscribed hub."
     />
     <link
       rel="icon"
@@ -55,14 +55,52 @@
               <img class="ft-rows" src="assets/img/firetv-home-rows.jpg" alt="" />
             </section>
 
-            <!-- 2 · Weekend ident (same file as the onboarding) -->
+            <!-- 2 · The Fire TV app page (mocked from
+                 firetv_see_ads_hero.mp4 at 02:31). Get turns into Downloading
+                 by itself, then the app opens on a Midnight Blue launch. -->
+            <section class="screen" id="screen-store" data-screen="store">
+              <div class="st-bg" aria-hidden="true"><img src="assets/img/store-tile-wall.jpg" alt="" /></div>
+              <div class="st-copy">
+                <h1>Weekend Games - Jeopardy!, Song Quiz, Poker, CoComelon (formerly Volley)</h1>
+                <p class="st-meta"><span class="st-stars" aria-label="4 out of 5 stars">★★★★<i>★</i></span> (2531) <b>Guidance Suggested</b></p>
+                <p class="st-desc">Play 15+ games right on your TV with the Weekend Games app and discover new games every single week. From trivia and music to geography, word puzzles, and party games, there’s something for everyone. Play solo or bring friends and family together for <span class="st-more" aria-hidden="true">•••</span></p>
+                <p class="st-facts">
+                  <span><b>Developer:</b> Weekend Entertainment, Inc.</span>
+                  <span><b>Works With:</b> Game Controller, Fire TV Remote</span>
+                  <span><b>Supported Languages:</b> English</span>
+                </p>
+              </div>
+              <div class="st-actions">
+                <button class="st-get" data-focus="store-get">
+                  <span class="st-get__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="40" height="40"><path d="M12 4v10m0 0-4.5-4.5M12 14l4.5-4.5M5 15v4h14v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                    <span class="st-get__ring"></span>
+                  </span>
+                  <span class="st-get__text"><b id="storeGetLabel">Get</b><span id="storeGetSub">Free to download</span></span>
+                </button>
+                <span class="st-compat">Device<br />compatibility</span>
+              </div>
+              <h2 class="st-row-title">Trailers &amp; Screenshots</h2>
+              <div class="st-row" aria-hidden="true">
+                <img src="assets/img/tv-jeopardy.webp" alt="" />
+                <img src="assets/img/tv-weekend-poker.webp" alt="" />
+                <img src="assets/img/tv-song-quiz.webp" alt="" />
+                <img src="assets/img/tv-wheel-of-fortune.webp" alt="" />
+                <img src="assets/img/tv-cocomelon.webp" alt="" />
+              </div>
+            </section>
+
+            <!-- The app opening: a beat of Midnight Blue before the ident. -->
+            <section class="screen" id="screen-launch" data-screen="launch" aria-label="Opening Weekend"></section>
+
+            <!-- 3 · Weekend ident (same file as the onboarding), or a study ident -->
             <section class="screen" id="screen-ident" data-screen="ident">
               <video id="identVideo" playsinline preload="auto" poster="assets/img/ident-final.jpg">
                 <source src="assets/video/weekend-ident.mp4" type="video/mp4" />
               </video>
             </section>
 
-            <!-- V4/V5 hold the ident's final frame, matching onboarding's loader. -->
+            <!-- V4/V5 and the ident study hold the ident's final frame, matching onboarding's loader. -->
             <section class="screen" id="screen-loading" data-screen="loading" aria-label="Loading game hub">
               <img class="ident-still" src="assets/img/ident-final.jpg" alt="Weekend. Game night starts here." />
               <div class="ident-loading" role="status" aria-label="Loading game hub">
@@ -124,6 +162,8 @@
         <button data-version="3">V3 · Centred, clear</button>
         <button data-version="4">V4 · Hub with trial hero</button>
         <button data-version="5">V5 · Hub without trial hero</button>
+        <button data-version="6">Ident V3 · Tiles reveal</button>
+        <button data-version="7">Ident V4 · Tiles slide</button>
       </div>
       <div data-upsell-only>
         <h3>Background video</h3>
@@ -155,24 +195,25 @@
           <button data-loading-delay="5">5s</button>
           <label class="num">Custom <input id="loadingDelayInput" type="number" min="1" max="60" step="1" /> s</label>
         </div>
-        <p>Hold the final ident frame with the canary spinner before revealing the hub.</p>
-        <h3>Hub preview before paywall</h3>
-        <div class="row" role="group" aria-label="Hub preview duration">
+        <p>Hold the final ident frame with the canary spinner before the hub or, for the ident study, the paywall.</p>
+        <h3 data-preview-only>Hub preview before paywall</h3>
+        <div class="row" role="group" aria-label="Hub preview duration" data-preview-only>
           <button data-hub-delay="3">3s</button>
           <button data-hub-delay="4">4s</button>
           <button data-hub-delay="5">5s</button>
           <label class="num">Custom <input id="hubDelayInput" type="number" min="1" max="60" step="1" /> s</label>
         </div>
-        <p>The hub timer starts when the hub appears. Both timers pause while these controls are open and restart when you close them.</p>
+        <p data-preview-only>The hub timer starts when the hub appears. Both timers pause while these controls are open and restart when you close them.</p>
       </div>
       <h3>Jump to step</h3>
       <div class="row" role="group" aria-label="Jump to step">
         <button data-jump="home">1 · Fire TV ad</button>
-        <button data-jump="ident">2 · Ident</button>
-        <button data-jump="preroll" data-upsell-only>3 · Pre-roll</button>
-        <button data-jump="loading" data-hub-only hidden>3 · Hub loading</button>
-        <button data-jump="hub" data-hub-only hidden>4 · Hub preview</button>
-        <button data-jump="paywall">4 · Paywall</button>
+        <button data-jump="store">2 · App store</button>
+        <button data-jump="ident">3 · Ident</button>
+        <button data-jump="preroll" data-upsell-only>4 · Pre-roll</button>
+        <button data-jump="loading" data-hub-only hidden>4 · Loading</button>
+        <button data-jump="hub" data-preview-only hidden>5 · Hub preview</button>
+        <button data-jump="paywall">5 · Paywall</button>
       </div>
       <h3>Variation links</h3>
       <ul id="variationLinks"></ul>

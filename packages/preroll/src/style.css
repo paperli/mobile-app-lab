@@ -274,8 +274,72 @@ body.clean #tools { display: none; }
 }
 .ft-rows { position: absolute; left: 0; top: 606px; width: 1920px; height: 474px; display: block; }
 
+/* A hard cut between screens that share a frame (ident → its final-frame
+   loader, launch → ident), so the cross-fade can't dip through the stage. */
+#stage.is-cut .screen { transition: none; }
+
+/* ── Ident study · Fire TV app page ───────────────────────────────────── */
+#screen-store { background: #0b0d14; font-family: var(--font-system); color: #fff; overflow: hidden; }
+.st-bg { position: absolute; inset: 0; overflow: hidden; }
+.st-bg img { position: absolute; left: 50%; top: 50%; width: 1920px; transform: translate(-42%, -50%) rotate(-20deg) scale(1.45); opacity: 0.55; }
+.st-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(8, 9, 16, 0.94) 0%, rgba(8, 9, 16, 0.82) 45%, rgba(8, 9, 16, 0.45) 100%),
+    linear-gradient(0deg, rgba(8, 9, 16, 0.9) 0%, rgba(8, 9, 16, 0) 35%);
+}
+.st-copy { position: absolute; left: 102px; top: 118px; width: 880px; }
+.st-copy h1 { margin: 0; font: 400 66px/1.16 var(--font-system); letter-spacing: -0.005em; }
+.st-meta { margin: 22px 0 0; font-size: 28px; display: flex; gap: 10px; align-items: baseline; }
+.st-meta b { margin-left: 22px; font-weight: 500; }
+.st-stars { letter-spacing: 2px; }
+.st-stars i { font-style: normal; color: rgba(255, 255, 255, 0.4); }
+.st-desc { margin: 30px 0 0; font-size: 27px; line-height: 40px; color: rgba(255, 255, 255, 0.86); }
+.st-more { display: inline-block; padding: 0 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.22); font-size: 18px; letter-spacing: 3px; line-height: 26px; vertical-align: middle; }
+.st-facts { margin: 22px 0 0; display: flex; flex-direction: column; gap: 4px; font-size: 27px; color: rgba(255, 255, 255, 0.8); }
+.st-facts b { font-weight: 400; color: #fff; }
+.st-actions { position: absolute; left: 106px; top: 758px; display: flex; align-items: center; gap: 76px; }
+.st-get { display: flex; align-items: center; gap: 36px; padding: 0; border: 0; background: none; color: #fff; font: inherit; text-align: left; cursor: pointer; }
+.st-get__icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+  transition: background 0.2s, color 0.2s, transform 0.2s var(--ease);
+}
+.st-get.is-focused .st-get__icon { background: #eef0f2; color: #2a2c33; transform: scale(1.04); }
+.st-get__text { display: flex; flex-direction: column; gap: 14px; }
+.st-get__text b { font-size: 32px; font-weight: 600; }
+.st-get__text span { font-size: 32px; color: rgba(255, 255, 255, 0.85); }
+.st-get__ring {
+  position: absolute;
+  inset: -9px;
+  border-radius: 50%;
+  border: 5px solid rgba(255, 255, 255, 0.18);
+  border-top-color: #fff;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.st-get.is-downloading .st-get__ring { opacity: 1; animation: ident-loading-spin 0.9s linear infinite; }
+.st-get.is-downloading .st-get__text { justify-content: center; }
+.st-get.is-downloading #storeGetSub { display: none; }
+.st-compat { padding: 18px 16px; border-radius: 14px; background: rgba(255, 255, 255, 0.16); font-size: 28px; line-height: 34px; color: rgba(255, 255, 255, 0.9); }
+.st-row-title { position: absolute; left: 102px; top: 908px; margin: 0; font-size: 30px; font-weight: 400; }
+.st-row { position: absolute; left: 102px; top: 952px; display: flex; gap: 24px; }
+.st-row img { width: 344px; height: 194px; border-radius: 14px; object-fit: cover; display: block; }
+
+#screen-launch { background: var(--base-950); }
+
 /* ── 2 · Ident ────────────────────────────────────────────────────────── */
-#screen-ident { background: #000; }
+/* Midnight, like the launch beat and every ident's first frame, so the ident
+   can start on a hard cut with no poster. */
+#screen-ident { background: var(--base-950); }
 #identVideo { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 /* The onboarding ident's 52px canary ring, in the same 1920×1080 position. */
