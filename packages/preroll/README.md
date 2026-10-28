@@ -118,6 +118,8 @@ offers a retry instead of consuming the delay on a blank frame.
 - `ident-v3-tiles-reveal.mp4`, `ident-v4-tiles-slide.mp4` are copies of
   `Ident_V3_TilesReveal_1080p.mp4` / `Ident_V4_TilesSlide_1080p.mp4`;
   `ident-v3-final.jpg` / `ident-v4-final.jpg` are their last frames for the loader.
+- `ident-v6-top10.mp4` is a copy of `Ident_V6_TilesTop10_1080p.mp4` (the top 10
+  games by 30-day hub clicks pop up and fade out); `ident-v6-final.jpg` is its last frame.
 
 - `assets/video/upsell-pan.mp4`, `upsell-crawl.mp4` are web re-encodes
   (bitrate-capped H.264, faststart) of the masters in

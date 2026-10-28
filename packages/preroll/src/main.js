@@ -1,7 +1,7 @@
 // Fire TV pre-roll upsell prototype.
 //
 //   home → app store → launch → ident → pre-roll (v1–v3) or loading + hub preview (v4/v5) → paywall → hub
-//   home → app store → launch → study ident (ident3/ident4) → loading on its final frame → paywall → hub
+//   home → app store → launch → study ident (ident3/ident4/ident6) → loading on its final frame → paywall → hub
 //
 // The app store's Get turns into Downloading by itself; after the simulated
 // download the app opens on a beat of Midnight Blue, then the ident.
@@ -82,16 +82,17 @@ const parseHubDelay = (v) => parseDelay(v, DEFAULT_HUB_DELAY);
 const parseLoadingDelay = (v) => parseDelay(v, DEFAULT_LOADING_DELAY);
 // Ident study: the tiles idents from weekend/brand/renders/ident_tiles_study,
 // each followed straight by the loader on its final frame, then the paywall.
-// Internally versions 6/7; the URL says ?v=ident3 / ?v=ident4.
+// Internally versions 6/7/8; the URL says ?v=ident3 / ?v=ident4 / ?v=ident6.
 const DEFAULT_IDENT = { video: 'assets/video/weekend-ident.mp4', still: 'assets/img/ident-final.jpg' };
 const IDENT_STUDY = {
   6: { param: 'ident3', video: 'assets/video/ident-v3-tiles-reveal.mp4', still: 'assets/img/ident-v3-final.jpg' },
   7: { param: 'ident4', video: 'assets/video/ident-v4-tiles-slide.mp4', still: 'assets/img/ident-v4-final.jpg' },
+  8: { param: 'ident6', video: 'assets/video/ident-v6-top10.mp4', still: 'assets/img/ident-v6-final.jpg' },
 };
 function parseVersion(v) {
   const study = Object.keys(IDENT_STUDY).find((k) => IDENT_STUDY[k].param === v);
   if (study) return Number(study);
-  return ['1', '2', '3', '4', '5', '6', '7'].includes(v) ? Number(v) : 1;
+  return ['1', '2', '3', '4', '5', '6', '7', '8'].includes(v) ? Number(v) : 1;
 }
 const STORE_AUTO_GET = 1200; // ms on the app page before Get presses itself
 const STORE_DOWNLOAD = 2000; // simulated download
@@ -560,6 +561,8 @@ const VARIATIONS = [
   ['Ident V3 · jump to ident', 'screen=ident&v=ident3'],
   ['Ident V4 · tiles slide · full flow', 'v=ident4'],
   ['Ident V4 · jump to ident', 'screen=ident&v=ident4'],
+  ['Ident V6 · top 10 games · full flow', 'v=ident6'],
+  ['Ident V6 · jump to ident', 'screen=ident&v=ident6'],
   ['Fire TV ad', 'screen=home'],
   ['Fire TV app store · Get → Downloading', 'screen=store'],
   ['Weekend ident', 'screen=ident'],
