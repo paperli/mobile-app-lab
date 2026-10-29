@@ -120,7 +120,8 @@ offers a retry instead of consuming the delay on a blank frame.
   `Ident_V3_TilesReveal_1080p.mp4` / `Ident_V4_TilesSlide_1080p.mp4`;
   `ident-v3-final.jpg` / `ident-v4-final.jpg` are their last frames for the loader.
 - `ident-v6-top10.mp4` is a copy of `Ident_V6_TilesTop10_1080p.mp4` (the top 10
-  games by 30-day hub clicks pop up and fade out); `ident-v6-final.jpg` is its last frame.
+  games by 30-day hub clicks pop up and fade out, Weekend Poker with its new art);
+  `ident-v6-final.jpg` is its last frame.
 - `ident-v7-top10-new-art.mp4` is a copy of `Ident_V7_TilesTop10NewArt_1080p.mp4` (V6
   with new art for Sketchy AF, Spot On, Guess the Emoji, Bingo, Weekend Pool, Meme
   Supreme and Weekend Poker); `ident-v7-final.jpg` is its last frame.
