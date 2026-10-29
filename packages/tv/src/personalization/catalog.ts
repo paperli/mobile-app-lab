@@ -17,10 +17,12 @@
 //  Lifecycle is 'New' for greenlit titles and anything released within 30
 //  days of the Notion page's last update; everything else is 'Evergreen'.
 //
-//  Tiles: real exported art where it exists — the hub9 set, plus the Drive
-//  "game previews" export copied to public/games/catalog/<id>/tile.jpg. Games
-//  without a tile yet (greenlit titles, and recent launches whose art is not
-//  in the export) have no `art` and render the procedural `theme` tile.
+//  Tiles: real exported art where it exists — the hub9 set, plus each game's
+//  folder in the Foundry Drive — FireTV_<Game>_Logo.png (a full 16:9 tile
+//  despite the name; the Marketing/ copy when there are two), else a hub
+//  v3/v2 or 16:9 tile — resized to 960×540 at
+//  public/games/catalog/<id>/tile.jpg. Games without a tile yet (the
+//  greenlit titles) have no `art` and render the procedural `theme` tile.
 // ─────────────────────────────────────────────────────────────────────────
 
 import type { HubGame } from '../prototype/hub/games';
@@ -322,6 +324,7 @@ export const WEEKEND_CATALOG: CatalogEntry[] = [
       players: '1–4 Players',
       interaction: 'Gesture Controlled',
       theme: { base: '#2a0d1f', from: '#5b1740', to: '#f472b6', accent: '#fde68a', pattern: 'confetti', logo: 'rounded', motif: '🍰' },
+      art: catalogTile('cut-the-cake'),
     },
     tax: { genre: 'Action', themes: ['arcade', 'cake', 'slicing', 'co-op'], lifecycle: 'New', trending: 0.5, editorial: 0.45, motivations: ['Performance', 'Social Cooperation', 'Mastery'], difficulty: 'Medium', session: 12, competition: ['Performance'], cooperation: ['Coop'], audiences: ['Family', 'Adults'], physical: false },
     status: 'Live',
@@ -351,6 +354,7 @@ export const WEEKEND_CATALOG: CatalogEntry[] = [
       players: '1–8 Players',
       interaction: 'Touch Controlled',
       theme: { base: '#06101f', from: '#0b2447', to: '#3b82f6', accent: '#f43f5e', pattern: 'stripes', logo: 'block', motif: '🔮' },
+      art: catalogTile('marble-race'),
     },
     tax: { genre: 'Party', themes: ['racing', 'luck', 'spectacle'], lifecycle: 'New', trending: 0.45, editorial: 0.45, motivations: ['Relaxation', 'Social Competition'], difficulty: 'Easy', session: 10, competition: ['PvP'], cooperation: ['None'], audiences: ['Kids', 'Family', 'Adults'] },
     status: 'Live',
@@ -365,6 +369,7 @@ export const WEEKEND_CATALOG: CatalogEntry[] = [
       players: '2–8 Players',
       interaction: 'Voice Controlled',
       theme: { base: '#1c0a00', from: '#431407', to: '#f97316', accent: '#a3e635', pattern: 'confetti', logo: 'rounded', motif: '🗣️' },
+      art: catalogTile('gibberish'),
     },
     tax: { genre: 'Word', themes: ['wordplay', 'phonetics', 'comedy', 'party'], lifecycle: 'New', trending: 0.42, editorial: 0.5, motivations: ['Knowledge', 'Social Competition', 'Performance'], difficulty: 'Easy', session: 15, competition: ['PvP', 'Team'], audiences: ['Family', 'Adults'], interactions: ['Voice', 'Buzzer'] },
     status: 'Live',
@@ -379,6 +384,7 @@ export const WEEKEND_CATALOG: CatalogEntry[] = [
       players: '1–6 Players',
       interaction: 'Touch Controlled',
       theme: { base: '#f5f3ee', from: '#fafaf7', to: '#e7e1d5', accent: '#e11d48', ink: '#1f1a14', light: true, pattern: 'waves', logo: 'serif', motif: '🎨' },
+      art: catalogTile('color-matchup'),
     },
     tax: { genre: 'Trivia', themes: ['color', 'art', 'memory', 'educational'], lifecycle: 'New', trending: 0.38, editorial: 0.55, motivations: ['Mastery', 'Knowledge', 'Social Competition'], difficulty: 'Adaptive', session: 12, competition: ['PvP'], audiences: ['Family', 'Adults'], interactions: ['Touch'] },
     status: 'Live',
