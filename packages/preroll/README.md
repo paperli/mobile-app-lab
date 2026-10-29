@@ -22,11 +22,12 @@ Fire TV paywall (mock of Amazon's sheet)
 Hub9, signed in (?subscribed=true): no free-trial hero
 ```
 
-**Ident study** (`?v=ident3`, `?v=ident4`) swaps the Weekend ident for the
-tiles idents from `weekend/brand/renders/ident_tiles_study/` (V3 Tiles Reveal,
-V4 Tiles Slide, 1080p) and skips the upsell: ad → study ident → canary spinner
-on the ident's final frame (`loadingDelay`, default 2s) → Fire TV paywall →
-subscribed hub. They are listed first on the landing page.
+**Ident study** (`?v=ident3`, `?v=ident4`, `?v=ident6`, `?v=ident7`) swaps the
+Weekend ident for the tiles idents from `weekend/brand/renders/ident_tiles_study/`
+(V3 Tiles Reveal, V4 Tiles Slide, V6 Top 10, V7 Top 10 with new art, 1080p) and
+skips the upsell: ad → study ident → canary spinner on the ident's final frame
+(`loadingDelay`, default 2s) → Fire TV paywall → subscribed hub. V3, V6 and V7 are
+listed first on the landing page; V4 is reachable by URL and the review panel only.
 
 V4 and V5 replace the pre-roll upsell with a brief look at the **real Hub9
 prototype**: ad → ident → simulated loading → hub preview → the same Fire TV
@@ -83,7 +84,7 @@ npm run dev:tv        # required for V4/V5 previews and the hub after checkout
 
 | Param | Effect |
 |---|---|
-| `?v=1\|2\|3\|4\|5\|ident3\|ident4` | V1–V3: upsell; V4: hub with trial hero; V5: hub without trial hero; ident3/ident4: study ident, loader, paywall |
+| `?v=1\|2\|3\|4\|5\|ident3\|ident4\|ident6\|ident7` | V1–V3: upsell; V4: hub with trial hero; V5: hub without trial hero; ident3/ident4/ident6/ident7: study ident, loader, paywall |
 | `?bg=pan\|crawl` | Force a background video. Default: v1/v2 pan, v3 crawl |
 | `?screen=home\|store\|launch\|ident\|preroll\|loading\|hub\|paywall` | Start on a step (`loading` / `hub` for V4/V5) |
 | `?auto=on\|off` (or `1\|0`) | Get Started counts down and continues by itself, or waits for OK. Default: v1 off, v2/v3 on |
@@ -120,6 +121,9 @@ offers a retry instead of consuming the delay on a blank frame.
   `ident-v3-final.jpg` / `ident-v4-final.jpg` are their last frames for the loader.
 - `ident-v6-top10.mp4` is a copy of `Ident_V6_TilesTop10_1080p.mp4` (the top 10
   games by 30-day hub clicks pop up and fade out); `ident-v6-final.jpg` is its last frame.
+- `ident-v7-top10-new-art.mp4` is a copy of `Ident_V7_TilesTop10NewArt_1080p.mp4` (V6
+  with new art for Sketchy AF, Spot On, Guess the Emoji, Bingo, Weekend Pool and Meme
+  Supreme); `ident-v7-final.jpg` is its last frame.
 
 - `assets/video/upsell-pan.mp4`, `upsell-crawl.mp4` are web re-encodes
   (bitrate-capped H.264, faststart) of the masters in
