@@ -122,8 +122,8 @@ offers a retry instead of consuming the delay on a blank frame.
 - `ident-v6-top10.mp4` is a copy of `Ident_V6_TilesTop10_1080p.mp4` (the top 10
   games by 30-day hub clicks pop up and fade out); `ident-v6-final.jpg` is its last frame.
 - `ident-v7-top10-new-art.mp4` is a copy of `Ident_V7_TilesTop10NewArt_1080p.mp4` (V6
-  with new art for Sketchy AF, Spot On, Guess the Emoji, Bingo, Weekend Pool and Meme
-  Supreme); `ident-v7-final.jpg` is its last frame.
+  with new art for Sketchy AF, Spot On, Guess the Emoji, Bingo, Weekend Pool, Meme
+  Supreme and Weekend Poker); `ident-v7-final.jpg` is its last frame.
 
 - `assets/video/upsell-pan.mp4`, `upsell-crawl.mp4` are web re-encodes
   (bitrate-capped H.264, faststart) of the masters in
