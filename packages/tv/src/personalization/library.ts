@@ -1,21 +1,27 @@
 // ─────────────────────────────────────────────────────────────────────────
-//  Game library — the hub prototype's 30-game dataset, enriched with the
+//  Game library — the real Weekend catalog (see catalog.ts), enriched with the
 //  personalization taxonomy.
 //
-//  Tiles render with the hub's generated art (GameTileV2 / GameArt), so the
-//  simulator uses the exact same library as the hub layout explorations.
-//  Each hub game gets a taxonomy layer here; anything not authored per-game is
-//  filled from genre defaults. `buildLibrary(size)` returns a deterministic
-//  slice.
+//  Tiles render through GameTileV2 / GameArt: real exported tiles where the
+//  catalog has them, the procedural theme art otherwise. Anything a game's
+//  taxonomy does not author is filled from genre defaults.
+//  `buildLibrary(size)` returns a deterministic slice — live games first, then
+//  greenlit.
+//
+//  The 30-game hub layout prototype (prototype/hub/games.ts) still runs
+//  through `enrichHubGame` for the detail page's "You may also like" row, so
+//  its taxonomy is kept below as HUB_PROTOTYPE_TAX.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { HUB_GAMES, type HubGame } from '../prototype/hub/games';
+import type { HubGame } from '../prototype/hub/games';
+import { WEEKEND_CATALOG } from './catalog';
 import type {
   Audience,
   Competition,
   Cooperation,
   Difficulty,
   Game,
+  GameStatus,
   Genre,
   Interaction,
   Lifecycle,
@@ -45,9 +51,9 @@ const GENRE_DEFAULTS: Record<Genre, GenreDefault> = {
   Strategy: { motivations: ['Mastery', 'Social Competition'], difficulty: 'Hard', session: 30, competition: ['PvP', 'PvE'], cooperation: ['None'], audiences: ['Adults'] },
 };
 
-// ── Authored taxonomy per hub game id ───────────────────────────────────────
+// ── Authored taxonomy per game id ───────────────────────────────────────────
 
-interface Tax {
+export interface Tax {
   genre: Genre;
   themes: string[];
   lifecycle: Lifecycle;
@@ -64,7 +70,8 @@ interface Tax {
   physical?: boolean;
 }
 
-const TAX: Record<string, Tax> = {
+/** Taxonomy for the 30-game hub layout prototype's placeholder titles. */
+const HUB_PROTOTYPE_TAX: Record<string, Tax> = {
   // Featured 7
   jeopardy: { genre: 'Trivia', themes: ['general knowledge', 'game show'], lifecycle: 'Evergreen', trending: 0.74, editorial: 0.2, difficulty: 'Hard', motivations: ['Knowledge', 'Mastery', 'Social Competition'] },
   'song-quiz': { genre: 'Music', themes: ['pop', 'nostalgia', 'party'], lifecycle: 'Evergreen', trending: 0.84, editorial: 0.3, motivations: ['Knowledge', 'Social Competition', 'Performance'] },
@@ -101,6 +108,16 @@ const TAX: Record<string, Tax> = {
   'number-ninja': { genre: 'Puzzle', themes: ['math', 'speed'], lifecycle: 'New', trending: 0.3, editorial: 0.55, difficulty: 'Adaptive' },
   'trivia-titans': { genre: 'Trivia', themes: ['general knowledge', 'buzzer'], lifecycle: 'Evergreen', trending: 0.5, editorial: 0.12 },
 };
+
+/** Real-catalog taxonomy wins where an id exists in both (jeopardy, word-rush, …). */
+const TAX: Record<string, Tax> = {
+  ...HUB_PROTOTYPE_TAX,
+  ...Object.fromEntries(WEEKEND_CATALOG.map((e) => [e.game.id, e.tax])),
+};
+
+const CATALOG_META: Record<string, { status: GameStatus; releaseDate: string | null }> = Object.fromEntries(
+  WEEKEND_CATALOG.map((e) => [e.game.id, { status: e.status, releaseDate: e.releaseDate }]),
+);
 
 // ── Builders ────────────────────────────────────────────────────────────────
 
@@ -180,18 +197,20 @@ function enrich(hub: HubGame): Game {
     maxPlayers: max,
     recommendedBands: bandsFor(min, max),
     audiences: t.audiences ?? gd.audiences,
+    status: CATALOG_META[hub.id]?.status ?? 'Live',
+    releaseDate: CATALOG_META[hub.id]?.releaseDate ?? null,
     lifecycle: t.lifecycle,
     trending: t.trending,
     editorial: t.editorial,
   };
 }
 
-/** Full enriched catalog (all 30 hub games). */
-export const CATALOG: Game[] = HUB_GAMES.map(enrich);
+/** Full enriched catalog — every live and greenlit Weekend game. */
+export const CATALOG: Game[] = WEEKEND_CATALOG.map((e) => enrich(e.game));
 
 export const MAX_LIBRARY = CATALOG.length;
 
-/** Return a catalog of `size` games (deterministic slice of the hub set). */
+/** Return a catalog of `size` games (deterministic slice, live games first). */
 export function buildLibrary(size: number): Game[] {
   const n = Math.max(1, Math.min(size, CATALOG.length));
   return CATALOG.slice(0, n);

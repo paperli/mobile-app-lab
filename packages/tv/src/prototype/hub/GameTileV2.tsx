@@ -40,6 +40,8 @@ export function GameTileV2({ game, dim, pressing, onClick, style }: GameTileV2Pr
       }}
     >
       <GameArt game={game} variant="tile" style={{ width: '100%', height: '100%' }}>
+        {/* Real tile art has the wordmark baked in — only the procedural tile needs one. */}
+        {!game.art?.tile && (
         <div
           style={{
             position: 'absolute',
@@ -61,6 +63,7 @@ export function GameTileV2({ game, dim, pressing, onClick, style }: GameTileV2Pr
             }}
           />
         </div>
+        )}
       </GameArt>
     </button>
   );

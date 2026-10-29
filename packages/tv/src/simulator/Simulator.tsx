@@ -34,7 +34,7 @@ const PANEL_MAX = 640;
 const NARROW_BP = 900;
 
 export default function Simulator() {
-  const [size, setSize] = useState(20);
+  const [size, setSize] = useState(MAX_LIBRARY);
   const library = useMemo(() => buildLibrary(size), [size]);
 
   const [state, setState] = useState<{ profile: PlayerProfile; household: HouseholdProfile }>(() =>

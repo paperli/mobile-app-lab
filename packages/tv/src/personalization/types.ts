@@ -62,6 +62,7 @@ export const AUDIENCES: Audience[] = ['Kids', 'Family', 'Adults'];
 
 export type Difficulty = 'Easy' | 'Medium' | 'Hard' | 'Adaptive';
 export type Lifecycle = 'New' | 'Evergreen' | 'Seasonal';
+export type GameStatus = 'Live' | 'Greenlit';
 
 /** Recommended party bands, matching the strategy doc. */
 export type PlayerBand = '1' | '2' | '3-4' | '5+';
@@ -105,6 +106,10 @@ export interface Game {
   recommendedBands: PlayerBand[];
   audiences: Audience[];
   // Merchandising / lifecycle
+  /** Live on the hub, or greenlit in the Shipyard pipeline. */
+  status: GameStatus;
+  /** First-cohort release date (ISO); null for pre-Shipyard or unscheduled titles. */
+  releaseDate: string | null;
   lifecycle: Lifecycle;
   /** 0–1 community popularity signal. */
   trending: number;
