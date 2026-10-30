@@ -41,14 +41,15 @@ interface GenreDefault {
 }
 
 const GENRE_DEFAULTS: Record<Genre, GenreDefault> = {
+  'Game Show': { motivations: ['Knowledge', 'Social Competition'], difficulty: 'Medium', session: 20, competition: ['PvP'], cooperation: ['None'], audiences: ['Family', 'Adults'] },
   Trivia: { motivations: ['Knowledge', 'Social Competition'], difficulty: 'Medium', session: 18, competition: ['PvP'], cooperation: ['None'], audiences: ['Adults', 'Family'] },
   Music: { motivations: ['Performance', 'Knowledge'], difficulty: 'Medium', session: 16, competition: ['PvP', 'Performance'], cooperation: ['None'], audiences: ['Family', 'Adults'] },
   Word: { motivations: ['Knowledge', 'Mastery'], difficulty: 'Medium', session: 12, competition: ['PvP', 'PvE'], cooperation: ['None'], audiences: ['Family', 'Adults'] },
   Party: { motivations: ['Social Cooperation', 'Creativity'], difficulty: 'Easy', session: 20, competition: ['Team'], cooperation: ['TeamCoop'], audiences: ['Family', 'Adults'] },
   Puzzle: { motivations: ['Mastery', 'Relaxation'], difficulty: 'Hard', session: 16, competition: ['PvE'], cooperation: ['None'], audiences: ['Adults'] },
-  Action: { motivations: ['Performance', 'Mastery'], difficulty: 'Medium', session: 15, competition: ['PvP', 'Performance'], cooperation: ['None'], audiences: ['Family', 'Adults'] },
+  Card: { motivations: ['Mastery', 'Social Competition'], difficulty: 'Medium', session: 20, competition: ['PvP', 'PvE'], cooperation: ['None'], audiences: ['Adults'] },
+  Arcade: { motivations: ['Performance', 'Mastery'], difficulty: 'Easy', session: 10, competition: ['PvP', 'Performance'], cooperation: ['None'], audiences: ['Family', 'Adults'] },
   Kids: { motivations: ['Creativity', 'Knowledge'], difficulty: 'Easy', session: 10, competition: ['None'], cooperation: ['Coop'], audiences: ['Kids'] },
-  Strategy: { motivations: ['Mastery', 'Social Competition'], difficulty: 'Hard', session: 30, competition: ['PvP', 'PvE'], cooperation: ['None'], audiences: ['Adults'] },
 };
 
 // ── Authored taxonomy per game id ───────────────────────────────────────────
@@ -73,10 +74,10 @@ export interface Tax {
 /** Taxonomy for the 30-game hub layout prototype's placeholder titles. */
 const HUB_PROTOTYPE_TAX: Record<string, Tax> = {
   // Featured 7
-  jeopardy: { genre: 'Trivia', themes: ['general knowledge', 'game show'], lifecycle: 'Evergreen', trending: 0.74, editorial: 0.2, difficulty: 'Hard', motivations: ['Knowledge', 'Mastery', 'Social Competition'] },
+  jeopardy: { genre: 'Game Show', themes: ['general knowledge', 'game show'], lifecycle: 'Evergreen', trending: 0.74, editorial: 0.2, difficulty: 'Hard', motivations: ['Knowledge', 'Mastery', 'Social Competition'] },
   'song-quiz': { genre: 'Music', themes: ['pop', 'nostalgia', 'party'], lifecycle: 'Evergreen', trending: 0.84, editorial: 0.3, motivations: ['Knowledge', 'Social Competition', 'Performance'] },
   cocomelon: { genre: 'Kids', themes: ['nursery', 'sing-along', 'family'], lifecycle: 'Evergreen', trending: 0.55, editorial: 0.35, session: 10 },
-  'wheel-of-fortune': { genre: 'Word', themes: ['puzzle', 'game show'], lifecycle: 'Evergreen', trending: 0.7, editorial: 0.2, difficulty: 'Medium', session: 20 },
+  'wheel-of-fortune': { genre: 'Game Show', themes: ['puzzle', 'game show'], lifecycle: 'Evergreen', trending: 0.7, editorial: 0.2, difficulty: 'Medium', session: 20 },
   'wits-end': { genre: 'Trivia', themes: ['fantasy', 'adventure'], lifecycle: 'Evergreen', trending: 0.6, editorial: 0.18, difficulty: 'Hard' },
   'sketchy-af': { genre: 'Party', themes: ['drawing', 'party', 'comedy'], lifecycle: 'Evergreen', trending: 0.72, editorial: 0.25 },
   // The two hub9 debuts. Authored here so the recommender scores them properly
@@ -93,12 +94,12 @@ const HUB_PROTOTYPE_TAX: Record<string, Tax> = {
   'emoji-riddle': { genre: 'Word', themes: ['emoji', 'puzzle'], lifecycle: 'New', trending: 0.35, editorial: 0.7, difficulty: 'Easy' },
   'pixel-painters': { genre: 'Party', themes: ['drawing', 'creativity'], lifecycle: 'New', trending: 0.36, editorial: 0.62 },
   'karaoke-kings': { genre: 'Music', themes: ['singing', 'party', 'performance'], lifecycle: 'Evergreen', trending: 0.71, editorial: 0.25, difficulty: 'Easy', motivations: ['Performance', 'Creativity', 'Social Cooperation'], cooperation: ['Coop'] },
-  'dance-floor': { genre: 'Action', themes: ['dance', 'party', 'fitness'], lifecycle: 'Evergreen', trending: 0.66, editorial: 0.2 },
+  'dance-floor': { genre: 'Arcade', themes: ['dance', 'party', 'fitness'], lifecycle: 'Evergreen', trending: 0.66, editorial: 0.2, physical: true },
   'guess-the-movie': { genre: 'Trivia', themes: ['movies', 'pop culture'], lifecycle: 'Evergreen', trending: 0.58, editorial: 0.15 },
   'sports-iq': { genre: 'Trivia', themes: ['sports'], lifecycle: 'Evergreen', trending: 0.44, editorial: 0.1 },
   'escape-room': { genre: 'Puzzle', themes: ['mystery', 'co-op', 'logic'], lifecycle: 'Evergreen', trending: 0.49, editorial: 0.2, cooperation: ['Coop'], competition: ['None'], motivations: ['Mastery', 'Social Cooperation'], session: 30 },
   'mind-meld': { genre: 'Party', themes: ['word', 'sync'], lifecycle: 'New', trending: 0.4, editorial: 0.6, cooperation: ['Coop'] },
-  'fitness-frenzy': { genre: 'Action', themes: ['fitness', 'workout'], lifecycle: 'Evergreen', trending: 0.42, editorial: 0.2, competition: ['Performance'] },
+  'fitness-frenzy': { genre: 'Arcade', themes: ['fitness', 'workout'], lifecycle: 'Evergreen', trending: 0.42, editorial: 0.2, competition: ['Performance'], physical: true },
   'puzzle-panic': { genre: 'Puzzle', themes: ['tetromino', 'speed'], lifecycle: 'Evergreen', trending: 0.41, editorial: 0.1, difficulty: 'Medium', session: 10 },
   'story-builder': { genre: 'Party', themes: ['storytelling', 'creativity'], lifecycle: 'Evergreen', trending: 0.45, editorial: 0.15, motivations: ['Creativity', 'Social Cooperation'] },
   'quick-draw-duel': { genre: 'Party', themes: ['drawing', 'duel'], lifecycle: 'Evergreen', trending: 0.4, editorial: 0.12, competition: ['PvP'], cooperation: ['None'] },
@@ -170,10 +171,10 @@ function enrich(hub: HubGame): Game {
   const { min, max } = parsePlayers(hub.players);
   const primary = mapInteraction(hub.interaction);
   let interactions = t.interactions ?? [primary];
-  if (t.genre === 'Trivia' && !interactions.includes('Buzzer')) interactions = [...interactions, 'Buzzer'];
+  if ((t.genre === 'Trivia' || t.genre === 'Game Show') && !interactions.includes('Buzzer')) interactions = [...interactions, 'Buzzer'];
   const voiceRequired = hub.interaction === 'Voice Controlled' && t.genre === 'Music';
   const cameraRequired = hub.interaction === 'Motion Capture';
-  const physicalActivity = t.physical ?? (hub.interaction === 'Motion Capture' || t.genre === 'Action');
+  const physicalActivity = t.physical ?? hub.interaction === 'Motion Capture';
 
   return {
     id: hub.id,

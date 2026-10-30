@@ -11,25 +11,29 @@ import type { HubGame } from '../prototype/hub/games';
 
 // ── Game taxonomy vocabulary ───────────────────────────────────────────────
 
+// Matches the genre vocabulary of the games' "Game Description" decks, so
+// every catalog genre is one a deck actually uses (see catalog.ts).
 export type Genre =
+  | 'Game Show'
   | 'Trivia'
   | 'Music'
   | 'Word'
   | 'Party'
   | 'Puzzle'
-  | 'Action'
-  | 'Kids'
-  | 'Strategy';
+  | 'Card'
+  | 'Arcade'
+  | 'Kids';
 
 export const GENRES: Genre[] = [
+  'Game Show',
   'Trivia',
   'Music',
   'Word',
   'Party',
   'Puzzle',
-  'Action',
+  'Card',
+  'Arcade',
   'Kids',
-  'Strategy',
 ];
 
 export type Motivation =

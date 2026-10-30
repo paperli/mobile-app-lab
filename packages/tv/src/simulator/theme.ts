@@ -24,14 +24,15 @@ export const UI = {
 
 // Entity-stable genre palette. Never cycled; assigned once.
 export const GENRE_COLOR: Record<Genre, string> = {
+  'Game Show': '#c98500', // yellow
   Trivia: '#3987e5', // blue
   Music: '#d55181', // magenta
   Word: '#199e70', // aqua
   Party: '#d95926', // orange
   Puzzle: '#9085e9', // violet
-  Action: '#e66767', // red
+  Card: '#a87b52', // brown
+  Arcade: '#e66767', // red
   Kids: '#3fb56b', // green
-  Strategy: '#c98500', // yellow
 };
 
 // Evidence-scope badge colors (matches the "job" coloring used elsewhere).

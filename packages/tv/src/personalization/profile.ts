@@ -53,7 +53,7 @@ interface Persona {
 const PERSONAS: Persona[] = [
   {
     label: 'Trivia Buff',
-    genres: ['Trivia', 'Word'],
+    genres: ['Trivia', 'Game Show', 'Word'],
     motivations: ['Knowledge', 'Mastery', 'Social Competition'],
     interactions: ['Buzzer', 'Voice'],
     avoid: ['Camera'],
@@ -65,7 +65,7 @@ const PERSONAS: Persona[] = [
   },
   {
     label: 'Party Host',
-    genres: ['Party', 'Music', 'Trivia'],
+    genres: ['Party', 'Music', 'Game Show'],
     motivations: ['Social Cooperation', 'Social Competition', 'Performance'],
     interactions: ['Voice', 'Buzzer', 'Camera'],
     avoid: [],
@@ -89,7 +89,7 @@ const PERSONAS: Persona[] = [
   },
   {
     label: 'Solo Puzzler',
-    genres: ['Puzzle', 'Word', 'Strategy'],
+    genres: ['Puzzle', 'Word', 'Card'],
     motivations: ['Mastery', 'Relaxation'],
     interactions: ['Touch'],
     avoid: ['Camera', 'Voice'],
@@ -113,7 +113,7 @@ const PERSONAS: Persona[] = [
   },
   {
     label: 'Active Gamer',
-    genres: ['Action', 'Music', 'Party'],
+    genres: ['Arcade', 'Music', 'Party'],
     motivations: ['Performance', 'Mastery', 'Social Competition'],
     interactions: ['Gyro', 'Camera'],
     avoid: [],

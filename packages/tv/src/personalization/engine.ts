@@ -524,7 +524,7 @@ export function buildWarmHub(
       .filter((g) => g.id !== prev.id && g.genre === prev.genre && partyCompatible(g, n))
       .map((g) => byId.get(g.id)!)
       .sort((a, b) => b.score - a.score)
-      .map((s) => toRec(s, reason('GENRE_CONTINUATION', `Keep the ${prev.genre.toLowerCase()} going.`, round(0.6 + s.score * 0.3), 'PARTY')))
+      .map((s) => toRec(s, reason('GENRE_CONTINUATION', `Keep the ${prev.genre.toLowerCase()} games going.`, round(0.6 + s.score * 0.3), 'PARTY')))
       .slice(0, ROW_LIMIT);
     pushRow(rows, {
       id: 'genre_continuation',

@@ -10,9 +10,10 @@
 //    · `// proposal` — backfilled from the game's "Game Description" deck
 //      (genre, theme, player count, interaction, pitch).
 //    · `// guess`    — no deck yet; a best guess to replace once one exists.
-//  The decks use a wider genre vocabulary than the engine; each game's
-//  first-listed genre is mapped onto ours (Card → Strategy, Arcade → Action,
-//  Game Show → Trivia) and the rest is kept in `themes`.
+//  Genres use the decks' own vocabulary, usually the deck's first-listed
+//  genre, with the rest kept in `themes`. Game Show is for the licensed TV
+//  formats. Two exceptions: Bingo (deck: Party) sits under Card with Poker
+//  and Solitaire, and Spot the Gubs (deck: Party, Puzzle) under Puzzle.
 //
 //  Lifecycle is 'New' for greenlit titles and anything released within 30
 //  days of the Notion page's last update; everything else is 'Evergreen'.
@@ -54,7 +55,7 @@ export const WEEKEND_CATALOG: CatalogEntry[] = [
       theme: { base: '#03113f', from: '#061a5c', to: '#1e49c7', accent: '#f7c948', pattern: 'grid', logo: 'serif', motif: '💡' },
       art: hub9Tile('jeopardy'),
     },
-    tax: { genre: 'Trivia', themes: ['general knowledge', 'game show'], lifecycle: 'Evergreen', trending: 0.74, editorial: 0.2, difficulty: 'Hard', motivations: ['Knowledge', 'Mastery', 'Social Competition'], session: 25 },
+    tax: { genre: 'Game Show', themes: ['general knowledge', 'game show'], lifecycle: 'Evergreen', trending: 0.74, editorial: 0.2, difficulty: 'Hard', motivations: ['Knowledge', 'Mastery', 'Social Competition'], session: 25 },
     status: 'Live',
     releaseDate: null,
   },
@@ -84,7 +85,7 @@ export const WEEKEND_CATALOG: CatalogEntry[] = [
       theme: { base: '#0c1f14', from: '#123a24', to: '#1f9d57', accent: '#ffd23f', pattern: 'grid', logo: 'serif', motif: '🎡' },
       art: hub9Tile('wheel-of-fortune'),
     },
-    tax: { genre: 'Word', themes: ['puzzle', 'game show'], lifecycle: 'Evergreen', trending: 0.7, editorial: 0.2, session: 20 },
+    tax: { genre: 'Game Show', themes: ['puzzle', 'game show'], lifecycle: 'Evergreen', trending: 0.7, editorial: 0.2, session: 20 },
     status: 'Live',
     releaseDate: null,
   },
@@ -221,7 +222,7 @@ export const WEEKEND_CATALOG: CatalogEntry[] = [
       theme: { base: '#1e0b3a', from: '#3b0f6e', to: '#f43f5e', accent: '#fde047', pattern: 'dots', logo: 'rounded', motif: '🎱' },
       art: catalogTile('bingo'),
     },
-    tax: { genre: 'Party', themes: ['numbers', 'bingo hall', 'luck'], lifecycle: 'Evergreen', trending: 0.6, editorial: 0.18, motivations: ['Relaxation', 'Social Competition'], difficulty: 'Easy', session: 15, competition: ['PvP'], cooperation: ['None'], audiences: ['Family', 'Adults'] },
+    tax: { genre: 'Card', themes: ['numbers', 'bingo hall', 'luck'], lifecycle: 'Evergreen', trending: 0.6, editorial: 0.18, motivations: ['Relaxation', 'Social Competition'], difficulty: 'Easy', session: 15, competition: ['PvP'], cooperation: ['None'], audiences: ['Family', 'Adults'] },
     status: 'Live',
     releaseDate: '2026-09-02',
   },
@@ -251,7 +252,7 @@ export const WEEKEND_CATALOG: CatalogEntry[] = [
       theme: { base: '#04140c', from: '#0a2a18', to: '#166534', accent: '#fbbf24', pattern: 'hex', logo: 'serif', motif: '🃏' },
       art: catalogTile('weekend-poker'),
     },
-    tax: { genre: 'Strategy', themes: ['cards', "texas hold'em", 'tournament'], lifecycle: 'Evergreen', trending: 0.56, editorial: 0.18, motivations: ['Mastery', 'Social Competition'], difficulty: 'Medium', session: 30, competition: ['PvP'], audiences: ['Adults'] },
+    tax: { genre: 'Card', themes: ['cards', "texas hold'em", 'tournament'], lifecycle: 'Evergreen', trending: 0.56, editorial: 0.18, motivations: ['Mastery', 'Social Competition'], difficulty: 'Medium', session: 30, competition: ['PvP'], audiences: ['Adults'] },
     status: 'Live',
     releaseDate: '2026-09-02',
   },
@@ -311,7 +312,7 @@ export const WEEKEND_CATALOG: CatalogEntry[] = [
       theme: { base: '#04131a', from: '#063040', to: '#0e7490', accent: '#facc15', pattern: 'stripes', logo: 'block', motif: '🎱' },
       art: catalogTile('weekend-pool'),
     },
-    tax: { genre: 'Action', themes: ['billiards', 'sports', 'skill'], lifecycle: 'Evergreen', trending: 0.46, editorial: 0.18, motivations: ['Mastery', 'Social Competition'], difficulty: 'Medium', session: 15, competition: ['PvP'], physical: false },
+    tax: { genre: 'Arcade', themes: ['billiards', 'sports', 'skill'], lifecycle: 'Evergreen', trending: 0.46, editorial: 0.18, motivations: ['Mastery', 'Social Competition'], difficulty: 'Medium', session: 15, competition: ['PvP'], physical: false },
     status: 'Live',
     releaseDate: '2026-09-30',
   },
@@ -326,7 +327,7 @@ export const WEEKEND_CATALOG: CatalogEntry[] = [
       theme: { base: '#2a0d1f', from: '#5b1740', to: '#f472b6', accent: '#fde68a', pattern: 'confetti', logo: 'rounded', motif: '🍰' },
       art: catalogTile('cut-the-cake'),
     },
-    tax: { genre: 'Action', themes: ['arcade', 'cake', 'slicing', 'co-op'], lifecycle: 'New', trending: 0.5, editorial: 0.45, motivations: ['Performance', 'Social Cooperation', 'Mastery'], difficulty: 'Medium', session: 12, competition: ['Performance'], cooperation: ['Coop'], audiences: ['Family', 'Adults'], physical: false },
+    tax: { genre: 'Arcade', themes: ['arcade', 'cake', 'slicing', 'co-op'], lifecycle: 'New', trending: 0.5, editorial: 0.45, motivations: ['Performance', 'Social Cooperation', 'Mastery'], difficulty: 'Medium', session: 12, competition: ['Performance'], cooperation: ['Coop'], audiences: ['Family', 'Adults'], physical: false },
     status: 'Live',
     releaseDate: '2026-10-01',
   },
@@ -341,7 +342,7 @@ export const WEEKEND_CATALOG: CatalogEntry[] = [
       theme: { base: '#1a0533', from: '#3b0a6b', to: '#f59e0b', accent: '#fde047', pattern: 'rays', logo: 'block', motif: '💰' },
       art: catalogTile('the-price-is-right'),
     },
-    tax: { genre: 'Trivia', themes: ['game show', 'prices', 'plinko', 'prizes'], lifecycle: 'New', trending: 0.64, editorial: 0.5, motivations: ['Knowledge', 'Social Competition'], difficulty: 'Easy', session: 25, competition: ['PvP'], audiences: ['Family', 'Adults'], interactions: ['Voice', 'Touch'] },
+    tax: { genre: 'Game Show', themes: ['game show', 'prices', 'plinko', 'prizes'], lifecycle: 'New', trending: 0.64, editorial: 0.5, motivations: ['Knowledge', 'Social Competition'], difficulty: 'Easy', session: 25, competition: ['PvP'], audiences: ['Family', 'Adults'], interactions: ['Voice', 'Touch'] },
     status: 'Live',
     releaseDate: '2026-10-06',
   },
@@ -356,7 +357,7 @@ export const WEEKEND_CATALOG: CatalogEntry[] = [
       theme: { base: '#06101f', from: '#0b2447', to: '#3b82f6', accent: '#f43f5e', pattern: 'stripes', logo: 'block', motif: '🔮' },
       art: catalogTile('marble-race'),
     },
-    tax: { genre: 'Party', themes: ['racing', 'luck', 'spectacle'], lifecycle: 'New', trending: 0.45, editorial: 0.45, motivations: ['Relaxation', 'Social Competition'], difficulty: 'Easy', session: 10, competition: ['PvP'], cooperation: ['None'], audiences: ['Kids', 'Family', 'Adults'] },
+    tax: { genre: 'Arcade', themes: ['racing', 'luck', 'spectacle'], lifecycle: 'New', trending: 0.45, editorial: 0.45, motivations: ['Relaxation', 'Social Competition'], difficulty: 'Easy', session: 10, competition: ['PvP'], cooperation: ['None'], audiences: ['Kids', 'Family', 'Adults'] },
     status: 'Live',
     releaseDate: '2026-10-08',
   },
@@ -417,7 +418,7 @@ export const WEEKEND_CATALOG: CatalogEntry[] = [
       theme: { base: '#02031a', from: '#0a0f4a', to: '#4338ca', accent: '#e5e7eb', pattern: 'rays', logo: 'serif', motif: '💎' },
       art: catalogTile('millionaire'),
     },
-    tax: { genre: 'Trivia', themes: ['game show', 'general knowledge', 'lifelines'], lifecycle: 'New', trending: 0.35, editorial: 0.65, motivations: ['Knowledge', 'Mastery'], difficulty: 'Hard', session: 20, competition: ['PvE', 'PvP'], audiences: ['Family', 'Adults'] },
+    tax: { genre: 'Game Show', themes: ['game show', 'general knowledge', 'lifelines'], lifecycle: 'New', trending: 0.35, editorial: 0.65, motivations: ['Knowledge', 'Mastery'], difficulty: 'Hard', session: 20, competition: ['PvE', 'PvP'], audiences: ['Family', 'Adults'] },
     status: 'Greenlit',
     releaseDate: null,
   },
@@ -431,7 +432,7 @@ export const WEEKEND_CATALOG: CatalogEntry[] = [
       interaction: 'Touch Controlled',
       theme: { base: '#052e16', from: '#14532d', to: '#16a34a', accent: '#fef3c7', pattern: 'hex', logo: 'serif', motif: '♠️' },
     },
-    tax: { genre: 'Puzzle', themes: ['cards', 'solitaire', 'relaxing'], lifecycle: 'New', trending: 0.3, editorial: 0.55, motivations: ['Relaxation', 'Mastery'], difficulty: 'Medium', session: 10, competition: ['PvE'], audiences: ['Adults', 'Family'] },
+    tax: { genre: 'Card', themes: ['cards', 'solitaire', 'relaxing'], lifecycle: 'New', trending: 0.3, editorial: 0.55, motivations: ['Relaxation', 'Mastery'], difficulty: 'Medium', session: 10, competition: ['PvE'], audiences: ['Adults', 'Family'] },
     status: 'Greenlit',
     releaseDate: null,
   },
@@ -446,7 +447,7 @@ export const WEEKEND_CATALOG: CatalogEntry[] = [
       theme: { base: '#14532d', from: '#166534', to: '#4caf3a', accent: '#facc15', pattern: 'dots', logo: 'block', motif: '🍎' },
       art: catalogTile('are-you-smarter'),
     },
-    tax: { genre: 'Trivia', themes: ['game show', 'school', 'general knowledge', 'family'], lifecycle: 'New', trending: 0.32, editorial: 0.6, motivations: ['Knowledge', 'Social Competition'], difficulty: 'Medium', session: 20, competition: ['PvP', 'PvE'], audiences: ['Family', 'Adults'], interactions: ['Voice', 'Buzzer'] },
+    tax: { genre: 'Game Show', themes: ['game show', 'school', 'general knowledge', 'family'], lifecycle: 'New', trending: 0.32, editorial: 0.6, motivations: ['Knowledge', 'Social Competition'], difficulty: 'Medium', session: 20, competition: ['PvP', 'PvE'], audiences: ['Family', 'Adults'], interactions: ['Voice', 'Buzzer'] },
     status: 'Greenlit',
     releaseDate: null,
   },
@@ -474,7 +475,7 @@ export const WEEKEND_CATALOG: CatalogEntry[] = [
       interaction: 'Motion Capture',
       theme: { base: '#0c0a09', from: '#292524', to: '#dc2626', accent: '#fde047', pattern: 'stripes', logo: 'stencil', motif: '📸' },
     },
-    tax: { genre: 'Action', themes: ['motion', 'fitness', 'party'], lifecycle: 'New', trending: 0.3, editorial: 0.55, motivations: ['Performance', 'Social Competition'], session: 12, competition: ['PvP', 'Performance'], audiences: ['Family', 'Adults'] },
+    tax: { genre: 'Arcade', themes: ['motion', 'fitness', 'party'], lifecycle: 'New', trending: 0.3, editorial: 0.55, motivations: ['Performance', 'Social Competition'], session: 12, competition: ['PvP', 'Performance'], audiences: ['Family', 'Adults'] },
     status: 'Greenlit',
     releaseDate: null,
   },
