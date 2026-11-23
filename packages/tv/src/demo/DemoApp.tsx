@@ -13,6 +13,7 @@ import { HeroExample, SmallGameRow, LargeGameRow, PromoBanner, GameGridKit, Song
 import Simulator from '../simulator/Simulator';
 import HowItWorks from '../simulator/HowItWorks';
 import { PrerollHubPreview } from './PrerollHubPreview';
+import { ProdDesktopView, ProdHubCard, ProdHubView } from './ProdHubViews';
 
 interface LayoutOption {
   phase: number;
@@ -110,6 +111,8 @@ export default function DemoApp() {
   if (params.get('view') === 'simulator') return <Simulator />;
   if (params.get('view') === 'how-it-works') return <HowItWorks />;
   if (params.get('view') === 'components') return <Playground />;
+  if (params.get('view') === 'hub') return <ProdHubView />;
+  if (params.get('view') === 'hub-desktop') return <ProdDesktopView />;
   if (params.get('view') === 'hub9') {
     const prerollOrigin = params.get('prerollOrigin');
     if (prerollOrigin) return <PrerollHubPreview origin={prerollOrigin} showTrialHero={params.get('trialHero') !== 'off'} />;
@@ -568,6 +571,31 @@ function Gallery() {
         </p>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 26 }}>
+          {/* The shipped hub, TV and desktop — the two links people ask for most. */}
+          {[
+            { href: '?view=hub', label: '📺 Prod TV Hub →' },
+            { href: '?view=hub-desktop', label: '🖥️ Prod Desktop Hub →' },
+          ].map((l) => (
+            <a
+              key={l.href}
+              href={l.href}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '13px 22px',
+                borderRadius: 999,
+                textDecoration: 'none',
+                fontSize: 15,
+                fontWeight: 800,
+                color: '#0b0c0e',
+                background: '#ffda0a',
+                boxShadow: '0 6px 22px rgba(255,218,10,0.22)',
+              }}
+            >
+              {l.label}
+            </a>
+          ))}
           <a
             href="?view=simulator"
             style={{
@@ -662,7 +690,10 @@ function Gallery() {
           </div>
         </section>
 
-        {/* Newest exploration: the curated 9-game hub. */}
+        {/* What ships today: the prod-matched hub, TV and desktop. */}
+        <ProdHubCard />
+
+        {/* The curated 9-game hub exploration. */}
         <Hub9Card />
 
         {/* Phase 0 prototypes first (smaller catalog), then phase 1. */}

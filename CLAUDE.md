@@ -35,16 +35,25 @@ Three TV prototypes ship together but stay independent — different rendering
 stacks, different bundles, neither importing the other:
 
 ```
-packages/tv          React + Vite        the game hub (?view=hub9)
+packages/tv          React + Vite        the game hub (?view=hub TV, ?view=hub-desktop web; ?view=hub9 exploration)
 packages/onboarding  Lightning 3 + Blits the first-run flow
 packages/preroll     plain DOM + Vite    Fire TV ad → pre-roll upsell → paywall
         └── linked by navigation, never bundled together
 ```
 
-The pre-roll lands on hub9 with `?subscribed=true`, which hides the free-trial
-hero (see `packages/preroll/README.md`).
+**The production hub** (`packages/tv/src/prototype/hub-prod/`) replicates the
+shipped hub from the prod repo (`~/Documents/Projects/hub`, apps/client):
+`?view=hub` is the TV home (TvHub/MainMenu HeroArea + GamesCarousel) and
+`?view=hub-desktop` the web hub (DesktopHub/, prod `?layout=desktop`). Content in
+`catalog.ts` is transcribed from prod's `public/homeLayout.production.json` and
+`public/gameAssets.production.json`; re-sync from those when prod's layout changes.
 
-The onboarding is treated as a "game": hub9 carries a **Welcome to Weekend**
+The pre-roll lands on the prod hub with `?subscribed=true`; its pre-checkout
+preview still embeds hub9 (see `packages/preroll/README.md`). The onboarding
+still hands off to and embeds hub9, whose postMessage bridge it depends on.
+
+The onboarding is treated as a "game": hub9 and the prod hub (a prototype-only
+"Get Started" row, `?onboardingRow=false` hides it) carry a **Welcome to Weekend**
 tile that launches it, so it stays replayable after setup. The phone simulator
 is shared between them as plain DOM (`@weekend/ui/device`), because a React
 component could not be used inside the Blits bundle.
@@ -463,6 +472,9 @@ scanner.start()
 | `packages/onboarding/src/vo.js` | Host line → recorded audio file map |
 | `packages/onboarding/src/hub-link.js` | Onboarding → hub handoff URL |
 | `packages/tv/src/prototype/hub9/onboarding.ts` | Hub → onboarding tile + handoff URL |
+| `packages/tv/src/prototype/hub-prod/catalog.ts` | Prod hub content (layout snapshot, games, tokens) |
+| `packages/tv/src/prototype/hub-prod/ProdTvHub.tsx` | Prod TV hub replica (`?view=hub`) |
+| `packages/tv/src/prototype/hub-prod/ProdDesktopHub.tsx` | Prod desktop hub replica (`?view=hub-desktop`) |
 | `packages/ui-weekend/src/device/PhoneModal.ts` | Draggable phone simulator (framework-neutral) |
 | `packages/ui-weekend/src/device/tvFrame.ts` | TV bezel geometry + the sub-native show/hide rule, shared by hub and onboarding |
 | `ios/MobileAppLab/Config/AppConfig.swift` | iOS app URL configuration |

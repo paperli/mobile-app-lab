@@ -19,7 +19,8 @@ Pre-roll upsell — ad-game tile + "One step away to play Meme Supreme"
 Fire TV paywall (mock of Amazon's sheet)
   → OK ticks "Authorize recurring charges", focus jumps to Continue
   → OK on Continue with Subscription
-Hub9, signed in (?subscribed=true): no free-trial hero
+Prod-matched hub (?view=hub&subscribed=true)
+  (the pre-checkout hub preview still embeds hub9)
 ```
 
 **Ident study** (`?v=ident3`, `?v=ident4`, `?v=ident6`, `?v=ident7`) swaps the
