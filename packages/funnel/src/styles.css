@@ -302,7 +302,13 @@ input { font: inherit; }
 .sec-nav-track { height: 100%; display: flex; align-items: center; gap: 32px; overflow-x: auto; scrollbar-width: none; padding: 0 max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); }
 .sec-nav-track::-webkit-scrollbar { display: none; }
 .sec-link { flex: 0 0 auto; font-size: 14.5px; font-weight: 600; white-space: nowrap; text-decoration: none; color: var(--ink); }
-@media (hover: hover) { .sec-link:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; } }
+/* Inline links lift a little under a mouse (no underline change). Covers the
+   Weekend pages and the prod-replica auth/checkout links; touch is untouched.
+   The app banner's "Get the app" keeps only its arrow nudge. */
+.sec-link, .pl-link, .pc-link, .pc-forgot, .pc-fill { transition: transform 0.16s ease; }
+@media (hover: hover) and (pointer: fine) {
+  .sec-link:hover, .pl-link:hover, .pc-link:hover, .pc-forgot:hover, .pc-fill:hover { transform: translateY(-2px); }
+}
 .sec-link:active { opacity: 0.6; }
 
 /* Section bodies */
