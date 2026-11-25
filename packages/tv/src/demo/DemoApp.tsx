@@ -14,6 +14,7 @@ import Simulator from '../simulator/Simulator';
 import HowItWorks from '../simulator/HowItWorks';
 import { PrerollHubPreview } from './PrerollHubPreview';
 import { ProdDesktopView, ProdHubCard, ProdHubView } from './ProdHubViews';
+import { FunnelCard, funnelUrl } from './FunnelCard';
 
 interface LayoutOption {
   phase: number;
@@ -575,6 +576,7 @@ function Gallery() {
           {[
             { href: '?view=hub', label: '📺 Prod TV Hub →' },
             { href: '?view=hub-desktop', label: '🖥️ Prod Desktop Hub →' },
+            { href: funnelUrl('demo'), label: '📱 TikTok Ad → Sign-up Funnel →' },
           ].map((l) => (
             <a
               key={l.href}
@@ -692,6 +694,9 @@ function Gallery() {
 
         {/* What ships today: the prod-matched hub, TV and desktop. */}
         <ProdHubCard />
+
+        {/* Paid-social funnel: TikTok ad → landing → sign-up/checkout → play. */}
+        <FunnelCard />
 
         {/* The curated 9-game hub exploration. */}
         <Hub9Card />

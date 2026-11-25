@@ -1,0 +1,24 @@
+{
+  "name": "@mobile-app-lab/funnel",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Paid-social funnel prototype — TikTok ad → game landing page → sign up / checkout → play on desktop or TV",
+  "scripts": {
+    "dev": "vite --port 5177",
+    "build": "tsc --noEmit && vite build",
+    "build:pages": "tsc --noEmit && PAGES_OUT_DIR=../tv/dist-demo/funnel vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.45",
+    "@types/react-dom": "^18.2.18",
+    "@vitejs/plugin-react": "^4.2.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.8"
+  }
+}

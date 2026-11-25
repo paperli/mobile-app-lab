@@ -11,6 +11,7 @@
     "dev": "concurrently -n server,tv,mobile -c blue,green,yellow \"cd packages/server && npm run dev\" \"cd packages/tv && npm run dev\" \"cd packages/mobile && npm run dev\"",
     "dev:onboarding": "cd packages/onboarding && npm run dev",
     "dev:preroll": "cd packages/preroll && npm run dev",
+    "dev:funnel": "cd packages/funnel && npm run dev",
     "dev:tv": "cd packages/tv && npm run dev",
     "dev:mobile": "cd packages/mobile && npm run dev",
     "dev:server": "cd packages/server && npm run dev",
@@ -22,7 +23,8 @@
     "build:server": "npm run build --workspace=packages/server",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "prepare": "husky || true",
-    "build:pages": "npm run build --workspace=@mobile-app-lab/shared && npm run build:demo --workspace=@mobile-app-lab/tv && npm run build:pages --workspace=@mobile-app-lab/onboarding && npm run build:pages --workspace=@mobile-app-lab/preroll"
+    "build:pages": "npm run build --workspace=@mobile-app-lab/shared && npm run build:demo --workspace=@mobile-app-lab/tv && npm run build:pages --workspace=@mobile-app-lab/onboarding && npm run build:pages --workspace=@mobile-app-lab/preroll && npm run build:pages --workspace=@mobile-app-lab/funnel",
+    "demo:funnel": "npm run build:pages && npm run preview:demo --workspace=@mobile-app-lab/tv -- --port 4180 --strictPort"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

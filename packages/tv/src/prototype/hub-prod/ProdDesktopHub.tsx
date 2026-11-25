@@ -25,9 +25,11 @@ export interface ProdDesktopHubProps {
   rows: HubRow[];
   heroItems?: HeroItem[];
   onLaunch: (game: ProdGame) => void;
+  /** Start signed in as this account (e.g. arriving from checkout). */
+  signedInEmail?: string | null;
 }
 
-export function ProdDesktopHub({ rows, heroItems = HERO_ITEMS, onLaunch }: ProdDesktopHubProps) {
+export function ProdDesktopHub({ rows, heroItems = HERO_ITEMS, onLaunch, signedInEmail = null }: ProdDesktopHubProps) {
   const [preview, setPreview] = useState<{ game: ProdGame; tile: HTMLElement; viaKeyboard: boolean; key: string } | null>(null);
   const [vhScale, setVhScale] = useState(() => window.innerHeight / 1080);
   useEffect(() => {
@@ -57,7 +59,7 @@ export function ProdDesktopHub({ rows, heroItems = HERO_ITEMS, onLaunch }: ProdD
   return (
     <div className="dh-home">
       <style>{CSS}</style>
-      <TopBar />
+      <TopBar initialEmail={signedInEmail} />
       <Hero items={heroItems} onLaunch={onLaunch} />
       <div className="dh-shelf">
         {rows.map((row) => (
@@ -88,8 +90,8 @@ export function ProdDesktopHub({ rows, heroItems = HERO_ITEMS, onLaunch }: ProdD
 
 // ── Top bar ───────────────────────────────────────────────────────────────
 
-function TopBar() {
-  const [email, setEmail] = useState<string | null>(null);
+function TopBar({ initialEmail }: { initialEmail: string | null }) {
+  const [email, setEmail] = useState<string | null>(initialEmail);
   const [authOpen, setAuthOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   return (

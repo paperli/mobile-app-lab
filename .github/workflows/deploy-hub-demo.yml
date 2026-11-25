@@ -2,8 +2,9 @@ name: Deploy Hub Demo to Pages
 
 # Builds the static prototypes and publishes them to GitHub Pages as one
 # artifact: the hub-layout demo (packages/tv) at the site root, and the
-# Lightning/Blits onboarding (packages/onboarding) at /onboarding/, and the
-# Fire TV pre-roll upsell (packages/preroll) at /preroll/.
+# Lightning/Blits onboarding (packages/onboarding) at /onboarding/, the
+# Fire TV pre-roll upsell (packages/preroll) at /preroll/, and the paid-social
+# funnel (packages/funnel) at /funnel/.
 # Requires Settings → Pages → Source = "GitHub Actions".
 
 on:
@@ -13,6 +14,7 @@ on:
       - 'packages/tv/**'
       - 'packages/onboarding/**'
       - 'packages/preroll/**'
+      - 'packages/funnel/**'
       - 'packages/ui-weekend/**'
       - 'packages/shared/**'
       - '.github/workflows/deploy-hub-demo.yml'
@@ -38,8 +40,8 @@ jobs:
           cache: npm
       - run: npm ci
       # Shared package compiles to dist and must be built before the TV app.
-      # build:pages chains shared -> tv demo -> onboarding; the onboarding
-      # build writes into the TV demo's output, so the order matters.
+      # build:pages chains shared -> tv demo -> onboarding -> preroll -> funnel;
+      # the later builds write into the TV demo's output, so the order matters.
       - run: npm run build:pages
       - uses: actions/upload-pages-artifact@v3
         with:

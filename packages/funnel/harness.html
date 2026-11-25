@@ -1,0 +1,19 @@
+<!doctype html>
+<!-- Dev-only: side-by-side phone viewports for checking the funnel. Not built. -->
+<meta charset="utf-8" />
+<title>Funnel harness</title>
+<body style="margin:0;background:#333;display:flex;gap:16px;padding:12px;align-items:flex-start;font:12px system-ui;color:#ccc">
+<script>
+  const q = new URLSearchParams(location.search);
+  const frames = (q.get('f') || 'ad|375x667,jeopardy|375x548').split(',');
+  for (const spec of frames) {
+    const [hash, size] = spec.split('|');
+    const [w, h] = size.split('x');
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<div>${hash} · ${size}</div><iframe src="./?device=${q.get('device') || 'mobile'}${q.get('src') ? '&src=' + q.get('src') : ''}#${hash}" style="width:${w}px;height:${h}px;border:0;background:#000;margin-top:4px"></iframe>`;
+    // ?zoom=0.3 shrinks big frames (e.g. the #demo desktop layout) to fit a narrow window.
+    const z = parseFloat(q.get('zoom') || '1');
+    if (z !== 1) { const f = wrap.querySelector('iframe'); f.style.transform = `scale(${z})`; f.style.transformOrigin = '0 0'; wrap.style.height = h * z + 30 + 'px'; wrap.style.width = w * z + 'px'; }
+    document.body.appendChild(wrap);
+  }
+</script>

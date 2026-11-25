@@ -1,18 +1,41 @@
 // Demo routes for the production-hub replicas (prototype/hub-prod):
 //   ?view=hub          — TV hub (1920×1080 stage, keyboard D-pad)
 //   ?view=hub-desktop  — desktop web hub (responsive page, mouse/keyboard/touch)
+// `&game=<id>` (from the funnel prototype) swaps the hero for that game's
+// merch billboard alone, so a player lands on the game they picked;
+// `&email=` starts the desktop hub signed in.
 // Both render the prod layout snapshot. `?onboardingRow=false` drops the
 // prototype-only "Get Started" row that launches the onboarding.
 import { useState } from 'react';
 import { ProdTvHub } from '../prototype/hub-prod/ProdTvHub';
 import { ProdDesktopHub } from '../prototype/hub-prod/ProdDesktopHub';
 import { TvStage } from '../prototype/hub-prod/Stage';
-import { FONT, HUB_ROWS, ONBOARDING_ROW, type ProdGame } from '../prototype/hub-prod/catalog';
+import { FONT, GAME_BY_ID, HUB_ROWS, ONBOARDING_ROW, type HeroItem, type ProdGame } from '../prototype/hub-prod/catalog';
+import { assetUrl } from '../utils/assetUrl';
 import { ONBOARDING_ID, onboardingUrl } from '../prototype/hub9/onboarding';
 
 function useRows() {
   const params = new URLSearchParams(window.location.search);
   return params.get('onboardingRow') === 'false' ? HUB_ROWS : [...HUB_ROWS, ONBOARDING_ROW];
+}
+
+/** Merch billboard art per game, for the single-game hero (?game=). */
+const MERCH_HERO: Record<string, { art: string; contentOffsetY: number }> = {
+  jeopardy: { art: assetUrl('/games/hub9/merch/jeopardy.webp'), contentOffsetY: 45 },
+  'wheel-of-fortune': { art: assetUrl('/games/hub9/merch/wheel-of-fortune.webp'), contentOffsetY: 30 },
+  'song-quiz': { art: assetUrl('/games/hub9/merch/song-quiz.webp'), contentOffsetY: 45 },
+  'spot-on': { art: assetUrl('/games/hub9/merch/spot-on.webp'), contentOffsetY: 45 },
+  'emoji-multiplatform': { art: assetUrl('/games/hub9/merch/guess-the-emoji.webp'), contentOffsetY: 45 },
+  'sketchy-af': { art: assetUrl('/games/hub9/merch/sketchy-af.webp'), contentOffsetY: 45 },
+  'wits-end': { art: assetUrl('/games/hub9/merch/wits-end.webp'), contentOffsetY: 60 },
+};
+
+function useFocusedHero(): HeroItem[] | undefined {
+  const id = new URLSearchParams(window.location.search).get('game');
+  const game = id ? GAME_BY_ID.get(id) : undefined;
+  const merch = id ? MERCH_HERO[id] : undefined;
+  if (!game || !merch) return undefined;
+  return [{ kind: 'billboard', key: `focus-${id}`, game, art: merch.art, ctaLabel: 'PLAY NOW', contentOffsetY: merch.contentOffsetY }];
 }
 
 function useLaunch() {
@@ -50,11 +73,12 @@ function useLaunch() {
 
 export function ProdHubView() {
   const rows = useRows();
+  const heroItems = useFocusedHero();
   const { launch, overlay, busy } = useLaunch();
   return (
     <>
       <TvStage>
-        <ProdTvHub rows={rows} onLaunch={launch} inputLocked={busy} onExit={() => (window.location.href = window.location.pathname)} />
+        <ProdTvHub rows={rows} heroItems={heroItems} onLaunch={launch} inputLocked={busy} onExit={() => (window.location.href = window.location.pathname)} />
       </TvStage>
       {overlay}
     </>
@@ -63,10 +87,12 @@ export function ProdHubView() {
 
 export function ProdDesktopView() {
   const rows = useRows();
+  const heroItems = useFocusedHero();
+  const email = new URLSearchParams(window.location.search).get('email');
   const { launch, overlay } = useLaunch();
   return (
     <>
-      <ProdDesktopHub rows={rows} onLaunch={launch} />
+      <ProdDesktopHub rows={rows} heroItems={heroItems} onLaunch={launch} signedInEmail={email} />
       {overlay}
     </>
   );

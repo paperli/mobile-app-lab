@@ -31,13 +31,14 @@ This document provides comprehensive context for Claude Code (or any AI assistan
 
 ## Prototype Topology
 
-Three TV prototypes ship together but stay independent — different rendering
+Four prototypes ship together but stay independent — different rendering
 stacks, different bundles, neither importing the other:
 
 ```
 packages/tv          React + Vite        the game hub (?view=hub TV, ?view=hub-desktop web; ?view=hub9 exploration)
 packages/onboarding  Lightning 3 + Blits the first-run flow
 packages/preroll     plain DOM + Vite    Fire TV ad → pre-roll upsell → paywall
+packages/funnel      React + Vite        TikTok ad → game landing → sign-up/checkout → play
         └── linked by navigation, never bundled together
 ```
 
@@ -51,6 +52,12 @@ shipped hub from the prod repo (`~/Documents/Projects/hub`, apps/client):
 The pre-roll lands on the prod hub with `?subscribed=true`; its pre-checkout
 preview still embeds hub9 (see `packages/preroll/README.md`). The onboarding
 still hands off to and embeds hub9, whose postMessage bridge it depends on.
+
+**The paid-social funnel** (`packages/funnel`, hash routes) mocks a TikTok ad →
+game landing page (`#<game-id>`) → replicas of prod web-checkout sign-up/sign-in
+and checkout → a Desktop | TV play page → the prod hub with `?game=<hubId>`
+(single merch-hero slide). `#demo` runs it inside a phone frame for presenting.
+Games and offers live in `packages/funnel/src/config.ts`.
 
 The onboarding is treated as a "game": hub9 and the prod hub (a prototype-only
 "Get Started" row, `?onboardingRow=false` hides it) carry a **Welcome to Weekend**
@@ -259,6 +266,8 @@ npm run dev:tv           # TV only
 npm run dev:mobile       # Mobile only
 npm run dev:onboarding   # Onboarding prototype only (port 5175)
 npm run dev:preroll      # Fire TV pre-roll prototype only (port 5176)
+npm run dev:funnel       # Paid-social funnel prototype only (port 5177)
+npm run demo:funnel      # Pages build of everything, served on :4180 (e.g. for ngrok)
 ```
 
 ### Building for Production
@@ -269,12 +278,12 @@ npm run typecheck        # Type check all packages
 
 ### Building the GitHub Pages bundle
 ```bash
-npm run build:pages      # shared → tv demo → onboarding → preroll, into packages/tv/dist-demo
+npm run build:pages      # shared → tv demo → onboarding → preroll → funnel, into packages/tv/dist-demo
 ```
-The hub lands at `/<base>/`, the onboarding at `/<base>/onboarding/` and the
-pre-roll at `/<base>/preroll/` (landing page; the prototype is
-`play.html`), in one artifact. Order matters: the TV demo build empties `dist-demo`, and the
-onboarding build writes into it. `.github/workflows/deploy-hub-demo.yml` runs
+The hub lands at `/<base>/`, the onboarding at `/<base>/onboarding/`, the
+pre-roll at `/<base>/preroll/` (landing page; the prototype is `play.html`) and
+the funnel at `/<base>/funnel/`, in one artifact. Order matters: the TV demo
+build empties `dist-demo`, and the later builds write into it. `.github/workflows/deploy-hub-demo.yml` runs
 this on push.
 
 ### Deploying to Render.com
@@ -454,6 +463,7 @@ scanner.start()
 | Mobile  | 5174 | https://localhost:5174 | https://YOUR_IP:5174 |
 | Onboarding | 5175 | https://localhost:5175 | https://YOUR_IP:5175 |
 | Pre-roll | 5176 | https://localhost:5176/preroll/ | https://YOUR_IP:5176/preroll/ |
+| Funnel | 5177 | https://localhost:5177/funnel/ | https://YOUR_IP:5177/funnel/ |
 
 ## Files to Know
 
