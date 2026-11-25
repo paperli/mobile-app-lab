@@ -90,7 +90,10 @@ input { font: inherit; }
 }
 /* Default · Teaser — the page takes its hue from the teaser itself: a
    blurred, dimmed copy plays behind the hero and feathers into midnight. */
-.wk { position: relative; isolation: isolate; overflow-x: clip; }
+/* Clip both axes: the backdrop extends above the page top (it is centered on
+   the teaser), and a trackpad overscroll bounce would otherwise reveal it
+   there instead of the midnight base. `clip` keeps sticky headers working. */
+.wk { position: relative; isolation: isolate; overflow: clip; }
 .wk-backdrop { position: absolute; z-index: 0; top: -60px; left: -30%; right: -30%; height: clamp(640px, 150vw, 1150px); pointer-events: none; overflow: hidden;
   -webkit-mask-image: radial-gradient(closest-side at 50% 42%, #000 45%, transparent 100%); mask-image: radial-gradient(closest-side at 50% 42%, #000 45%, transparent 100%); }
 .wk-backdrop video, .wk-backdrop img { width: 100%; height: 100%; object-fit: cover; filter: blur(44px) saturate(1.2) brightness(0.8); transform: scale(1.06); }
@@ -215,34 +218,97 @@ input { font: inherit; }
 .lp-steps span { font-size: 14px; color: rgba(var(--ink-rgb), 0.65); }
 
 @media (min-width: 960px) {
+  /* Desktop follows Netflix's title page: a wide rounded hero video with the
+     sign-up column overlaid lower-left, a centered floating section pill, and
+     content in a 1160px column of translucent cards. */
   .wk-header { height: 68px; padding-left: 40px; padding-right: 40px; }
   .wk-logo { width: 110px; }
-  .lp { grid-template-columns: minmax(0, 1.55fr) minmax(360px, 1fr); gap: 40px; max-width: 1360px; margin: 0 auto; padding: 32px 40px 0; align-items: start; }
-  .lp-media { margin: 0; border-radius: 22px; }
-  .lp-media video { border-radius: calc(22px - var(--frame-w)); }
-  .lp-panel { position: sticky; top: 136px; padding: 8px 0 0; gap: 16px; }
-  .lp-title { justify-content: flex-start; margin-bottom: 6px; }
-  .lp-title img { height: 96px; max-width: 100%; }
-  .lp-title.is-square img { height: 140px; }
-  .lp-more { max-width: 1360px; margin: 0 auto; padding: 64px 40px 96px; gap: 64px; }
-  .lp-platforms { grid-template-columns: repeat(5, 1fr); max-width: 760px; }
-  .lp-platforms.has-mobile { grid-template-columns: repeat(6, 1fr); max-width: 900px; }
-  .lp-plat.wide { grid-column: auto; }
-  .lp-tile { flex-basis: 280px; }
-  .lp-plans { grid-template-columns: repeat(2, minmax(0, 340px)); }
-  .lp-topbar.is-tucked { transform: translateY(-68px); }
-  .sec-nav-track { max-width: 1360px; margin: 0 auto; padding-left: 40px; padding-right: 40px; }
+  .wk .lp-topbar.is-tucked { transform: translateY(-68px); }
+
+  /* Section links: a centered floating pill. */
+  .lp-topbar .sec-nav { height: 52px; display: flex; align-items: center; }
+  .lp-topbar .sec-nav-track { justify-content: center; overflow: visible; }
+  .lp-topbar .sec-nav-track { width: max-content; max-width: 100%; height: 40px; margin: 0 auto; padding: 0 22px; gap: 30px; border-radius: 999px; background: rgba(10, 3, 34, 0.55); border: 1px solid rgba(255, 255, 255, 0.1); }
+  .wk .lp-topbar { background: linear-gradient(180deg, rgba(10, 3, 34, 0.75) 0%, rgba(10, 3, 34, 0.35) 100%); }
+
+  /* Hero */
+  .lp { display: block; position: relative; max-width: 1360px; margin: 0 auto; padding: 16px 40px 0; }
+  .lp .lp-media { margin: 0; aspect-ratio: auto; height: clamp(520px, 62vh, 680px); border-radius: 28px; }
+  .lp-media video { border-radius: calc(28px - var(--frame-w)); }
+  /* Legibility wash under the overlaid sign-up column. */
+  .lp-media::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    /* Corner-focused: darkest behind the sign-up column (lower-left), clear elsewhere. */
+    background: radial-gradient(ellipse 62% 84% at 0% 100%, rgba(8, 2, 28, 0.97) 0%, rgba(8, 2, 28, 0.92) 40%, rgba(8, 2, 28, 0.6) 62%, rgba(8, 2, 28, 0) 84%); }
+  .lp-mute { right: 22px; bottom: 22px; z-index: 2; width: 40px; height: 40px; }
+  .lp .lp-panel { position: absolute; z-index: 2; left: 88px; bottom: 44px; width: 360px; padding: 0; gap: 14px; }
+  .lp-title { justify-content: flex-start; margin: 0 0 2px; }
+  .lp-title img { height: 84px; max-width: 100%; }
+  .lp .lp-title.is-square img { height: 120px; }
+  /* Netflix-narrow sign-up: the form is narrower than the logo column. */
+  .lp .lp-form { max-width: 300px; }
+  .lp-form .wk-input { height: 50px; font-size: 16px; }
+  .lp-form .wk-btn { height: 50px; }
+  .lp-fine { text-align: left; }
+  /* The mobile-game banner is a phone pitch; desktop visitors don't see it
+     (the Mobile tile in Where to play still covers it). */
+  .wk .app-banner { display: none; }
+
+  /* Content column */
+  .lp-more { max-width: 1240px; margin: 0 auto; padding: 48px 40px 96px; gap: 56px; }
+  .lp-more .lp-sec h2 { font-size: 14px; }
+
+  /* About: a summary card — description left, labeled details right. */
+  #about { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); column-gap: 40px; row-gap: 12px; align-items: start;
+    padding: 28px 32px; border-radius: 18px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); }
+  #about h2 { grid-column: 1; }
+  #about .lp-about { grid-column: 1; font-size: 17px; }
+  #about .lp-facts { grid-column: 2; grid-row: 1 / span 2; align-self: center; display: flex; flex-direction: column; gap: 10px; border: 0; border-left: 1px solid rgba(255, 255, 255, 0.14); border-radius: 0; padding-left: 32px; }
+  #about .lp-facts div { flex-direction: row; align-items: baseline; gap: 8px; padding: 0; }
+  #about .lp-facts div + div { border-left: 0; }
+  #about .lp-facts dt { min-width: 84px; }
+  #about .lp-facts dd { font-size: 16px; }
+
+  /* Where to play + How it works as two cards. */
+  /* Same format as About: one card, two columns, a thin divider between. */
+  .lp-more .lp-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; column-gap: 0;
+    padding: 28px 32px; border-radius: 18px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); }
+  .lp-more .lp-pair { align-items: stretch; }
+  /* The platform grid grows to the card's height (set by How it works), so the tiles fill it. */
+  .lp-more .lp-pair > #where { padding-right: 32px; display: flex; flex-direction: column; }
+  .lp-more #where .lp-platforms { flex: 1; grid-auto-rows: 1fr; }
+  .lp-more #where .lp-plat { height: auto; min-height: 56px; }
+  .lp-more .lp-pair > #how { padding-left: 32px; border-left: 1px solid rgba(255, 255, 255, 0.14); align-self: stretch; }
+  .lp-platforms, .lp-platforms.has-mobile { grid-template-columns: repeat(3, 1fr); max-width: none; }
+  .lp-plat.wide { grid-column: span 2; }
+
+  #more .lp-tile { flex-basis: 280px; }
+
+  /* Plans: equal tier cards in one row, like Netflix's plan picker. */
+  #plans { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+  #plans > h2, #plans > .lp-about, #plans > .lp-fine { grid-column: 1 / -1; }
+  #plans .lp-plans { display: contents; }
+  #plans .lp-plan { padding: 24px 22px 22px; gap: 8px; }
+  #plans .lp-plan-p { font-size: 34px; }
+  #plans .lp-plan .wk-btn, #plans .lp-plan .wk-btn-ghost { max-width: 220px; }
+  #plans .lp-includes { margin: 0; padding: 24px 22px; border-radius: 18px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); justify-content: center; }
+
   .proto-fab.top { top: auto; }
 }
 
 /* Game details under the logo */
-.lp-meta { list-style: none; margin: -2px 0 2px; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; row-gap: 6px; }
-.lp-meta li { display: flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+/* One line, always: the row sizes itself from the sign-up column's width
+   (container query units), and every gap, diamond and icon is in em so it
+   all shrinks together. 3.9cqi = 13.5px on a 343px phone column, ~14px in the
+   360px desktop column, and still ~11px on a 320px-wide phone — enough for
+   the longest set ("1–4 Players ◆ Geography ◆ Gesture"). */
+.lp-panel { container-type: inline-size; }
+.lp-meta { list-style: none; margin: -2px 0 2px; padding: 0; display: flex; flex-wrap: nowrap; justify-content: center; align-items: center; font-size: clamp(11px, 3.9cqi, 15px); }
+.lp-meta li { display: flex; align-items: center; gap: 0.45em; font-size: 1em; font-weight: 600; color: var(--ink); white-space: nowrap; }
 /* Small diamond dividers between labels */
-.lp-meta li + li { margin-left: 12px; }
-.lp-meta li + li::before { content: ''; width: 5px; height: 5px; margin-right: 6px; background: rgba(255, 255, 255, 0.45); transform: rotate(45deg); }
-.lp-meta svg { width: 16px; height: 16px; fill: none; stroke: var(--canary); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-@media (min-width: 960px) { .lp-meta { justify-content: flex-start; } .lp-meta li { font-size: 15px; } .lp-meta li + li { margin-left: 16px; } .lp-meta li + li::before { margin-right: 10px; } }
+.lp-meta li + li { margin-left: 0.85em; }
+.lp-meta li + li::before { content: ''; width: 0.36em; height: 0.36em; margin-right: 0.4em; background: rgba(255, 255, 255, 0.45); transform: rotate(45deg); }
+.lp-meta svg { width: 1.18em; height: 1.18em; flex: 0 0 auto; fill: none; stroke: var(--canary); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+@media (min-width: 960px) { .lp-meta { justify-content: flex-start; } }
 /* Short screens (small phones inside in-app browsers): keep the form in the first view. */
 @media (max-height: 620px) and (max-width: 959px) {
   .lp-panel { padding-top: 9px; gap: 8px; }
@@ -250,9 +316,6 @@ input { font: inherit; }
   .lp-title img { height: 46px; }
   .lp-title.is-square img { height: 44px; }
   .lp-title img { height: 42px; }
-  .lp-meta li { font-size: 13px; }
-  .lp-meta li + li { margin-left: 10px; }
-  .lp-meta svg { width: 14px; height: 14px; }
   .lp-form { gap: 8px; }
   .lp-form .wk-input, .lp-form .wk-btn { height: 50px; }
 }
@@ -272,8 +335,9 @@ input { font: inherit; }
   -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 55%); mask-image: linear-gradient(90deg, transparent 0%, #000 55%); }
 .app-banner-copy { position: absolute; left: 14px; top: 0; bottom: 0; width: 66%; display: grid; grid-template-columns: 30px 1fr; column-gap: 10px; row-gap: 6px; align-content: center; }
 .app-banner-icon { grid-row: 1; align-self: center; width: 30px; height: 30px; border-radius: 8px; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45); transform-origin: 50% 100%; }
-.app-banner-title { grid-column: 2; font-size: 15.5px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.15; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5); text-wrap: balance; }
-.app-banner-cta { grid-column: 1 / -1; justify-self: start; display: inline-flex; align-items: center; gap: 6px; font-size: 14.5px; font-weight: 800; color: var(--canary); text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5); }
+/* Two-layer shadow: a tight one for edge contrast, a soft one to lift the words off the art. */
+.app-banner-title { grid-column: 2; font-size: 15.5px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.15; text-shadow: 0 1px 2px rgba(5, 2, 18, 0.9), 0 2px 14px rgba(5, 2, 18, 0.85); text-wrap: balance; }
+.app-banner-cta { grid-column: 1 / -1; justify-self: start; display: inline-flex; align-items: center; gap: 6px; font-size: 14.5px; font-weight: 800; color: var(--canary); text-shadow: 0 1px 2px rgba(5, 2, 18, 0.9), 0 2px 14px rgba(5, 2, 18, 0.85); }
 .app-banner-cta .arrow { transition: transform 0.18s ease; }
 @media (hover: hover) { .app-banner:hover .app-banner-cta .arrow { transform: translateX(3px); } }
 .app-banner:active { transform: scale(0.99); }
@@ -312,6 +376,8 @@ input { font: inherit; }
 .sec-link:active { opacity: 0.6; }
 
 /* Section bodies */
+/* Where to play + How it works: stacked with the page's section rhythm on phones. */
+.lp-pair { display: flex; flex-direction: column; gap: 44px; }
 .lp-sub { margin: 6px 0 0; font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
 .lp-row { display: flex; flex-direction: column; gap: 12px; }
 .lp-rail { list-style: none; margin: 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding: 0 max(16px, env(safe-area-inset-left, 0px)) 4px; display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding: 0 16px; scrollbar-width: none; }
@@ -322,8 +388,9 @@ input { font: inherit; }
 .lp-tile span { font-size: 12.5px; color: rgba(var(--ink-rgb), 0.6); }
 .lp-plans { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 @media (max-width: 359px) { .lp-plans { grid-template-columns: 1fr; } }
-.lp-plan { display: flex; flex-direction: column; gap: 6px; padding: 16px 14px 14px; border-radius: 18px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); }
-.lp-plan.is-best { background: rgba(255, 218, 10, 0.08); border-color: rgba(255, 218, 10, 0.55); }
+/* Tier colors (Netflix-style gradients), same on phones and desktop. */
+.lp-plan { display: flex; flex-direction: column; gap: 6px; padding: 16px 14px 14px; border-radius: 18px; background: linear-gradient(150deg, rgba(33, 69, 247, 0.35) 0%, rgba(123, 47, 247, 0.22) 100%); border: 1px solid rgba(255, 255, 255, 0.14); }
+.lp-plan.is-best { background: linear-gradient(150deg, rgba(123, 47, 247, 0.45) 0%, rgba(255, 79, 163, 0.22) 100%); border-color: rgba(255, 218, 10, 0.55); }
 .lp-plan-h { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 15px; }
 .lp-badge { padding: 2px 8px; border-radius: 999px; background: var(--canary); color: var(--midnight); font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
 .lp-plan-p { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }

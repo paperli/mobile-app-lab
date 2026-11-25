@@ -186,39 +186,42 @@ export function LandingPage() {
 
         {GAME.mobileApp && session.appBanner === 'about' && <MobileAppBanner game={GAME} placement="about" />}
 
-        <section className="lp-sec" id="where">
-          <h2>Where to play</h2>
-          <div className={`lp-platforms${GAME.mobileApp ? ' has-mobile' : ''}`}>
-            {PLATFORMS.map((p) => (
-              <div key={p.id} className="lp-plat" title={p.name}>
-                <img src={p.logo} alt={p.name} className={p.id === 'lg' ? 'keep' : undefined} />
+        {/* Where to play + How it works: stacked on phones, side by side on wide screens. */}
+        <div className="lp-pair">
+          <section className="lp-sec" id="where">
+            <h2>Where to play</h2>
+            <div className={`lp-platforms${GAME.mobileApp ? ' has-mobile' : ''}`}>
+              {PLATFORMS.map((p) => (
+                <div key={p.id} className="lp-plat" title={p.name}>
+                  <img src={p.logo} alt={p.name} className={p.id === 'lg' ? 'keep' : undefined} />
+                </div>
+              ))}
+              <div className={`lp-plat${GAME.mobileApp ? '' : ' wide'}`}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M2 20h20" /></svg>
+                Mac &amp; PC
               </div>
-            ))}
-            <div className={`lp-plat${GAME.mobileApp ? '' : ' wide'}`}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M2 20h20" /></svg>
-              Mac &amp; PC
+              {/* Games with a free mobile version (in the Weekend app) also list phones. */}
+              {GAME.mobileApp && (
+                <a {...appDownload.linkProps} className="lp-plat is-mobile" title="Get the free mobile version in the Weekend app" aria-label="Mobile: get the free Weekend app">
+                  <svg width="18" height="20" viewBox="0 0 20 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="12" height="20" rx="2.5" /><path d="M9 18.5h2" /></svg>
+                  Mobile
+                  <svg className="lp-plat-go" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M7 17L17 7M9 7h8v8" /></svg>
+                  <span className="lp-plat-tag">Free</span>
+                </a>
+              )}
+              {appDownload.toast}
             </div>
-            {/* Games with a free mobile version (in the Weekend app) also list phones. */}
-            {GAME.mobileApp && (
-              <a {...appDownload.linkProps} className="lp-plat is-mobile" title="Get the free mobile version in the Weekend app" aria-label="Mobile: get the free Weekend app">
-                <svg width="18" height="20" viewBox="0 0 20 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="12" height="20" rx="2.5" /><path d="M9 18.5h2" /></svg>
-                Mobile
-                <svg className="lp-plat-go" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M7 17L17 7M9 7h8v8" /></svg>
-                <span className="lp-plat-tag">Free</span>
-              </a>
-            )}
-            {appDownload.toast}
-          </div>
-        </section>
+          </section>
 
-        <section className="lp-sec" id="how">
-          <h2>How it works</h2>
-          <ol className="lp-steps">
-            <li><div><b>Join with your email</b><span>One Weekend Game Pass covers every game.</span></div></li>
-            <li><div><b>Open Weekend on your TV or computer</b><span>Fire TV, Roku, Samsung, LG, or play.weekend.com in your browser.</span></div></li>
-            <li><div><b>Play with your voice</b><span>Buzz in out loud. Your phone is the controller.</span></div></li>
-          </ol>
-        </section>
+          <section className="lp-sec" id="how">
+            <h2>How it works</h2>
+            <ol className="lp-steps">
+              <li><div><b>Join with your email</b><span>One Weekend Game Pass covers every game.</span></div></li>
+              <li><div><b>Open Weekend on your TV or computer</b><span>Fire TV, Roku, Samsung, LG, or play.weekend.com in your browser.</span></div></li>
+              <li><div><b>Play with your voice</b><span>Buzz in out loud. Your phone is the controller.</span></div></li>
+            </ol>
+          </section>
+        </div>
 
         <section className="lp-sec" id="more">
           <h2>More games</h2>
